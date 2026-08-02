@@ -28,7 +28,10 @@ becomes evidence for the next one.
    the top one or two packaging reasons (title pattern, thumbnail promise,
    topic demand, length). Be specific and be blunt.
 
-6. Write {{reports}}/{{today}}-postmortem-<videoid>.md for each reviewed video.
+6. Write one report per reviewed video, named from the video's TITLE, not its
+   id: {{reports}}/{{today}}-postmortem-<four-or-five-words-from-the-title>.md
+   (for example 2026-08-01-postmortem-dont-edit-videos-anymore.md). Put the id
+   in the frontmatter as video_id so the link is still reconstructible.
    Under 30 lines, real numbers only, no em dashes.
 
 7. If the review confirms or contradicts a rule in the playbook, update that

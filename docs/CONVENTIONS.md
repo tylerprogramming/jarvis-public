@@ -12,16 +12,22 @@ YYYY-MM-DD-<kind>[-<subject>].md
 ```
 
 Date first, so a folder listing is chronological without any tooling. Kind
-second, so related files group together under any given day. `<subject>` only
-when a kind can recur within one day — a video id, a channel, a topic slug.
-Lowercase, hyphens, no spaces or underscores.
+second, so related files group together under any given day. `<subject>` only when a kind can recur
+within one day. Lowercase, hyphens, no spaces or underscores.
+
+**`<subject>` must be readable.** Four or five words from the title, not an
+identifier — a filename should say what it is about without being opened:
 
 ```
 2026-08-01-morning.md
-2026-08-01-postmortem-cdvi2ooarDc.md
+2026-08-01-postmortem-dont-edit-videos-anymore.md    ← not -cdvi2ooarDc
 2026-08-01-radar.md
 2026-07-30-newsletter.md
 ```
+
+Identifiers still matter, they just do not belong in the name. A postmortem
+carries `video_id: cdvi2ooarDc` in its frontmatter, so the URL is
+reconstructible and the filename stays human.
 
 ## Frontmatter
 
