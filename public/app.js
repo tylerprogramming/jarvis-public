@@ -133,12 +133,23 @@ function render(d) {
   const radar = d.radar || {};
   const brks = (radar.breakouts || []).slice(0, 4);
   const watching = (radar.channels || []).length;
+  const names = (radar.names) || {};
+  // channel + views alongside the multiple: the multiple says "unusual for
+  // them", the view count says whether it is worth your time
   $("radar").innerHTML = brks.length
-    ? brks.map((b) =>
-        `<div class="doc" onclick="window.open('https://youtube.com/watch?v=${esc(b.id)}')"
-              title="${esc(b.title)} - running ${b.multiple}x this channel's normal pace">
-          <span>${esc(b.title.slice(0, 30))}</span>
-          <span class="age" style="color:var(--amber)">${b.multiple}x</span></div>`).join("")
+    ? brks.map((b) => {
+        const who = esc(names[b.channel] || String(b.channel).replace(/^@|^channel\//, ""));
+        const hot = b.multiple >= 5;
+        return `<div class="brk" onclick="window.open('https://youtube.com/watch?v=${esc(b.id)}')"
+              title="${esc(b.title)}
+${who} · ${fmt(b.views)} views in ${b.age_days}d · ${b.multiple}x that channel's normal pace">
+          <div class="brk-top">
+            <span class="brk-mult ${hot ? "hot" : ""}">${b.multiple}x</span>
+            <span class="brk-title">${esc(b.title.slice(0, 46))}</span>
+          </div>
+          <div class="brk-meta">${who} · <b>${fmt(b.views)}</b> views · ${b.age_days}d</div>
+        </div>`;
+      }).join("")
     : watching
       ? `<div class="msg sys">no breakouts - watching ${watching} channel${watching > 1 ? "s" : ""}</div>`
       : `<div class="msg sys">add channels to watch in settings, then run the radar agent</div>`;

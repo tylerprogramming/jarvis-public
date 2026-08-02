@@ -25,23 +25,13 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import jarvis_config  # noqa: E402
 import ytdlp_util  # noqa: E402
 
 FALLBACK_CLIENTS = ["android", "ios", None]
 
 
-def load_config():
-    def read(p):
-        try:
-            with open(p) as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    base, user = read(os.path.join(ROOT, "config.default.json")), read(os.path.join(ROOT, "config.json"))
-    merged = dict(base)
-    for k, v in user.items():
-        merged[k] = {**base.get(k, {}), **v} if isinstance(v, dict) and isinstance(base.get(k), dict) else v
-    return merged
+load_config = jarvis_config.load
 
 
 def normalize(url):

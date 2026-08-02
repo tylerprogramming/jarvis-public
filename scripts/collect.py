@@ -16,6 +16,7 @@ import sys
 from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import jarvis_config  # noqa: E402
 import ytdlp_util  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,28 +28,10 @@ PLUGIN_DIR = os.path.join(ROOT, "plugins", "collectors")
 
 
 def load(path, fallback):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except Exception:
-        return fallback
+    return jarvis_config.read_json(path, fallback)
 
 
-def deep_merge(base, over):
-    out = dict(base)
-    for k, v in (over or {}).items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            out[k] = deep_merge(base[k], v)
-        else:
-            out[k] = v
-    return out
-
-
-def config():
-    return deep_merge(
-        load(os.path.join(ROOT, "config.default.json"), {}),
-        load(os.path.join(ROOT, "config.json"), {}),
-    )
+config = jarvis_config.load
 
 
 def collect_youtube(handle, detail_count=6):

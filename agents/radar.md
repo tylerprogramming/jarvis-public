@@ -25,7 +25,8 @@ The sweep already ran and wrote {{data}}/radar.json. Watched channels:
    their own position. Under 25 lines, no em dashes.
 
 4. If any breakout is running at 5x or more, add it as a directive in
-   {{data}}/directives.json (keep the max of 3, drop the stalest one that the
-   operator did not add themselves).
+   {{data}}/directives.json, one per qualifying breakout. Keep at most
+   {{max_directives}} total, dropping the stalest entries you added yourself
+   before ever touching an operator-added one.
 
 {{doc_convention}}

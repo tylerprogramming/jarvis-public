@@ -29,6 +29,6 @@ Targets: {{targets}}.
 
 6. Write {{reports}}/{{today}}-weekly.md. Under 40 lines, real numbers
    only, no em dashes. Make the experiment the #1 directive in
-   {{data}}/directives.json.
+   {{data}}/directives.json, keeping at most {{max_directives}} total.
 
 {{doc_convention}}

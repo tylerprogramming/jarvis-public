@@ -11,9 +11,10 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { spawn, execFile } = require("child_process");
+const { execFile } = require("child_process");
 
 const { load, expand, merge } = require("./lib/config");
+const { writeJsonAtomic } = require("./lib/util");
 const tts = require("./lib/tts");
 const stt = require("./lib/stt");
 const brain = require("./lib/brain");
@@ -157,8 +158,9 @@ function apiDirectives(res, body) {
   if (typeof body.remove === "number" && cur.directives[body.remove])
     cur.directives.splice(body.remove, 1);
   cur.updated_at = new Date().toLocaleDateString("sv-SE");
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(cur, null, 2));
+  // agents rewrite this file too; atomic replace so neither side can read a
+  // half-written directives list
+  writeJsonAtomic(p, cur);
   sendJson(res, { directives: cur.directives });
 }
 

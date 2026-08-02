@@ -15,26 +15,16 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import jarvis_config  # noqa: E402
 import ytdlp_util  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "radar.json")
 
 
-def load(path, fallback):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except Exception:
-        return fallback
-
-
 def config():
-    base = load(os.path.join(ROOT, "config.default.json"), {})
-    user = load(os.path.join(ROOT, "config.json"), {})
-    radar = dict(base.get("radar", {}))
-    radar.update(user.get("radar", {}))
-    return radar
+    """Just the radar section of the merged config."""
+    return jarvis_config.load().get("radar", {})
 
 
 def channel_videos(handle, per_channel):
@@ -96,6 +86,7 @@ def main():
     breakouts.sort(key=lambda b: -b["multiple"])
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump({"updated_at": datetime.now().isoformat(timespec="seconds"),
+               "names": cfg.get("names", {}),
                "channels": channels, "breakouts": breakouts},
               open(OUT, "w"), indent=2)
     print(f"breakouts: {len(breakouts)}")

@@ -28,7 +28,8 @@ Goal: pick next week's topics on evidence, not vibes.
    title, the one-line evidence behind it, and a three-beat outline.
    Under 60 lines, no em dashes.
 
-5. Add ONE directive to {{data}}/directives.json naming the two picks. Keep the
-   maximum of 3 not-done directives, and do not drop operator-added ones.
+5. Add ONE directive to {{data}}/directives.json naming the two picks. Keep at
+   most {{max_directives}} not-done directives, and do not drop operator-added
+   ones.
 
 {{doc_convention}}

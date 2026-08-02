@@ -2,7 +2,7 @@
 name: morning
 label: MORNING
 schedule: "0 7 * * *"
-description: Daily sweep - refresh vitals, write the morning report, reset the top 3 directives.
+description: Daily sweep - refresh vitals, write the morning report, reset the directives.
 requires: [youtube]
 pre:
   - python3 scripts/collect.py --fetch
@@ -39,9 +39,9 @@ You are JARVIS running the scheduled morning sweep for {{owner}}. Today is {{tod
      {{data}}/calendar.json and anything waiting in {{drafts}}
    Keep the whole report under 45 lines. Plain language, no em dashes.
 
-6. Refresh {{data}}/directives.json so the top 3 match what actually matters
-   today. Make directive #1 the single next action. Keep a maximum of 3, and
-   never drop a not-done directive the operator added themselves.
+6. Refresh {{data}}/directives.json so it reflects what actually matters today.
+   Make directive #1 the single next action. Keep at most {{max_directives}},
+   and never drop a not-done directive the operator added themselves.
 
 Report only numbers you read or fetched. If a fetch failed, write that it failed.
 Never invent a value.
