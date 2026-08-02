@@ -198,3 +198,48 @@ JARVIS_PORT=4747
 ```
 
 Real environment variables beat `.env`, which beats `config.json`.
+
+## Indexes and Obsidian
+
+`jarvis index` writes an `index.md` into every documents folder: each document
+with its title, date, and first line, plus links to subfolders. It runs
+automatically after every agent run, so reports stay listed as they land.
+
+Agents and chat are told to read the index first and open what they need. Grep
+still works, but it costs more per lookup and gets less accurate as a folder
+fills up — an index is a fixed small read that gets *better* as it grows.
+
+Titles come from YAML frontmatter `title:` if present, otherwise the first `#`
+heading, otherwise the filename. Dates come from frontmatter `date:`, then a
+`YYYY-MM-DD` in the filename, then the file's mtime.
+
+The files are plain markdown with relative links, so **pointing Obsidian at this
+folder turns it into a vault** with no migration: the indexes read as ordinary
+notes, and the graph view picks up the links. Nothing here depends on Obsidian
+being installed.
+
+Index specific folders instead of the configured ones:
+
+```bash
+jarvis index ~/notes ~/some/other/folder
+```
+
+## transcript
+
+`jarvis transcript <url-or-id>` returns a transcript, cheapest path first:
+
+1. manual captions (human-written)
+2. auto-captions (YouTube's ASR — free, about a second)
+3. local Whisper on the extracted audio (`whisper-cli` + `stt.local.model_path`)
+4. OpenAI Whisper, only if `OPENAI_API_KEY` is set
+
+Steps 3 and 4 only run when a video has no captions at all. The video itself is
+never downloaded — captions are a few KB, and the fallback pulls audio only.
+
+```bash
+jarvis transcript dQw4w9WgXcQ --out notes/transcript.txt
+jarvis transcript <url> --force-asr   # skip captions, transcribe the audio
+```
+
+For local Whisper: `brew install whisper-cpp`, download a `ggml-*.bin` model,
+and set `stt.local.model_path` to it. That same setup powers the microphone.

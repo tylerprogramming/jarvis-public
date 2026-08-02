@@ -1,14 +1,11 @@
 {
   "$comment": "Copy to config.json (or run `jarvis setup`) and edit. Anything you leave out falls back to config.default.json, so this file only needs the parts you want to change. Never put API keys here - they go in .env.",
-
   "name": "J.A.R.V.I.S.",
   "tagline": "JUST A RATHER VERY INTELLIGENT SYSTEM",
-
   "server": {
     "host": "127.0.0.1",
     "port": 4747
   },
-
   "profile": {
     "owner": "Your Name",
     "about": "I build AI automation tutorials and run a paid community",
@@ -25,48 +22,84 @@
       "url": "https://example.com/your-community"
     }
   },
-
   "primary_cards": [
-    { "label": "TOTAL AUDIENCE", "metric": "audience", "target": 25000, "unit": "FOLLOWERS" },
-    { "label": "SUBSCRIBERS", "metric": "yt_subs", "target": 100000, "unit": "SUBS" },
-    { "label": "ANNUAL REVENUE", "metric": "arr", "target": 500000, "unit": "ARR", "money": true }
+    {
+      "label": "TOTAL AUDIENCE",
+      "metric": "audience",
+      "target": 25000,
+      "unit": "FOLLOWERS"
+    },
+    {
+      "label": "SUBSCRIBERS",
+      "metric": "yt_subs",
+      "target": 100000,
+      "unit": "SUBS"
+    },
+    {
+      "label": "ANNUAL REVENUE",
+      "metric": "arr",
+      "target": 500000,
+      "unit": "ARR",
+      "money": true
+    }
   ],
-
   "radar": {
-    "channels": ["@SomeCreator", "@AnotherCreator"],
+    "channels": [
+      "@SomeCreator",
+      "@AnotherCreator"
+    ],
     "breakout_multiple": 3.0
   },
-
   "research": {
-    "lanes": ["claude code", "ai agents", "n8n automation"]
+    "lanes": [
+      "claude code",
+      "ai agents",
+      "n8n automation"
+    ]
   },
-
   "knowledge": {
-    "brain_files": ["~/notes/playbook.md"],
-    "context_dirs": ["~/notes/research"]
+    "brain_files": [
+      "~/notes/playbook.md"
+    ],
+    "context_dirs": [
+      "~/notes/research"
+    ]
   },
-
-  "documents_dirs": ["~/jarvis/reports", "~/jarvis/drafts", "~/notes/inbox"],
-
+  "documents_dirs": [
+    "~/jarvis/reports",
+    "~/jarvis/drafts",
+    "~/notes/inbox"
+  ],
   "voice": {
-    "chain": ["kokoro", "system", "browser"]
+    "chain": [
+      "kokoro",
+      "system",
+      "browser"
+    ]
   },
-
   "stt": {
-    "chain": ["local", "browser"],
+    "chain": [
+      "local",
+      "browser"
+    ],
     "local": {
       "binary": "whisper-cli",
       "model_path": "~/models/ggml-base.en.bin"
     }
   },
-
   "agents": {
-    "enabled": ["morning", "radar", "postmortem", "scout", "weekly-review"]
+    "enabled": [
+      "morning",
+      "radar",
+      "postmortem",
+      "scout",
+      "study",
+      "weekly-review"
+    ]
   },
-
   "chat": {
     "cwd": "~",
     "permission_mode": "acceptEdits",
-    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)"
+    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)"
   }
 }

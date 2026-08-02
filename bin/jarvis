@@ -4,6 +4,8 @@
  *   jarvis                  start the HUD
  *   jarvis setup            first-run wizard
  *   jarvis collect [--fetch]refresh vitals
+ *   jarvis index            rebuild index.md in every documents folder
+ *   jarvis transcript <url> transcript via captions, whisper only if needed
  *   jarvis agents           list agents and their schedules
  *   jarvis agent <name>     run one agent now, in the foreground
  *   jarvis agents install   put enabled agents on the OS scheduler
@@ -64,6 +66,16 @@ async function main() {
 
     case "collect":
       return python(path.join(ROOT, "scripts", "collect.py"), rest);
+
+    case "index":
+      return python(path.join(ROOT, "scripts", "index.py"), rest);
+
+    case "transcript":
+      if (!rest.length) {
+        console.error("usage: jarvis transcript <youtube-url-or-id> [--out FILE]");
+        process.exit(1);
+      }
+      return python(path.join(ROOT, "scripts", "transcript.py"), rest);
 
     case "agent": {
       const cfg = load();

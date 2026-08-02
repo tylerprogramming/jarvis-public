@@ -24,6 +24,39 @@
 
   const yesno = (b) => `<span class="pill ${b ? "on" : "off"}">${b ? "ready" : "off"}</span>`;
 
+  /* A dropdown that reorders a fallback chain rather than replacing it.
+   * Picking a provider moves it to the front; everything else stays as backup,
+   * so a choice can never leave you with nothing that works. */
+  const chooser = (id, label, chain, ready, hint) => {
+    const active = chain.find((n) => ready[n]) || null;
+    const opts = chain
+      .map((n) => {
+        const state = ready[n] ? "ready" : "not set up";
+        const isFirst = n === chain[0];
+        return `<option value="${esc(n)}" ${isFirst ? "selected" : ""}>${esc(n)} — ${state}</option>`;
+      })
+      .join("");
+    return `
+      <label class="sfield"><span>${esc(label)}<small>first choice; the rest stay as fallback</small></span>
+        <select id="${id}">${opts}</select></label>
+      <div class="snote">Currently answering: <b>${esc(active || "nothing available")}</b>${hint ? " · " + hint : ""}</div>`;
+  };
+
+  /* Told in the UI, not buried in a doc - a provider marked "not set up" is
+   * useless without knowing what would set it up. */
+  const HINTS = {
+    kokoro: "needs a local Kokoro server on port 8880",
+    piper: "needs the piper binary and a voice model",
+    elevenlabs: "needs ELEVENLABS_API_KEY in .env",
+    local: "needs whisper-cli plus a model (brew install whisper-cpp)",
+    openai: "needs OPENAI_API_KEY in .env",
+    "claude-code": "needs the claude CLI installed",
+  };
+  const missingHint = (chain, ready) => {
+    const off = chain.filter((n) => n !== "browser" && n !== "system" && !ready[n] && HINTS[n]);
+    return off.length ? `to enable <b>${esc(off[0])}</b>: ${HINTS[off[0]]}` : "";
+  };
+
   async function open() {
     panel.classList.add("open");
     const [cfg, status, agents] = await Promise.all([
@@ -72,35 +105,31 @@
         <div class="snote">Schedules apply after running <code>jarvis agents install</code>.</div>
       </section>
 
-      <section><h4>BRAIN</h4>
-        <div class="srow">
-          <span>claude code ${yesno(status.brain.providers["claude-code"])}</span>
-          <span>openai-compatible ${yesno(status.brain.providers.openai)}</span>
-          <span>active: <b>${esc(status.brain.active || "none")}</b></span>
-        </div>
-        ${field("s-brain-url", "OpenAI-compatible base URL", (e.brain.openai || {}).base_url, "any /v1 endpoint: OpenAI, Ollama, LM Studio, OpenRouter")}
-        ${field("s-brain-model", "Model", (e.brain.openai || {}).model)}
-        <div class="snote">Claude Code is used when installed; it brings its own tools and is
-        the better option. The OpenAI path needs <code>OPENAI_API_KEY</code> in <code>.env</code>,
-        or no key at all if the base URL is a local server.</div>
+      <section><h4>BRAIN <small>who answers the command bar</small></h4>
+        ${chooser("s-brain-chain", "Model", e.brain.chain, status.brain.providers,
+          missingHint(e.brain.chain, status.brain.providers))}
+        ${field("s-brain-url", "OpenAI-compatible base URL", (e.brain.openai || {}).base_url, "OpenAI, Ollama, LM Studio, OpenRouter")}
+        ${field("s-brain-model", "Model name", (e.brain.openai || {}).model)}
       </section>
 
-      <section><h4>VOICE OUT</h4>
-        <div class="srow">${["elevenlabs", "kokoro", "piper", "system", "browser"]
+      <section><h4>VOICE OUT <small>how it speaks</small></h4>
+        ${chooser("s-voice-chain", "Voice", e.voice.chain, status.voice,
+          missingHint(e.voice.chain, status.voice))}
+        <div class="srow">${["kokoro", "elevenlabs", "piper", "system", "browser"]
           .map((k) => `<span>${k} ${yesno(status.voice[k])}</span>`).join("")}</div>
-        <div class="snote">First ready provider in the chain wins. Kokoro and Piper are
-        free and local. ElevenLabs needs <code>ELEVENLABS_API_KEY</code> in <code>.env</code>.</div>
       </section>
 
-      <section><h4>VOICE IN</h4>
+      <section><h4>VOICE IN <small>how it hears you</small></h4>
+        ${chooser("s-stt-chain", "Microphone", e.stt.chain, status.stt,
+          missingHint(e.stt.chain, status.stt))}
         <div class="srow">
           <span>local whisper ${yesno(status.stt.local)}</span>
           <span>openai ${yesno(status.stt.openai)}</span>
           <span>ffmpeg ${yesno(status.stt.ffmpeg)}</span>
         </div>
         <div class="snote">${status.stt_server_side
-          ? "Your audio is transcribed by the server."
-          : "Falling back to the browser, which sends audio to Google. Install whisper.cpp or add an OpenAI key to keep it local."}</div>
+          ? "Transcribed on this machine or by your chosen API."
+          : "<b>Right now your audio goes to Google</b> via the browser fallback. Install whisper.cpp (<code>brew install whisper-cpp</code>) or add an OpenAI key to stop that."}</div>
       </section>
 
       <div class="sactions">
@@ -108,12 +137,21 @@
         <span id="s-msg"></span>
       </div>`;
 
-    $("s-save").onclick = () => save(cards);
+    $("s-save").onclick = () => save(cards, e);
   }
 
   const listVal = (id) => $(id).value.split(",").map((s) => s.trim()).filter(Boolean);
 
-  async function save(cards) {
+  /* Move the chosen provider to the front, keep the rest in order behind it.
+   * Reordering rather than replacing means a pick can never strand you with a
+   * chain that has nothing working in it. */
+  const reorder = (id, chain) => {
+    const pick = $(id) && $(id).value;
+    if (!pick || !chain.includes(pick)) return chain;
+    return [pick, ...chain.filter((n) => n !== pick)];
+  };
+
+  async function save(cards, eff) {
     const patch = {
       name: $("s-name").value,
       profile: {
@@ -134,7 +172,12 @@
       })),
       radar: { channels: listVal("s-radar") },
       research: { lanes: listVal("s-lanes") },
-      brain: { openai: { base_url: $("s-brain-url").value, model: $("s-brain-model").value } },
+      voice: { chain: reorder("s-voice-chain", eff.voice.chain) },
+      stt: { chain: reorder("s-stt-chain", eff.stt.chain) },
+      brain: {
+        chain: reorder("s-brain-chain", eff.brain.chain),
+        openai: { base_url: $("s-brain-url").value, model: $("s-brain-model").value },
+      },
       knowledge: { brain_files: listVal("s-brain") },
       agents: {
         enabled: [...document.querySelectorAll("[data-agent]")]

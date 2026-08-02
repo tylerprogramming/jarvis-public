@@ -37,6 +37,7 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 | `radar` | daily 06:30 | Sweep channels you watch, flag videos breaking out against their own baseline |
 | `postmortem` | daily 08:00 | Review each video at 48h and 7d, turn the result into a rule |
 | `scout` | Fri 15:00 | Search what is actually pulling right now, hand back two topics with evidence |
+| `study` | Wed 16:00 | Reads the transcripts of the strongest videos in your lanes and writes down what's reusable |
 | `weekly-review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
 
 **A command bar with hands.** Type or talk, and it goes to a real agent with
@@ -63,11 +64,39 @@ npm start          # http://localhost:4747
 That is the whole install. There is nothing to build and nothing to npm install.
 
 ```bash
-jarvis doctor           # what is wired up and what is missing
-jarvis agents           # list agents and schedules
-jarvis agent morning    # run one right now instead of waiting for 7am
-jarvis agents install   # put them on launchd (macOS) or cron (Linux)
+jarvis doctor              # what is wired up and what is missing
+jarvis agents              # list agents and schedules
+jarvis agent morning       # run one right now instead of waiting for 7am
+jarvis agents install      # put them on launchd (macOS) or cron (Linux)
+jarvis transcript <url>    # transcript of any YouTube video
+jarvis index               # rebuild the index.md in every documents folder
 ```
+
+## Transcripts cost nothing
+
+Most YouTube videos already have captions. `jarvis transcript` grabs those —
+about a second, no model involved, no tokens. It never downloads the video.
+Only when a video genuinely has no captions does it fall back to pulling the
+audio stream and running **local Whisper**, or OpenAI's if you've set a key.
+
+```
+captions → auto-captions → local whisper → openai whisper
+```
+
+That's what the `study` agent runs on, which is why it can read three full
+videos a week for free.
+
+## Notes, indexes, and Obsidian
+
+Every documents folder gets an `index.md` listing what's in it with dates and
+one-line summaries, rebuilt after each agent run. Agents are told to read the
+index and open what they need rather than grepping the tree — grep costs more
+and gets *less* accurate as folders grow, which is exactly backwards.
+
+Because it's all plain markdown in ordinary folders, **you can point
+[Obsidian](https://obsidian.md) at this directory and it becomes a vault** —
+graph view, backlinks, search, no migration and no lock-in. The indexes work
+the same whether Obsidian is ever installed or not.
 
 ## The brain
 

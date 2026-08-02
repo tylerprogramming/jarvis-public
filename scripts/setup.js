@@ -112,7 +112,7 @@ async function main() {
 
   // ---- agents
   console.log("\n  AGENTS");
-  const enableAll = await askYes("  Enable the standard agents (morning, radar, postmortem, scout, weekly)", true);
+  const enableAll = await askYes("  Enable the standard agents (morning, radar, postmortem, scout, study, weekly)", true);
 
   // ---- write config.json
   const next = {
@@ -130,7 +130,7 @@ async function main() {
     research: { lanes },
     agents: {
       enabled: enableAll
-        ? ["morning", "radar", "postmortem", "scout", "weekly-review"]
+        ? ["morning", "radar", "postmortem", "scout", "study", "weekly-review"]
         : ["morning"],
     },
   };
