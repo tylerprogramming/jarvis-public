@@ -40,6 +40,29 @@ function docDirs() {
   return [...new Set([CFG.paths.reports, CFG.paths.drafts, ...CFG.documents_dirs.map(expand)])];
 }
 
+/* Prefer the frontmatter title over the filename.
+ * A trail reading "2026-08-01-morning" tells you nothing you did not already
+ * know from the date; "Nine days without an upload" is the reason to click. */
+function docTitle(file, fallback) {
+  let head = "";
+  try {
+    const fd = fs.openSync(file, "r");
+    const buf = Buffer.alloc(1024);
+    const n = fs.readSync(fd, buf, 0, 1024, 0);
+    fs.closeSync(fd);
+    head = buf.slice(0, n).toString("utf8");
+  } catch {
+    return fallback;
+  }
+  const fm = head.match(/^---\n([\s\S]*?)\n---/);
+  if (fm) {
+    const t = fm[1].match(/^\s*title\s*:\s*(.+)$/im);
+    if (t) return t[1].trim().replace(/^["']|["']$/g, "");
+  }
+  const h1 = head.match(/^#\s+(.+)$/m);
+  return h1 ? h1[1].trim() : fallback;
+}
+
 function documents() {
   const out = [];
   for (const dir of docDirs()) {
@@ -47,6 +70,8 @@ function documents() {
     try { entries = fs.readdirSync(dir); } catch { continue; }
     for (const name of entries) {
       if (name.startsWith(".")) continue;
+      // index.md is navigation, not a document - listing it buries the real ones
+      if (name.toLowerCase() === "index.md") continue;
       const full = path.join(dir, name);
       let st;
       try { st = fs.statSync(full); } catch { continue; }
@@ -61,7 +86,11 @@ function documents() {
     }
   }
   out.sort((a, b) => b.mtime - a.mtime);
-  return out.slice(0, 9).map((d) => ({ name: d.name, file: d.file, age: relAge(d.mtime) }));
+  return out.slice(0, 9).map((d) => ({
+    name: docTitle(d.file, d.name),
+    file: d.file,
+    age: relAge(d.mtime),
+  }));
 }
 
 function relAge(ms) {
