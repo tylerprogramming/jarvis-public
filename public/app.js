@@ -626,12 +626,28 @@ fetch("/api/status")
 
 let mediaRec = null, chunks = [], recording = false;
 
+/* getUserMedia fails at least five distinct ways and this used to report all of
+ * them as "permission denied", which sends you to check a permission that was
+ * never the problem. A Mac Studio has no built-in microphone, so the common
+ * case here is genuinely no device rather than a denied one. Say which. */
+const MIC_ERRORS = {
+  NotFoundError: "no microphone found. Nothing is plugged in, or macOS has no " +
+    "audio input device. Check System Settings > Sound > Input.",
+  NotAllowedError: "microphone blocked. Allow it for this site in Chrome, and " +
+    "check System Settings > Privacy & Security > Microphone for your browser.",
+  NotReadableError: "the microphone is there but something else is holding it. " +
+    "Close whatever is recording and try again.",
+  OverconstrainedError: "no microphone matches what was asked for.",
+  SecurityError: "the browser refused mic access on this origin. Use " +
+    "localhost or 127.0.0.1 rather than a LAN address.",
+};
+
 async function startRecording() {
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch {
-    addMsg("sys", "microphone permission denied");
+  } catch (e) {
+    addMsg("sys", MIC_ERRORS[e.name] || `microphone failed: ${e.name} ${e.message}`);
     return false;
   }
   chunks = [];

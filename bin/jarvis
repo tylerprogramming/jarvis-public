@@ -226,6 +226,13 @@ async function main() {
       for (const [k, v] of Object.entries(voice)) console.log(`    ${k.padEnd(18)} ${ok(v)}`);
 
       console.log(`\n  VOICE IN (${cfg.stt.chain.join(" -> ")})`);
+      // Everything below answers "could this transcribe". This one answers
+      // "is there anything to transcribe", which is what actually bites: a
+      // Mac Studio has no built-in mic, so the rest can all be ready while
+      // the browser fails with NotFoundError.
+      console.log(`    microphone         ${
+        mic.input === null ? "unknown" :
+        mic.input ? "yes" : "NONE - no audio input device on this machine"}`);
       console.log(`    local whisper      ${ok(mic.local)}`);
       console.log(`    openai whisper     ${ok(mic.openai)}`);
       console.log(`    browser fallback   yes   (chrome only, audio leaves this machine)`);
