@@ -9,6 +9,7 @@ PERSONA.md
 # Everything Jarvis generates about you.
 data/*.json
 data/*.log
+data/.kokoro-mode
 !data/*.example.json
 reports/*
 drafts/*
