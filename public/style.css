@@ -11,6 +11,20 @@
     --red: #f38ba8;
     --green: #a6e3a1;
     --amber: #f9e2af;
+    --blue: #89b4fa;
+    --pink: #f5c2e7;
+    /* rgb triples, for the places that need alpha over a themed colour */
+    --accent-rgb: 56, 189, 248;
+    --red-rgb: 243, 139, 168;
+    /* the brightest thing on screen. white on dark themes, near-black on light ones */
+    --strong: #ffffff;
+    --scrim: rgba(4, 3, 10, .82);
+    --modal: #0b0817;
+    --shadow: rgba(0, 0, 0, .5);
+    /* chrome: how panels are built, not what colour they are */
+    --blur: 6px;
+    --radius: 0px;
+    --radius-sm: 2px;
     --mono: "SF Mono", ui-monospace, Menlo, monospace;
     --sans: "Roboto", "Helvetica Neue", -apple-system, "Segoe UI", Arial, sans-serif;
   }
@@ -51,7 +65,8 @@
   .rail.right { right: 20px; width: 330px; }
   .panel {
     background: var(--panel); border: 1px solid var(--line);
-    backdrop-filter: blur(6px); padding: 12px 14px; flex-shrink: 0;
+    backdrop-filter: blur(var(--blur)); padding: 12px 14px; flex-shrink: 0;
+    border-radius: var(--radius);
   }
   .panel h2 {
     font-family: var(--mono); font-size: 11.5px; letter-spacing: 3px; color: var(--accent-hi);
@@ -66,14 +81,14 @@
   .vital .row1 .delta { color: var(--accent); }
   .vital .row1 .delta.bad { color: var(--red); }
   .vital .row1 .delta.good { color: var(--green); }
-  .vital .num { font-size: 34px; font-weight: 700; color: #fff; letter-spacing: 1px; line-height: 1.25; }
+  .vital .num { font-size: 34px; font-weight: 700; color: var(--strong); letter-spacing: 1px; line-height: 1.25; }
   .vital .num small { font-size: 12px; color: var(--dim); font-weight: 400; }
   .vital svg { display: block; width: 100%; height: 18px; margin-top: 3px; }
   .vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px;
     border-bottom: 1px solid var(--line-soft); }
   .vcell { padding: 8px 0; }
   .vcell .lab { font-size: 12px; color: var(--dim); }
-  .vcell .n { font-size: 22px; font-weight: 700; color: #fff; line-height: 1.3; }
+  .vcell .n { font-size: 22px; font-weight: 700; color: var(--strong); line-height: 1.3; }
   .vcell .d { font-size: 11px; color: var(--accent); }
   .vcell .d.na { color: var(--dim); }
   .vital svg polyline { fill: none; stroke: var(--accent); stroke-width: 1.2; opacity: .8; }
@@ -107,18 +122,19 @@
     position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
     top: 58px; display: flex; gap: 6px;
     background: var(--panel-deep); border: 1px solid var(--line);
-    backdrop-filter: blur(6px); padding: 8px 12px 7px;
+    backdrop-filter: blur(var(--blur)); padding: 8px 12px 7px;
+    border-radius: var(--radius);
   }
   #calstrip .day { width: 58px; text-align: center; }
   #calstrip .day .d { font-size: 10px; letter-spacing: 2px; color: var(--dim); margin-bottom: 5px; }
   #calstrip .day.today .d { color: var(--accent-hi); }
   #calstrip .day.today { outline: 1px solid var(--line); outline-offset: 2px; }
   #calstrip .slots { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
-  .slot { width: 9px; height: 9px; border-radius: 2px; border: 1px solid; opacity: .95; }
+  .slot { width: 9px; height: 9px; border-radius: var(--radius-sm); border: 1px solid; opacity: .95; }
   .slot.long  { border-color: var(--accent-hi); }  .slot.long.done  { background: var(--accent-hi); }
   .slot.short { border-color: var(--green); }      .slot.short.done { background: var(--green); }
-  .slot.li    { border-color: #89b4fa; }           .slot.li.done    { background: #89b4fa; }
-  .slot.ig    { border-color: #f5c2e7; }           .slot.ig.done    { background: #f5c2e7; }
+  .slot.li    { border-color: var(--blue); }       .slot.li.done    { background: var(--blue); }
+  .slot.ig    { border-color: var(--pink); }       .slot.ig.done    { background: var(--pink); }
   .slot.community { border-color: var(--amber); }  .slot.community.done { background: var(--amber); }
   #calstrip .legend { display: flex; flex-direction: column; justify-content: center;
     gap: 2px; padding-left: 8px; border-left: 1px solid var(--line-soft);
@@ -129,10 +145,11 @@
     position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
     bottom: 88px; width: 460px; text-align: center;
     background: var(--panel-deep); border: 1px solid var(--line);
-    backdrop-filter: blur(6px); padding: 14px 18px 12px;
+    backdrop-filter: blur(var(--blur)); padding: 14px 18px 12px;
+    border-radius: var(--radius);
   }
   #primary .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 4px; color: var(--accent-hi); }
-  #primary .big { font-size: 50px; font-weight: 700; color: #fff; letter-spacing: 2px; line-height: 1.15; }
+  #primary .big { font-size: 50px; font-weight: 700; color: var(--strong); letter-spacing: 2px; line-height: 1.15; }
   #primary .big small { font-size: 13px; color: var(--dim); font-weight: 400; letter-spacing: 3px; }
   #primary .meta { display: flex; justify-content: center; gap: 18px; font-size: 10.5px;
     letter-spacing: 1.5px; color: var(--dim); border-top: 1px solid var(--line-soft);
@@ -154,12 +171,12 @@
     padding: 7px 7px 7px 12px;
     background: var(--panel-deep); border: 1px solid var(--line);
     border-radius: 14px; backdrop-filter: blur(14px);
-    box-shadow: 0 10px 34px rgba(0,0,0,.46), inset 0 1px 0 var(--line-soft);
+    box-shadow: 0 10px 34px var(--shadow), inset 0 1px 0 var(--line-soft);
     transition: border-color .25s, box-shadow .25s;
   }
   #bar:focus-within {
     border-color: var(--accent);
-    box-shadow: 0 10px 40px rgba(0,0,0,.5), 0 0 0 3px var(--line-soft);
+    box-shadow: 0 10px 40px var(--shadow), 0 0 0 3px var(--line-soft);
   }
   #cmd {
     flex: 1; min-width: 0; background: none; border: 0;
@@ -186,8 +203,8 @@
   #speak.off { color: var(--dim); }
   #speak.off .waves { opacity: .25; }
   #settings-btn .knob { fill: var(--panel-deep); }
-  #wake.on { color: var(--green, #a6e3a1); }
-  #wake.on svg { filter: drop-shadow(0 0 5px var(--green, #a6e3a1)); }
+  #wake.on { color: var(--green); }
+  #wake.on svg { filter: drop-shadow(0 0 5px var(--green)); }
 
   /* mic is the primary action - filled, accent, sits at the end of the pill */
   #mic {
@@ -198,12 +215,12 @@
   #mic:hover { background: var(--accent-hi); transform: translateY(-1px); }
   #mic:active { transform: scale(.94); }
   #mic.listening {
-    background: var(--red, #f38ba8); color: #fff;
+    background: var(--red); color: var(--strong);
     animation: micpulse 1.25s infinite;
   }
   @keyframes micpulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(243,139,168,.55); }
-    60%      { box-shadow: 0 0 0 9px rgba(243,139,168,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--red-rgb), .55); }
+    60%      { box-shadow: 0 0 0 9px rgba(var(--red-rgb), 0); }
   }
 
   @media (max-width: 1100px) {
@@ -229,16 +246,17 @@
   @keyframes apulse { 50% { box-shadow: 0 0 20px var(--accent-hi); } }
 
   /* ---------- doc modal ---------- */
-  #modal { position: fixed; inset: 0; z-index: 20; background: rgba(4, 3, 10, .82);
+  #modal { position: fixed; inset: 0; z-index: 20; background: var(--scrim);
     display: none; align-items: center; justify-content: center; }
   #modal.open { display: flex; }
   #modal .inner { width: min(760px, 90vw); max-height: 80vh; overflow-y: auto;
-    background: #0b0817; border: 1px solid var(--line); padding: 22px 26px;
+    background: var(--modal); border: 1px solid var(--line); padding: 22px 26px;
+    border-radius: var(--radius);
     white-space: pre-wrap; line-height: 1.6; font-size: 12px; }
   #modal .inner h3 { color: var(--accent-hi); letter-spacing: 2px; margin-bottom: 12px; }
 
   /* ---------- settings panel ---------- */
-  #settings { position: fixed; inset: 0; z-index: 30; background: rgba(4, 3, 10, .84);
+  #settings { position: fixed; inset: 0; z-index: 30; background: var(--scrim);
     display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
   #settings.open { display: flex; }
   #settings .sinner { width: min(720px, 92vw); max-height: 86vh; overflow-y: auto;
@@ -266,11 +284,11 @@
   .scheck b { color: var(--text); letter-spacing: 1px; font-family: var(--mono); font-size: 10.5px; }
   .scheck small { color: var(--dim); margin-left: 6px; font-size: 9.5px; }
   .scheck .sdesc { color: var(--dim); font-size: 10.5px; margin-top: 4px; line-height: 1.45; }
-  .scheck .swarn { color: var(--amber, #f59e0b); font-size: 10px; margin-top: 4px; }
+  .scheck .swarn { color: var(--amber); font-size: 10px; margin-top: 4px; }
   .srow { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: var(--dim);
     font-family: var(--mono); }
   .pill { font-size: 9px; letter-spacing: 1px; padding: 1px 6px; border: 1px solid var(--line); }
-  .pill.on { color: var(--green, #a6e3a1); border-color: var(--green, #a6e3a1); }
+  .pill.on { color: var(--green); border-color: var(--green); }
   .pill.off { color: var(--dim); }
   .snote { color: var(--dim); font-size: 10.5px; margin-top: 10px; line-height: 1.6; }
   .snote code { color: var(--accent); font-family: var(--mono); }
@@ -299,7 +317,7 @@
     color: var(--text); font-family: var(--mono); font-size: 10.5px;
     line-height: 1.5; letter-spacing: .2px; text-align: center;
     white-space: normal; backdrop-filter: blur(10px);
-    box-shadow: 0 8px 22px rgba(0,0,0,.5);
+    box-shadow: 0 8px 22px var(--shadow);
     opacity: 0; pointer-events: none;
     transition: opacity .16s ease, transform .16s ease;
     z-index: 40;
@@ -332,7 +350,7 @@
   .brk-mult { font-family: var(--mono); font-size: 10px; font-weight: 700;
     color: var(--dim); flex-shrink: 0; min-width: 30px; }
   /* 5x+ is the "drop what you are doing" tier */
-  .brk-mult.hot { color: var(--amber, #f59e0b); text-shadow: 0 0 8px rgba(245,158,11,.5); }
+  .brk-mult.hot { color: var(--amber); text-shadow: 0 0 8px var(--line); }
   .brk-title { font-size: 11.5px; color: var(--text); line-height: 1.35; }
   .brk-meta { font-family: var(--mono); font-size: 9.5px; color: var(--dim);
     margin-top: 3px; padding-left: 37px; letter-spacing: .2px; }
@@ -344,3 +362,51 @@
     font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
     color: var(--dim); vertical-align: middle; }
   .directive.done .src { opacity: .4; }
+
+
+  /* ---------- theme picker ---------- */
+  /* Swatches are painted from each theme's own tokens, so the list previews
+     the themes rather than naming them. */
+  #thememenu {
+    position: fixed; z-index: 40; right: 20px; bottom: 78px; width: 268px;
+    background: var(--panel-deep); border: 1px solid var(--line);
+    backdrop-filter: blur(var(--blur)); border-radius: var(--radius);
+    box-shadow: 0 12px 34px var(--shadow); overflow: hidden;
+  }
+  .tm-opt {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 9px 12px; background: none; border: none; cursor: pointer;
+    text-align: left; border-bottom: 1px solid var(--line-soft);
+    font-family: var(--sans); color: var(--text);
+  }
+  .tm-opt:last-child { border-bottom: none; }
+  .tm-opt:hover { background: var(--line-soft); }
+  .tm-opt.on { background: var(--line-soft); }
+  .tm-opt.on .tm-txt b::after {
+    content: "•"; color: var(--accent); margin-left: 6px;
+  }
+  .tm-sw {
+    display: flex; gap: 2px; align-items: center; justify-content: center;
+    width: 40px; height: 26px; border: 1px solid; border-radius: var(--radius-sm);
+    flex-shrink: 0;
+  }
+  .tm-sw i { width: 5px; height: 12px; border-radius: 1px; }
+  .tm-txt { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+  .tm-txt b { font-size: 12.5px; font-weight: 600; }
+  .tm-txt em {
+    font-style: normal; font-size: 10.5px; color: var(--dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Light themes need the starfield and panel edges pulled back, otherwise the
+     glow that reads as depth on a dark background just reads as haze. */
+  :root[data-theme="daylight"] #stars { opacity: .5; }
+  :root[data-theme="daylight"] .modes .dot { box-shadow: none; }
+  :root[data-theme="daylight"] .panel,
+  :root[data-theme="daylight"] #calstrip,
+  :root[data-theme="daylight"] #primary { box-shadow: 0 2px 10px var(--shadow); }
+
+  /* Flat chrome means flat. No blur to fake depth, so the panels go opaque. */
+  :root[data-chrome="flat"] .panel,
+  :root[data-chrome="flat"] #calstrip,
+  :root[data-chrome="flat"] #primary { box-shadow: none; }

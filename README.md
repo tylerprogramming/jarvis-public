@@ -244,6 +244,22 @@ Everything lives in `config.json`, which is gitignored and deep-merged over
 `config.example.json` for the full surface and
 [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for what each key does.
 
+**Pick a look.** The contrast button in the command bar opens the theme picker.
+Eight ship: Reactor (the original blue), Nebula, Ember, Nord, Mocha, Tokyo
+Night, Gruvbox, and Daylight, which is the light one for working near a window.
+Four use their upstream projects' published palettes, so they match the editor
+theme you probably already run.
+
+A theme is more than colour. It also sets the chrome, meaning how panels are
+built rather than what shade they are: `glass` is blurred with sharp corners,
+`soft` is rounded with a heavier blur, `flat` has no blur at all and goes fully
+opaque. Gruvbox on flat reads as a different program to Tokyo Night on soft.
+
+Adding your own is one entry in `THEMES` at the top of `public/app.js`. Copy the
+nearest one, change the tokens, pick a chrome and a brain mode. The stylesheet
+holds no colour literals at all, every one is a token, so a theme really does
+control the whole interface.
+
 **Teach it your own commands.** Create `PERSONA.md` in the project root and
 write instructions in plain English. It is appended to the system prompt on
 every turn, so "when I say `ship it`, do X" just works. Also gitignored.

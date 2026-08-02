@@ -1,32 +1,129 @@
-/* ================= themes ================= */
+/* ================= themes =================
+ *
+ * A theme is three things, not one:
+ *   vars    the colour tokens, which style.css consumes exclusively. No colour
+ *           literal lives in the stylesheet, so a theme can change all of it.
+ *   chrome  how panels are built rather than what colour they are. "glass" is
+ *           blurred and sharp cornered, "soft" is rounded with a heavier blur,
+ *           "flat" has no blur at all. This is what makes themes read as
+ *           different interfaces instead of the same one recoloured.
+ *   mode    what the particle brain does, rings or sphere, plus the hue it and
+ *           the starfield are drawn in.
+ *
+ * The four borrowed palettes use their projects' published values rather than
+ * approximations, so they match the editor themes people already run.
+ */
+const CHROME = {
+  glass: { "--blur": "6px",  "--radius": "0px", "--radius-sm": "2px" },
+  soft:  { "--blur": "12px", "--radius": "8px", "--radius-sm": "3px" },
+  flat:  { "--blur": "0px",  "--radius": "0px", "--radius-sm": "0px" },
+};
+
 const THEMES = {
-  reactor: { mode: "rings", hue: "125,211,252", vars: {
+  reactor: { label: "Reactor", note: "The original. Arc reactor blue.",
+    mode: "rings", hue: "125,211,252", chrome: "glass", vars: {
     "--bg": "#040810", "--panel": "rgba(10,22,38,0.55)", "--panel-deep": "rgba(6,14,26,0.72)",
     "--line": "rgba(125,211,252,0.25)", "--line-soft": "rgba(125,211,252,0.10)",
-    "--accent": "#38bdf8", "--accent-hi": "#7dd3fc",
-    "--text": "#e6f0fb", "--dim": "#8fa3bd" } },
-  nebula: { mode: "sphere", hue: "167,139,250", vars: {
+    "--accent": "#38bdf8", "--accent-hi": "#7dd3fc", "--accent-rgb": "56,189,248",
+    "--text": "#e6f0fb", "--dim": "#8fa3bd", "--strong": "#ffffff",
+    "--red": "#f38ba8", "--red-rgb": "243,139,168", "--green": "#a6e3a1", "--amber": "#f9e2af",
+    "--blue": "#89b4fa", "--pink": "#f5c2e7",
+    "--scrim": "rgba(4,3,10,0.82)", "--modal": "#0b0817", "--shadow": "rgba(0,0,0,0.5)" } },
+
+  nebula: { label: "Nebula", note: "Deep violet, quieter than it looks.",
+    mode: "sphere", hue: "167,139,250", chrome: "glass", vars: {
     "--bg": "#06050c", "--panel": "rgba(20,16,38,0.55)", "--panel-deep": "rgba(12,9,24,0.72)",
     "--line": "rgba(167,139,250,0.22)", "--line-soft": "rgba(167,139,250,0.10)",
-    "--accent": "#a78bfa", "--accent-hi": "#cba6f7",
-    "--text": "#e0dbf5", "--dim": "#8d87b3" } },
-  ember: { mode: "sphere", hue: "251,191,36", vars: {
+    "--accent": "#a78bfa", "--accent-hi": "#cba6f7", "--accent-rgb": "167,139,250",
+    "--text": "#e0dbf5", "--dim": "#8d87b3", "--strong": "#ffffff",
+    "--red": "#f38ba8", "--red-rgb": "243,139,168", "--green": "#a6e3a1", "--amber": "#f9e2af",
+    "--blue": "#89b4fa", "--pink": "#f5c2e7",
+    "--scrim": "rgba(6,5,12,0.84)", "--modal": "#100c20", "--shadow": "rgba(0,0,0,0.55)" } },
+
+  ember: { label: "Ember", note: "Warm amber. Easiest at night.",
+    mode: "sphere", hue: "251,191,36", chrome: "glass", vars: {
     "--bg": "#0c0703", "--panel": "rgba(38,24,10,0.55)", "--panel-deep": "rgba(24,15,6,0.72)",
     "--line": "rgba(251,191,36,0.25)", "--line-soft": "rgba(251,191,36,0.10)",
-    "--accent": "#f59e0b", "--accent-hi": "#fbbf24",
-    "--text": "#f7efe2", "--dim": "#b8a688" } },
+    "--accent": "#f59e0b", "--accent-hi": "#fbbf24", "--accent-rgb": "245,158,11",
+    "--text": "#f7efe2", "--dim": "#b8a688", "--strong": "#fffaf0",
+    "--red": "#f38ba8", "--red-rgb": "243,139,168", "--green": "#a6e3a1", "--amber": "#fbbf24",
+    "--blue": "#89b4fa", "--pink": "#f5c2e7",
+    "--scrim": "rgba(12,7,3,0.84)", "--modal": "#1a1006", "--shadow": "rgba(0,0,0,0.55)" } },
+
+  /* nordtheme.com published palette */
+  nord: { label: "Nord", note: "Cold and desaturated. Arctic.",
+    mode: "sphere", hue: "136,192,208", chrome: "soft", vars: {
+    "--bg": "#2e3440", "--panel": "rgba(59,66,82,0.55)", "--panel-deep": "rgba(46,52,64,0.75)",
+    "--line": "rgba(136,192,208,0.25)", "--line-soft": "rgba(136,192,208,0.10)",
+    "--accent": "#88c0d0", "--accent-hi": "#8fbcbb", "--accent-rgb": "136,192,208",
+    "--text": "#eceff4", "--dim": "#99a5bb", "--strong": "#eceff4",
+    "--red": "#bf616a", "--red-rgb": "191,97,106", "--green": "#a3be8c", "--amber": "#ebcb8b",
+    "--blue": "#81a1c1", "--pink": "#b48ead",
+    "--scrim": "rgba(46,52,64,0.82)", "--modal": "#3b4252", "--shadow": "rgba(0,0,0,0.45)" } },
+
+  /* catppuccin/palette, Mocha flavour */
+  mocha: { label: "Mocha", note: "Catppuccin. Soft contrast, easy to sit with.",
+    mode: "rings", hue: "137,180,250", chrome: "soft", vars: {
+    "--bg": "#1e1e2e", "--panel": "rgba(49,50,68,0.55)", "--panel-deep": "rgba(24,24,37,0.75)",
+    "--line": "rgba(137,180,250,0.25)", "--line-soft": "rgba(137,180,250,0.10)",
+    "--accent": "#89b4fa", "--accent-hi": "#b4befe", "--accent-rgb": "137,180,250",
+    "--text": "#cdd6f4", "--dim": "#a6adc8", "--strong": "#e4eaf9",
+    "--red": "#f38ba8", "--red-rgb": "243,139,168", "--green": "#a6e3a1", "--amber": "#f9e2af",
+    "--blue": "#74c7ec", "--pink": "#f5c2e7",
+    "--scrim": "rgba(17,17,27,0.85)", "--modal": "#181825", "--shadow": "rgba(0,0,0,0.5)" } },
+
+  /* folke/tokyonight.nvim, Storm variant */
+  tokyo: { label: "Tokyo Night", note: "Blue on slate. The screenshot favourite.",
+    mode: "sphere", hue: "122,162,247", chrome: "soft", vars: {
+    "--bg": "#24283b", "--panel": "rgba(41,46,66,0.60)", "--panel-deep": "rgba(31,35,53,0.78)",
+    "--line": "rgba(122,162,247,0.25)", "--line-soft": "rgba(122,162,247,0.10)",
+    "--accent": "#7aa2f7", "--accent-hi": "#7dcfff", "--accent-rgb": "122,162,247",
+    "--text": "#c0caf5", "--dim": "#8b93b8", "--strong": "#d5dcfb",
+    "--red": "#f7768e", "--red-rgb": "247,118,142", "--green": "#9ece6a", "--amber": "#e0af68",
+    "--blue": "#2ac3de", "--pink": "#bb9af7",
+    "--scrim": "rgba(27,30,45,0.85)", "--modal": "#1f2335", "--shadow": "rgba(0,0,0,0.55)" } },
+
+  /* morhetz/gruvbox, dark */
+  gruvbox: { label: "Gruvbox", note: "Warm retro terminal. No blur, hard edges.",
+    mode: "rings", hue: "254,128,25", chrome: "flat", vars: {
+    "--bg": "#282828", "--panel": "rgba(60,56,54,0.92)", "--panel-deep": "rgba(29,32,33,0.95)",
+    "--line": "rgba(254,128,25,0.30)", "--line-soft": "rgba(254,128,25,0.12)",
+    "--accent": "#fe8019", "--accent-hi": "#fabd2f", "--accent-rgb": "254,128,25",
+    "--text": "#ebdbb2", "--dim": "#a89984", "--strong": "#fbf1c7",
+    "--red": "#fb4934", "--red-rgb": "251,73,52", "--green": "#b8bb26", "--amber": "#fabd2f",
+    "--blue": "#83a598", "--pink": "#d3869b",
+    "--scrim": "rgba(29,32,33,0.88)", "--modal": "#32302f", "--shadow": "rgba(0,0,0,0.6)" } },
+
+  daylight: { label: "Daylight", note: "The one you can read near a window.",
+    mode: "rings", hue: "37,99,235", chrome: "soft", vars: {
+    "--bg": "#f4f6fb", "--panel": "rgba(255,255,255,0.72)", "--panel-deep": "rgba(255,255,255,0.86)",
+    "--line": "rgba(30,64,120,0.20)", "--line-soft": "rgba(30,64,120,0.08)",
+    "--accent": "#1266c9", "--accent-hi": "#0a4fa0", "--accent-rgb": "18,102,201",
+    "--text": "#16202e", "--dim": "#5b6b81", "--strong": "#0b1220",
+    "--red": "#c62828", "--red-rgb": "198,40,40", "--green": "#1e7f4f", "--amber": "#a86400",
+    "--blue": "#2563eb", "--pink": "#b4468a",
+    "--scrim": "rgba(20,28,42,0.35)", "--modal": "#ffffff", "--shadow": "rgba(20,30,50,0.16)" } },
 };
+
 let themeName = localStorage.getItem("jarvis_theme") || "reactor";
 if (!THEMES[themeName]) themeName = "reactor";
 let THEME = THEMES[themeName];
 function applyTheme(name) {
+  if (!THEMES[name]) name = "reactor";
   themeName = name; THEME = THEMES[name];
   localStorage.setItem("jarvis_theme", name);
   window.__jarvisTheme = THEME;
-  for (const [k, v] of Object.entries(THEME.vars))
-    document.documentElement.style.setProperty(k, v);
+  const root = document.documentElement;
+  for (const [k, v] of Object.entries(THEME.vars)) root.style.setProperty(k, v);
+  for (const [k, v] of Object.entries(CHROME[THEME.chrome] || CHROME.glass))
+    root.style.setProperty(k, v);
+  // lets CSS special-case a light background without knowing which theme it is
+  root.dataset.theme = name;
+  root.dataset.chrome = THEME.chrome;
   if (window.__drawStars) window.__drawStars();
   if (window.__brain3d) window.__brain3d.setTheme(THEME);
+  const btn = document.getElementById("theme");
+  if (btn) btn.dataset.tip = `Theme — ${THEME.label}. Click to change.`;
 }
 
 
@@ -351,12 +448,39 @@ setInterval(loadAgents, 8000);
  * than no tip, since it tells you the opposite of the truth half the time. */
 const tip = (id, text) => { const el = $(id); if (el) el.dataset.tip = text; };
 
-$("theme").onclick = () => {
-  const names = Object.keys(THEMES);
-  applyTheme(names[(names.indexOf(themeName) + 1) % names.length]);
-  tip("theme", `Theme — ${themeName}. Click to cycle.`);
-};
-tip("theme", `Theme — ${themeName}. Click to cycle.`);
+/* Cycling was fine with three themes. With eight it means clicking blind past
+ * seven you did not want, so this opens a picker instead. Each swatch is
+ * painted from the theme's own tokens, so it previews rather than describes. */
+function themeMenu() {
+  const open = $("thememenu");
+  if (open) { open.remove(); return; }
+  const el = document.createElement("div");
+  el.id = "thememenu";
+  el.innerHTML = Object.entries(THEMES).map(([k, t]) => `
+    <button class="tm-opt${k === themeName ? " on" : ""}" data-theme="${k}">
+      <span class="tm-sw" style="background:${t.vars["--bg"]};border-color:${t.vars["--accent"]}">
+        <i style="background:${t.vars["--accent"]}"></i>
+        <i style="background:${t.vars["--accent-hi"]}"></i>
+        <i style="background:${t.vars["--green"]}"></i>
+        <i style="background:${t.vars["--red"]}"></i>
+      </span>
+      <span class="tm-txt"><b>${t.label}</b><em>${t.note}</em></span>
+    </button>`).join("");
+  document.body.appendChild(el);
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-theme]");
+    if (!b) return;
+    applyTheme(b.dataset.theme);
+    el.remove();
+  });
+  // one-shot: closing on the next outside click, without leaking a listener
+  setTimeout(() => document.addEventListener("click", function away(ev) {
+    if (!el.contains(ev.target) && ev.target.id !== "theme") {
+      el.remove(); document.removeEventListener("click", away);
+    }
+  }), 0);
+}
+$("theme").onclick = themeMenu;
 $("modal").onclick = () => $("modal").classList.remove("open");
 loadData();
 setInterval(loadData, 5 * 60 * 1000);
