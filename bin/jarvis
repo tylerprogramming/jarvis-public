@@ -8,7 +8,7 @@
  *   jarvis ytdlp <cmd>      bundle a known-good yt-dlp: install | status | remove
  *   jarvis index            rebuild index.md in every documents folder
  *   jarvis transcript <url> transcript via captions, whisper only if needed
- *   jarvis agents           list agents and their schedules
+ *   jarvis agents           list agents and their schedules\n *   jarvis agents check     preflight every agent before trusting a schedule
  *   jarvis agent <name>     run one agent now, in the foreground
  *   jarvis agents install   put enabled agents on the OS scheduler
  *   jarvis agents uninstall remove them
@@ -167,6 +167,17 @@ async function main() {
         console.log(`installed on ${platform === "darwin" ? "launchd" : "cron"}:`);
         installed.forEach((i) => console.log(`  ${i}`));
         return;
+      }
+      if (sub === "check") {
+        let bad = 0;
+        for (const r of agents.check(cfg)) {
+          const tag = r.problems.length ? "FAIL" : "ok  ";
+          console.log(`  ${tag} ${r.name.padEnd(15)} ${r.enabled ? "" : "(disabled)"}`);
+          r.problems.forEach((p2) => { bad++; console.log(`         ! ${p2}`); });
+          r.notes.forEach((n) => console.log(`         - ${n}`));
+        }
+        console.log(bad ? `\n  ${bad} problem(s)` : `\n  all agents check out`);
+        process.exit(bad ? 1 : 0);
       }
       if (sub === "uninstall") {
         const { removed } = await schedule.uninstall(cfg, all);
