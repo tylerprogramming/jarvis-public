@@ -118,8 +118,14 @@ function render(d) {
     `<div class="msg sys">no channels configured yet - run <b>jarvis setup</b> or open settings</div>`;
 
   // directives - the empty state has to teach, since a new user has none
+  // an agent's suggestion and your own note look identical otherwise, which
+  // matters more now that six can be queued at once
   $("directives").innerHTML = d.directives.map((x, i) =>
-    `<div class="directive ${x.done ? "done" : ""}" data-i="${i}"><span class="box"></span><span>${esc(x.text)}</span></div>`
+    `<div class="directive ${x.done ? "done" : ""}" data-i="${i}"
+       title="${x.source ? `proposed by the ${esc(x.source)} agent${x.added ? " on " + esc(x.added) : ""}` : "added by you"}">
+      <span class="box"></span>
+      <span>${esc(x.text)}${x.source ? `<span class="src">${esc(x.source)}</span>` : ""}</span>
+    </div>`
   ).join("") ||
     `<div class="msg sys">nothing queued. ask jarvis to "add a directive to ..." or let the
      morning agent set them.</div>`;
@@ -252,12 +258,18 @@ function renderPrimary() {
     const subsWk = weekDelta(h, "yt_subs");
     $("pd-num").textContent = fmt(v.yt_subs);
     document.querySelector("#primary .big small").textContent = "SUBS";
-    let pace = "—";
+    // "—" told you nothing. Say why there is no pace yet, or that it stalled.
+    let pace;
     if (subsWk > 0) {
       const weeks = (pd.target - v.yt_subs) / subsWk;
       const eta = new Date(Date.now() + weeks * 7 * 86400000);
       pace = eta.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase();
-    } else if (subsWk != null) pace = "STALLED";
+    } else if (subsWk != null) {
+      pace = "STALLED";
+    } else {
+      const days = (DATA.history || []).length;
+      pace = days < 2 ? `NEEDS ${2 - days} MORE DAY` : "NO DATA";
+    }
     $("pd-meta").innerHTML = meta([
       ["TARGET", fmt(pd.target)],
       ["THIS WEEK", subsWk == null ? "tracking" : (subsWk >= 0 ? "+" : "") + fmt(subsWk)],
