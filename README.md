@@ -52,24 +52,98 @@ ahead of this week.
 
 ## Install
 
-You need [Node 18+](https://nodejs.org), [Claude Code](https://claude.com/claude-code),
-and [yt-dlp](https://github.com/yt-dlp/yt-dlp) (`pipx install yt-dlp`).
+**You need:** [Node 18+](https://nodejs.org) and `python3` (macOS and most
+Linux ship it). Everything else the setup will offer to handle.
+
+**You want:** [Claude Code](https://claude.com/claude-code). It is the default
+brain and the best one. Without it, Jarvis runs on any OpenAI-compatible
+endpoint instead, including a local model, so it is not a hard requirement.
+
+### 1. Clone it
 
 ```bash
-git clone <your-fork> jarvis && cd jarvis
-npm run setup      # asks who you are, writes config.json
+git clone <this-repo> jarvis && cd jarvis
+```
+
+There is nothing to build and nothing to `npm install`. Zero dependencies.
+
+### 2. Run setup
+
+```bash
+npm run setup
+```
+
+It asks who you are, which channels to track, what number you care about, which
+channels to watch, and which agents to turn on. Every question has a usable
+default and you can change all of it later.
+
+If `yt-dlp` is missing it offers to install a self-contained copy for you, so
+you do not need brew, pip, or a particular python version. At the end it pulls
+your real numbers so the dashboard is not empty on first open.
+
+### 3. Check it
+
+```bash
+jarvis doctor
+```
+
+This is the honest inventory: which brain answers, whether yt-dlp can actually
+*fetch* rather than merely exist, which voice providers are live, and whether
+your microphone audio stays on this machine. Fix anything it flags before
+moving on.
+
+### 4. Open it
+
+```bash
 npm start          # http://localhost:4747
 ```
 
-That is the whole install. There is nothing to build and nothing to npm install.
+Type in the command bar, or press the mic and talk. Ask it "what can you do?"
+and it will tell you, based on what you actually turned on.
+
+### 5. Put the agents on a schedule
+
+```bash
+jarvis agents check     # would each one work? does it have what it needs?
+jarvis agents install   # launchd on macOS, cron on Linux
+```
+
+`check` runs first for a reason. It catches agents that will silently skip
+because a requirement is missing, before you rely on them running at 7am.
+
+That is the whole install. Steps 6 and 7 are optional.
+
+### 6. Free local voice (optional)
+
+```bash
+jarvis voice install    # Docker if you have it, native if you do not
+jarvis voice start
+```
+
+### 7. Keep your microphone off the internet (optional)
+
+Without this, speech recognition falls back to the browser, which is
+Chrome-only and uploads your audio to Google. `jarvis doctor` tells you which
+one you are on.
+
+```bash
+brew install whisper-cpp        # or your distro's package
+curl -L -o ~/models/ggml-base.en.bin --create-dirs \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+```
+
+Then point `stt.local.model_path` at that file, in `config.json` or the
+settings panel.
+
+### Day to day
 
 ```bash
 jarvis doctor              # what is wired up and what is missing
-jarvis agents              # list agents and schedules
-jarvis agent morning       # run one right now instead of waiting for 7am
-jarvis agents install      # put them on launchd (macOS) or cron (Linux)
+jarvis agents              # list agents, schedules, last run
+jarvis agent morning       # run one now instead of waiting for 7am
 jarvis transcript <url>    # transcript of any YouTube video
-jarvis index               # rebuild the index.md in every documents folder
+jarvis index               # rebuild index.md in every documents folder
+jarvis ytdlp status        # is yt-dlp current and can it fetch
 ```
 
 ## Transcripts cost nothing

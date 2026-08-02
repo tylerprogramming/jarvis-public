@@ -47,11 +47,31 @@ async function main() {
 
   // ---- prerequisites
   const claude = has("claude");
-  const ytdlp = has("yt-dlp");
   console.log(`  claude code : ${claude ? "found" : "MISSING - chat and agents will not run"}`);
+  if (!claude) {
+    console.log(`                install: https://claude.com/claude-code`);
+    console.log(`                or point brain.openai.base_url at a local model later`);
+  }
+
+  // A yt-dlp on PATH is not enough: an old one still answers --version and
+  // then fails every request. Offer the bundled build rather than leaving the
+  // user with a dashboard full of zeroes and no idea why.
+  let ytdlp = fs.existsSync(path.join(ROOT, "bin", "yt-dlp")) || has("yt-dlp");
   console.log(`  yt-dlp      : ${ytdlp ? "found" : "MISSING - YouTube numbers will be blank"}`);
-  if (!claude) console.log(`                install: https://claude.com/claude-code`);
-  if (!ytdlp) console.log(`                install: pipx install yt-dlp   (or brew install yt-dlp)`);
+  if (!ytdlp) {
+    console.log(`                Jarvis can install its own copy. It bundles python,`);
+    console.log(`                so it needs no brew, no pip, and no system python.`);
+    if (await askYes("  Install it now (about 38MB)", true)) {
+      try {
+        execFileSync("bash", [path.join(ROOT, "scripts", "ytdlp.sh"), "install"], {
+          stdio: "inherit",
+        });
+        ytdlp = fs.existsSync(path.join(ROOT, "bin", "yt-dlp"));
+      } catch {
+        console.log("  install failed - you can retry later with: jarvis ytdlp install");
+      }
+    }
+  }
   console.log();
 
   const cfg = readJson(path.join(ROOT, "config.json"), {});
