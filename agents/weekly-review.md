@@ -27,6 +27,8 @@ Targets: {{targets}}.
    execute on Monday, chosen to address the biggest gap you just identified.
    One experiment, not a list.
 
-6. Write {{reports}}/{{today}}-weekly-review.md. Under 40 lines, real numbers
+6. Write {{reports}}/{{today}}-weekly.md. Under 40 lines, real numbers
    only, no em dashes. Make the experiment the #1 directive in
    {{data}}/directives.json.
+
+{{doc_convention}}

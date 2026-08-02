@@ -30,3 +30,5 @@ Goal: pick next week's topics on evidence, not vibes.
 
 5. Add ONE directive to {{data}}/directives.json naming the two picks. Keep the
    maximum of 3 not-done directives, and do not drop operator-added ones.
+
+{{doc_convention}}

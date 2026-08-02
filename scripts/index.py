@@ -45,26 +45,35 @@ def expand(p):
 
 
 def summarize(path):
-    """Title, date, and a one-line gist, cheap enough to run over a whole tree."""
+    """Title, date, kind, status, and a one-line gist, from frontmatter first."""
     title = os.path.splitext(os.path.basename(path))[0]
     date = ""
+    kind = ""
+    status = ""
     gist = ""
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             head = f.read(4000)
     except Exception:
-        return title, date, gist
+        return title, date, kind, status, gist
 
     # YAML frontmatter, if present
     fm = re.match(r"^---\n(.*?)\n---", head, re.S)
     body = head[fm.end():] if fm else head
     if fm:
         for line in fm.group(1).split("\n"):
-            m = re.match(r"\s*(title|date|status)\s*:\s*(.+)", line, re.I)
-            if m and m.group(1).lower() == "title":
-                title = m.group(2).strip().strip("\"'")
-            elif m and m.group(1).lower() == "date":
-                date = m.group(2).strip()
+            m = re.match(r"\s*(title|date|kind|status)\s*:\s*(.+)", line, re.I)
+            if not m:
+                continue
+            key, val = m.group(1).lower(), m.group(2).strip().strip("\"'")
+            if key == "title":
+                title = val
+            elif key == "date":
+                date = val
+            elif key == "kind":
+                kind = val
+            elif key == "status":
+                status = val
 
     for line in body.split("\n"):
         s = line.strip()
@@ -82,7 +91,10 @@ def summarize(path):
     if not date:
         m = re.search(r"(20\d{2}-\d{2}-\d{2})", os.path.basename(path))
         date = m.group(1) if m else datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d")
-    return title, date, gist
+    if not kind:
+        m = re.match(r"20\d{2}-\d{2}-\d{2}-([a-z0-9]+)", os.path.basename(path))
+        kind = m.group(1) if m else ""
+    return title, date, kind, status, gist
 
 
 def index_folder(folder, depth=0):
@@ -115,8 +127,8 @@ def index_folder(folder, depth=0):
 
     rows = []
     for name in docs:
-        title, date, gist = summarize(os.path.join(folder, name))
-        rows.append((date, title, name, gist))
+        title, date, kind, status, gist = summarize(os.path.join(folder, name))
+        rows.append((date, title, name, kind, status, gist))
     rows.sort(key=lambda r: r[0], reverse=True)
 
     label = os.path.basename(folder.rstrip("/")) or folder
@@ -137,8 +149,14 @@ def index_folder(folder, depth=0):
 
     if rows:
         out += ["## Documents", ""]
-        for date, title, name, gist in rows:
-            line = f"- **{date}** — [{title}]({name})"
+        for date, title, name, kind, status, gist in rows:
+            tags = []
+            if kind:
+                tags.append(f"`{kind}`")
+            # only flag a status worth acting on; "final" is the norm and adds noise
+            if status and status.lower() not in ("final", "done", "published"):
+                tags.append(f"**{status.upper()}**")
+            line = f"- **{date}** {' '.join(tags)} [{title}]({name})".replace("  ", " ")
             if gist:
                 line += f" — {gist}"
             out.append(line)

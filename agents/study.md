@@ -46,3 +46,5 @@ watching six hours of YouTube.
    at the top of the report instead.
 
 Never invent what a video said. If you could not read it, say you could not.
+
+{{doc_convention}}

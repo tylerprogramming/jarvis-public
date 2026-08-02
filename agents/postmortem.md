@@ -35,3 +35,5 @@ becomes evidence for the next one.
    file: adjust the confirmation date or add the new evidence, and add a
    changelog line. Distilled rules only, never raw data dumps. If no playbook
    is configured, put the rule at the top of the report instead.
+
+{{doc_convention}}
