@@ -14,8 +14,17 @@ becomes evidence for the next one.
    how views have moved. For a fuller list, run:
    yt-dlp "https://www.youtube.com/{{youtube}}/videos" --flat-playlist --playlist-end 12 --print "%(id)s|%(title)s|%(view_count)s|%(upload_date)s|%(duration)s" --no-warnings
 
-2. Find any video published 2 days ago or 7 days ago (give or take a day). If
-   there are none, print "no videos in window" and STOP. Do not write a report.
+2. Find any video published 2 days ago or 7 days ago (give or take a day).
+
+   BACKFILL: if nothing is in that window, check {{reports}} for existing
+   postmortem files. If the most recent upload has never been reviewed, review
+   it now regardless of age and say in the report that it is a backfill of a
+   video that predates the agent. This only matters once: without it every
+   video published before Jarvis was installed is skipped forever, and a new
+   install has nothing to learn from until the next upload lands.
+
+   If the window is empty AND the latest video already has a report, print
+   "no videos in window" and STOP. Do not write anything.
 
 3. For each video in the window, compare it against the channel's own recent
    baseline: views per day versus the median of the last 10 uploads, and how it
