@@ -14,9 +14,9 @@ const path = require("path");
 const { spawn, execFile } = require("child_process");
 
 const { load, expand, merge } = require("./lib/config");
-const personaLib = require("./lib/persona");
 const tts = require("./lib/tts");
 const stt = require("./lib/stt");
+const brain = require("./lib/brain");
 const agentsLib = require("./lib/agents");
 
 const CFG = load();
@@ -133,8 +133,8 @@ function apiDirectives(res, body) {
   sendJson(res, { directives: cur.directives });
 }
 
-// ---------- chat: route to claude code ----------
-function apiChat(req, res, body) {
+// ---------- chat: route to the configured brain ----------
+async function apiChat(req, res, body) {
   const message = (body.message || "").trim();
   if (!message) return sendJson(res, { error: "empty message" }, 400);
 
@@ -145,64 +145,23 @@ function apiChat(req, res, body) {
   });
   const send = (ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
 
-  const args = [
-    "-p", message,
-    "--output-format", "stream-json",
-    "--include-partial-messages",
-    "--verbose",
-    "--permission-mode", CFG.chat.permission_mode,
-    "--allowedTools", CFG.chat.allowed_tools,
-    "--append-system-prompt", personaLib.build(CFG),
-  ];
-  if (CFG.chat.disallowed_tools) args.push("--disallowedTools", CFG.chat.disallowed_tools);
-  if (CFG.chat.model) args.push("--model", CFG.chat.model);
-  if (body.sessionId) args.push("--resume", body.sessionId);
-
-  let child;
-  try {
-    child = spawn("claude", args, {
-      cwd: expand(CFG.chat.cwd),
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-  } catch (e) {
-    send("error", { code: String(e) });
-    return res.end();
-  }
-
-  let buf = "";
-  child.stdout.on("data", (chunk) => {
-    buf += chunk.toString();
-    let nl;
-    while ((nl = buf.indexOf("\n")) >= 0) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (!line) continue;
-      let ev;
-      try { ev = JSON.parse(line); } catch { continue; }
-      if (ev.type === "system" && ev.subtype === "init") {
-        send("session", { sessionId: ev.session_id });
-      } else if (ev.type === "stream_event") {
-        const d = ev.event || {};
-        if (d.type === "content_block_delta" && d.delta && d.delta.type === "text_delta")
-          send("delta", { text: d.delta.text });
-      } else if (ev.type === "assistant" && ev.message) {
-        for (const block of ev.message.content || [])
-          if (block.type === "tool_use") send("tool", { name: block.name });
-      } else if (ev.type === "result") {
-        send("done", { result: ev.result || "", cost: ev.total_cost_usd, sessionId: ev.session_id });
-      }
-    }
-  });
-  child.stderr.on("data", (c) => send("log", { text: c.toString().slice(0, 500) }));
-  child.on("error", (err) => { send("error", { code: String(err) }); res.end(); });
   let finished = false;
-  child.on("close", (code) => {
-    finished = true;
-    if (code !== 0) send("error", { code });
-    res.end();
+  const handle = await brain.chat(CFG, {
+    message,
+    sessionId: body.sessionId,
+    on: {
+      session: (sessionId) => send("session", { sessionId }),
+      delta: (text) => send("delta", { text }),
+      tool: (name) => send("tool", { name }),
+      log: (text) => send("log", { text: String(text).slice(0, 500) }),
+      done: (payload) => send("done", payload),
+      error: (code) => send("error", { code }),
+      end: () => { finished = true; res.end(); },
+    },
   });
-  res.on("close", () => { if (!finished) child.kill("SIGTERM"); });
+
+  // client aborted mid-answer - stop the model rather than burning tokens
+  res.on("close", () => { if (!finished) handle.kill(); });
 }
 
 // ---------- agents ----------
@@ -273,6 +232,7 @@ async function apiStatus(res) {
     voice: await tts.status(CFG),
     stt: await stt.status(CFG),
     stt_server_side: await stt.serverSideAvailable(CFG),
+    brain: await brain.status(CFG),
     configured: CFG.configured,
   });
 }
@@ -294,6 +254,7 @@ function apiGetConfig(res) {
       knowledge: CFG.knowledge,
       voice: { chain: CFG.voice.chain },
       stt: { chain: CFG.stt.chain },
+      brain: { chain: CFG.brain.chain, openai: CFG.brain.openai },
       agents: CFG.agents,
       documents_dirs: CFG.documents_dirs,
       server: { host: CFG.server.host, port: CFG.server.port, token: CFG.server.token ? "set" : null },

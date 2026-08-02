@@ -39,9 +39,11 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 | `scout` | Fri 15:00 | Search what is actually pulling right now, hand back two topics with evidence |
 | `weekly-review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
 
-**A command bar with hands.** Type or talk, and it goes to Claude Code running
-headless with your context loaded. It reads your files, edits your data, runs
-your tools. Voice in and voice out both work for free.
+**A command bar with hands.** Type or talk, and it goes to a real agent with
+your context loaded — it reads your files, edits your data, runs your tools.
+[Claude Code](https://claude.com/claude-code) is the default and the best
+option; if you don't have it, any OpenAI-compatible endpoint works instead,
+including a local model. Voice in and voice out both work for free.
 
 **It draws its own conclusions.** A number on a dashboard is not insight. The
 agents compare, judge, and write down what they learned, so next week starts
@@ -66,6 +68,27 @@ jarvis agents           # list agents and schedules
 jarvis agent morning    # run one right now instead of waiting for 7am
 jarvis agents install   # put them on launchd (macOS) or cron (Linux)
 ```
+
+## The brain
+
+The command bar needs a model with tools behind it. Jarvis walks a chain and
+uses the first that works:
+
+| Provider | Cost | Notes |
+|---|---|---|
+| [Claude Code](https://claude.com/claude-code) | your existing subscription | **Default.** Brings its own tools, sessions, and any skills you've installed. Nothing to configure. |
+| OpenAI-compatible | your key, or free locally | Any `/v1/chat/completions` endpoint. Set `OPENAI_API_KEY`, or point `brain.openai.base_url` at [Ollama](https://ollama.com) / LM Studio / llama.cpp and run with no key and no cloud. |
+
+A raw chat endpoint has no tools of its own, so Jarvis supplies them: file
+read, write, search, directory listing, and an allowlisted shell. That's what
+lets an OpenAI-backed Jarvis actually open `vitals.json` and edit a directive
+rather than just talk about them.
+
+Those tools are bounded twice — paths must resolve inside your working
+directory or the Jarvis folder, and `brain.denied_patterns` refuses secrets
+(`.ssh/`, `.env`, `credentials.json`, private keys) even inside it. Worth
+reading [docs/SECURITY.md](docs/SECURITY.md) before pointing it at a hosted
+API, since whatever a tool reads gets sent there.
 
 ## Voice
 

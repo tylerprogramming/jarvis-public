@@ -128,8 +128,14 @@ async function main() {
       console.log(`    youtube            ${cfg.profile.channels.youtube || "(unset)"}`);
       console.log(`    persona override   ${ok(fs.existsSync(path.join(ROOT, "PERSONA.md")))}`);
 
+      const brain = require(path.join(ROOT, "lib", "brain"));
+      const brainStatus = await brain.status(cfg);
+      console.log(`\n  BRAIN (${cfg.brain.chain.join(" -> ")})`);
+      console.log(`    claude code        ${ok(brainStatus.providers["claude-code"])}`);
+      console.log(`    openai-compatible  ${ok(brainStatus.providers.openai)}   ${cfg.brain.openai.base_url}`);
+      console.log(`    active             ${brainStatus.active || "NONE - chat will not work"}`);
+
       console.log(`\n  TOOLS`);
-      console.log(`    claude code        ${ok(has("claude"))}`);
       console.log(`    yt-dlp             ${ytdlpStatus()}`);
       console.log(`    ffmpeg             ${ok(mic.ffmpeg)}   (needed for local whisper)`);
 

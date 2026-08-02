@@ -69,7 +69,7 @@
   },
 
   "voice": {
-    "chain": ["elevenlabs", "kokoro", "piper", "system", "browser"],
+    "chain": ["kokoro", "elevenlabs", "piper", "system", "browser"],
     "elevenlabs": {
       "voice_id": "onwK4e9ZLuTAKqWW03F9",
       "model_id": "eleven_flash_v2_5",
@@ -89,6 +89,15 @@
       "voice": "Daniel",
       "rate": 190
     }
+  },
+
+  "brain": {
+    "chain": ["claude-code", "openai"],
+    "openai": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4.1"
+    },
+    "allowed_commands": ["yt-dlp", "python3", "ls", "cat", "wc", "date"]
   },
 
   "stt": {

@@ -72,6 +72,19 @@
         <div class="snote">Schedules apply after running <code>jarvis agents install</code>.</div>
       </section>
 
+      <section><h4>BRAIN</h4>
+        <div class="srow">
+          <span>claude code ${yesno(status.brain.providers["claude-code"])}</span>
+          <span>openai-compatible ${yesno(status.brain.providers.openai)}</span>
+          <span>active: <b>${esc(status.brain.active || "none")}</b></span>
+        </div>
+        ${field("s-brain-url", "OpenAI-compatible base URL", (e.brain.openai || {}).base_url, "any /v1 endpoint: OpenAI, Ollama, LM Studio, OpenRouter")}
+        ${field("s-brain-model", "Model", (e.brain.openai || {}).model)}
+        <div class="snote">Claude Code is used when installed; it brings its own tools and is
+        the better option. The OpenAI path needs <code>OPENAI_API_KEY</code> in <code>.env</code>,
+        or no key at all if the base URL is a local server.</div>
+      </section>
+
       <section><h4>VOICE OUT</h4>
         <div class="srow">${["elevenlabs", "kokoro", "piper", "system", "browser"]
           .map((k) => `<span>${k} ${yesno(status.voice[k])}</span>`).join("")}</div>
@@ -121,6 +134,7 @@
       })),
       radar: { channels: listVal("s-radar") },
       research: { lanes: listVal("s-lanes") },
+      brain: { openai: { base_url: $("s-brain-url").value, model: $("s-brain-model").value } },
       knowledge: { brain_files: listVal("s-brain") },
       agents: {
         enabled: [...document.querySelectorAll("[data-agent]")]

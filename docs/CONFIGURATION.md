@@ -104,6 +104,43 @@ these directories.
 `cwd` is where the agent starts, so point it at the folder you actually work
 in. See [SECURITY.md](SECURITY.md) before widening `allowed_tools`.
 
+## brain
+
+Which model answers the command bar. Ordered chain, first available wins.
+
+```json
+{
+  "brain": {
+    "chain": ["claude-code", "openai"],
+    "openai": { "base_url": "https://api.openai.com/v1", "model": "gpt-4.1" },
+    "allowed_commands": ["yt-dlp", "python3", "ls", "cat", "wc", "date"],
+    "denied_patterns": ["\\.ssh/", "\\.env", "credentials\\.json"]
+  }
+}
+```
+
+`claude-code` needs nothing configured — if the `claude` CLI is installed it is
+used, with its own tools and skills. It reads `chat.*` for working directory,
+permission mode, and allowed tools.
+
+`openai` is any OpenAI-compatible `/v1/chat/completions` endpoint. Point
+`base_url` at a local server (`http://127.0.0.1:11434/v1` for Ollama,
+`http://127.0.0.1:1234/v1` for LM Studio) to run with no key and no cloud, or
+leave it at OpenAI and set `OPENAI_API_KEY` in `.env`. `BRAIN_API_KEY`
+overrides the key for third-party gateways.
+
+Because a chat endpoint has no tools of its own, Jarvis gives this brain file
+read/write/search plus `run_command`. `allowed_commands` is a binary allowlist
+— anything not listed is refused. `denied_patterns` are regexes checked against
+every resolved path and refused even inside an allowed directory; omit the key
+to keep the built-in secret list, or set your own to replace it.
+
+To force one provider, set the chain to a single entry:
+
+```json
+{ "brain": { "chain": ["openai"] } }
+```
+
 ## voice and stt
 
 Ordered fallback chains. The first provider that works wins.

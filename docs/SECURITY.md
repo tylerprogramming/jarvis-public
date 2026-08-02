@@ -48,6 +48,37 @@ Not behind a port forward, not on a public VPS with the port open. If you need
 it remotely, use a VPN (Tailscale is the easy answer) so the machine is never
 publicly reachable in the first place.
 
+## Which brain you pick changes where your files go
+
+Jarvis runs the command bar on Claude Code when it is installed, and on an
+OpenAI-compatible endpoint otherwise. That choice is a data-flow decision:
+
+- **Claude Code** brings its own tools and its own permission model. Its scope
+  is whatever `chat.cwd` points at.
+- **The OpenAI-compatible brain** has no tools of its own, so Jarvis gives it
+  file read/write/search and an allowlisted shell. **Whatever those tools read
+  is sent to whichever API is serving the model** — OpenAI, OpenRouter, or a
+  local server, depending on `brain.openai.base_url`. Point it at Ollama or
+  LM Studio and nothing leaves the machine.
+
+Two gates bound those tools. First, every path is resolved and must land inside
+`chat.cwd`, the Jarvis directory, or a configured documents/knowledge directory.
+Second, `brain.denied_patterns` refuses obvious secrets even when the path is
+otherwise allowed — `.ssh/`, `.aws/`, `.env`, `credentials.json`, `*.pem`,
+private keys, keychains. This matters because **`chat.cwd` defaults to your
+home directory**, which is a reasonable working scope and also full of things a
+model has no reason to open.
+
+Narrow it if you can. Pointing `chat.cwd` at the one folder you actually work
+in is the single highest-value change here:
+
+```json
+{ "chat": { "cwd": "~/work/content" } }
+```
+
+Shell access for this brain is deny-by-default: `run_command` refuses anything
+whose binary is not in `brain.allowed_commands`.
+
 ## Narrowing what the agent can do
 
 `chat.allowed_tools` in `config.json` controls the blast radius. The shipped
