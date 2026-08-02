@@ -1,0 +1,8 @@
+{
+  "directives": [
+    { "text": "Run `jarvis setup` and tell Jarvis who you are", "done": false },
+    { "text": "Say hello in the command bar to check the Claude Code link", "done": false },
+    { "text": "Add a channel to radar.channels so the sweep has something to watch", "done": false }
+  ],
+  "updated_at": "1970-01-01"
+}

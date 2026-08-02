@@ -1,0 +1,24 @@
+.DS_Store
+node_modules/
+
+# Your setup and your secrets. Never commit these.
+config.json
+.env
+PERSONA.md
+
+# Everything Jarvis generates about you.
+data/*.json
+data/*.log
+!data/*.example.json
+reports/*
+drafts/*
+!reports/.gitkeep
+!drafts/.gitkeep
+
+# Private integrations you drop in. See plugins/collectors/README.md.
+plugins/collectors/*
+!plugins/collectors/README.md
+!plugins/collectors/*.example.py
+
+__pycache__/
+*.pyc

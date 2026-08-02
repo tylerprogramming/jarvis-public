@@ -1,0 +1,435 @@
+#!/usr/bin/env node
+/* Jarvis server - zero npm dependencies.
+ *
+ * Serves the HUD, exposes vitals and agents, and routes chat to headless
+ * Claude Code. Everything personal comes from config.json (see config.js).
+ *
+ * Security posture: /api/chat spawns a coding agent with write access to this
+ * machine, so the server binds to loopback only. Exposing it on a LAN address
+ * requires an explicit token - see docs/SECURITY.md.
+ */
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const { spawn, execFile } = require("child_process");
+
+const { load, expand, merge } = require("./lib/config");
+const personaLib = require("./lib/persona");
+const tts = require("./lib/tts");
+const stt = require("./lib/stt");
+const agentsLib = require("./lib/agents");
+
+const CFG = load();
+const ROOT = CFG.paths.root;
+const PORT = CFG.server.port || 4747;
+const HOST = CFG.server.host || "127.0.0.1";
+const TOKEN = CFG.server.token || null;
+
+const MAX_JSON = 1 * 1024 * 1024; // 1 MB
+const MAX_AUDIO = 25 * 1024 * 1024; // 25 MB
+
+const readJson = (p, fb) => {
+  try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return fb; }
+};
+
+const isLoopback = (h) =>
+  h === "127.0.0.1" || h === "localhost" || h === "::1" || h === "0:0:0:0:0:0:0:1";
+
+// ---------- documents trail ----------
+function docDirs() {
+  return [...new Set([CFG.paths.reports, CFG.paths.drafts, ...CFG.documents_dirs.map(expand)])];
+}
+
+function documents() {
+  const out = [];
+  for (const dir of docDirs()) {
+    let entries = [];
+    try { entries = fs.readdirSync(dir); } catch { continue; }
+    for (const name of entries) {
+      if (name.startsWith(".")) continue;
+      const full = path.join(dir, name);
+      let st;
+      try { st = fs.statSync(full); } catch { continue; }
+      if (st.isDirectory()) {
+        // research runs are folders with a report.md inside
+        const rep = path.join(full, "report.md");
+        if (fs.existsSync(rep)) out.push({ name, file: rep, mtime: fs.statSync(rep).mtimeMs });
+        continue;
+      }
+      if (!/\.(md|txt)$/i.test(name)) continue;
+      out.push({ name: name.replace(/\.(md|txt)$/i, ""), file: full, mtime: st.mtimeMs });
+    }
+  }
+  out.sort((a, b) => b.mtime - a.mtime);
+  return out.slice(0, 9).map((d) => ({ name: d.name, file: d.file, age: relAge(d.mtime) }));
+}
+
+function relAge(ms) {
+  const s = (Date.now() - ms) / 1000;
+  if (s < 3600) return Math.max(1, Math.round(s / 60)) + "m";
+  if (s < 86400) return Math.round(s / 3600) + "h";
+  return Math.round(s / 86400) + "d";
+}
+
+// ---------- api handlers ----------
+function apiData(res) {
+  const p = CFG.profile || {};
+  sendJson(res, {
+    config: {
+      name: CFG.name,
+      tagline: CFG.tagline,
+      primary_cards: CFG.primary_cards,
+      speak_replies: CFG.chat.speak_replies,
+      vitals_show: (CFG.vitals || {}).show || [],
+      channels: p.channels || {},
+      community_label: (p.community || {}).label || "Community",
+      calendar_enabled: (CFG.calendar || {}).enabled !== false,
+      configured: CFG.configured,
+      owner: p.owner || "",
+    },
+    vitals: readJson(path.join(CFG.paths.data, "vitals.json"), {}),
+    history: readJson(path.join(CFG.paths.data, "history.json"), []),
+    calendar: readJson(path.join(CFG.paths.data, "calendar.json"), null),
+    radar: readJson(path.join(CFG.paths.data, "radar.json"), null),
+    directives: readJson(path.join(CFG.paths.data, "directives.json"), { directives: [] }).directives,
+    documents: documents(),
+  });
+}
+
+/* Only serves files that genuinely live inside a configured documents dir,
+ * checked after resolving symlinks so ../ and link tricks cannot escape. */
+function apiDoc(res, q) {
+  const requested = q.get("f") || "";
+  let real;
+  try { real = fs.realpathSync(requested); } catch { return sendJson(res, { error: "not found" }, 404); }
+  const allowed = docDirs().some((dir) => {
+    let realDir;
+    try { realDir = fs.realpathSync(dir); } catch { return false; }
+    return real === realDir || real.startsWith(realDir + path.sep);
+  });
+  if (!allowed) return sendJson(res, { error: "not found" }, 404);
+  sendJson(res, { name: path.basename(real), content: fs.readFileSync(real, "utf8") });
+}
+
+function apiRefresh(res) {
+  execFile("python3", [path.join(ROOT, "scripts/collect.py"), "--fetch"], { timeout: 300000 },
+    (err, stdout, stderr) => {
+      if (err) return sendJson(res, { error: String(stderr || err).slice(0, 500) }, 500);
+      apiData(res);
+    });
+}
+
+function apiDirectives(res, body) {
+  const p = path.join(CFG.paths.data, "directives.json");
+  const cur = readJson(p, { directives: [] });
+  if (typeof body.toggle === "number" && cur.directives[body.toggle])
+    cur.directives[body.toggle].done = !cur.directives[body.toggle].done;
+  if (body.add) cur.directives.push({ text: String(body.add).slice(0, 200), done: false });
+  if (typeof body.remove === "number" && cur.directives[body.remove])
+    cur.directives.splice(body.remove, 1);
+  cur.updated_at = new Date().toLocaleDateString("sv-SE");
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(cur, null, 2));
+  sendJson(res, { directives: cur.directives });
+}
+
+// ---------- chat: route to claude code ----------
+function apiChat(req, res, body) {
+  const message = (body.message || "").trim();
+  if (!message) return sendJson(res, { error: "empty message" }, 400);
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  const send = (ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  const args = [
+    "-p", message,
+    "--output-format", "stream-json",
+    "--include-partial-messages",
+    "--verbose",
+    "--permission-mode", CFG.chat.permission_mode,
+    "--allowedTools", CFG.chat.allowed_tools,
+    "--append-system-prompt", personaLib.build(CFG),
+  ];
+  if (CFG.chat.disallowed_tools) args.push("--disallowedTools", CFG.chat.disallowed_tools);
+  if (CFG.chat.model) args.push("--model", CFG.chat.model);
+  if (body.sessionId) args.push("--resume", body.sessionId);
+
+  let child;
+  try {
+    child = spawn("claude", args, {
+      cwd: expand(CFG.chat.cwd),
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (e) {
+    send("error", { code: String(e) });
+    return res.end();
+  }
+
+  let buf = "";
+  child.stdout.on("data", (chunk) => {
+    buf += chunk.toString();
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let ev;
+      try { ev = JSON.parse(line); } catch { continue; }
+      if (ev.type === "system" && ev.subtype === "init") {
+        send("session", { sessionId: ev.session_id });
+      } else if (ev.type === "stream_event") {
+        const d = ev.event || {};
+        if (d.type === "content_block_delta" && d.delta && d.delta.type === "text_delta")
+          send("delta", { text: d.delta.text });
+      } else if (ev.type === "assistant" && ev.message) {
+        for (const block of ev.message.content || [])
+          if (block.type === "tool_use") send("tool", { name: block.name });
+      } else if (ev.type === "result") {
+        send("done", { result: ev.result || "", cost: ev.total_cost_usd, sessionId: ev.session_id });
+      }
+    }
+  });
+  child.stderr.on("data", (c) => send("log", { text: c.toString().slice(0, 500) }));
+  child.on("error", (err) => { send("error", { code: String(err) }); res.end(); });
+  let finished = false;
+  child.on("close", (code) => {
+    finished = true;
+    if (code !== 0) send("error", { code });
+    res.end();
+  });
+  res.on("close", () => { if (!finished) child.kill("SIGTERM"); });
+}
+
+// ---------- agents ----------
+const RUNNING = new Set();
+
+function apiAgents(res) {
+  const defined = agentsLib.list(CFG);
+  execFile("ps", ["ax", "-o", "command"], (err, stdout) => {
+    const procs = err ? "" : stdout;
+    const out = defined.map((a) => {
+      let lastRun = null;
+      try { lastRun = fs.statSync(a.log).mtimeMs; } catch {}
+      return {
+        id: a.name,
+        label: a.label,
+        tag: a.schedule ? cronLabel(a.schedule) : "ON DEMAND",
+        description: a.description || "",
+        enabled: a.enabled,
+        running: RUNNING.has(a.name) || procs.includes(`agents/${a.name}.md`),
+        unmet: agentsLib.unmetRequirements(a, CFG),
+        lastRun,
+      };
+    });
+    out.push({ id: "runner", label: "RUNNER", tag: "ON DEMAND", enabled: true, running: false, unmet: [], lastRun: null });
+    sendJson(res, { agents: out });
+  });
+}
+
+/* "0 7 * * *" -> "07:00", "0 15 * * 5" -> "FRI 15:00" */
+function cronLabel(expr) {
+  const [min, hour, , , dow] = String(expr).split(/\s+/);
+  const pad = (n) => String(n).padStart(2, "0");
+  const time = `${pad(hour)}:${pad(min)}`;
+  const days = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  if (dow && dow !== "*" && days[Number(dow)]) return `${days[Number(dow)]} ${time}`;
+  return time;
+}
+
+async function apiAgentRun(res, body) {
+  const name = String(body.name || "");
+  const agent = agentsLib.get(CFG, name);
+  if (!agent) return sendJson(res, { error: "unknown agent" }, 404);
+  if (RUNNING.has(name)) return sendJson(res, { error: "already running" }, 409);
+  RUNNING.add(name);
+  sendJson(res, { started: name });
+  agentsLib.run(CFG, name).catch(() => {}).finally(() => RUNNING.delete(name));
+}
+
+// ---------- voice ----------
+async function apiTts(res, body) {
+  const text = String(body.text || "").slice(0, 2000);
+  if (!text) return sendJson(res, { error: "no text" }, 400);
+  const out = await tts.speak(text, CFG);
+  if (out.browser) return sendJson(res, { browser: true }, 503);
+  res.writeHead(200, { "Content-Type": out.mime, "X-Jarvis-Voice": out.provider });
+  res.end(out.buffer);
+}
+
+async function apiStt(res, buf, mime) {
+  if (!buf || !buf.length) return sendJson(res, { error: "no audio" }, 400);
+  const out = await stt.transcribe(buf, mime || "audio/webm", CFG);
+  if (out.browser) return sendJson(res, { browser: true }, 503);
+  sendJson(res, { text: out.text, provider: out.provider });
+}
+
+async function apiStatus(res) {
+  sendJson(res, {
+    voice: await tts.status(CFG),
+    stt: await stt.status(CFG),
+    stt_server_side: await stt.serverSideAvailable(CFG),
+    configured: CFG.configured,
+  });
+}
+
+// ---------- settings panel ----------
+const SECRET_KEYS = /token|key|secret/i;
+
+function apiGetConfig(res) {
+  const user = readJson(path.join(ROOT, "config.json"), {});
+  sendJson(res, {
+    user,
+    effective: {
+      name: CFG.name,
+      tagline: CFG.tagline,
+      profile: CFG.profile,
+      primary_cards: CFG.primary_cards,
+      radar: CFG.radar,
+      research: CFG.research,
+      knowledge: CFG.knowledge,
+      voice: { chain: CFG.voice.chain },
+      stt: { chain: CFG.stt.chain },
+      agents: CFG.agents,
+      documents_dirs: CFG.documents_dirs,
+      server: { host: CFG.server.host, port: CFG.server.port, token: CFG.server.token ? "set" : null },
+    },
+  });
+}
+
+/* Writes the user's config.json. Secrets belong in .env, never here, so any
+ * key that looks like a credential is refused rather than silently stored. */
+function apiPutConfig(res, body) {
+  const patch = body && body.patch;
+  if (!patch || typeof patch !== "object") return sendJson(res, { error: "no patch" }, 400);
+  const offending = [];
+  (function scan(o, trail) {
+    for (const [k, v] of Object.entries(o || {})) {
+      if (SECRET_KEYS.test(k) && v) offending.push([...trail, k].join("."));
+      if (v && typeof v === "object" && !Array.isArray(v)) scan(v, [...trail, k]);
+    }
+  })(patch, []);
+  if (offending.length)
+    return sendJson(res, { error: `put secrets in .env, not config.json: ${offending.join(", ")}` }, 400);
+
+  const file = path.join(ROOT, "config.json");
+  const current = readJson(file, {});
+  const next = merge(current, patch);
+  fs.writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
+  sendJson(res, { saved: true, restart_required: true });
+}
+
+// ---------- plumbing ----------
+function sendJson(res, obj, code = 200) {
+  res.writeHead(code, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(obj));
+}
+
+const MIME = {
+  ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
+  ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2",
+  ".ico": "image/x-icon", ".json": "application/json",
+};
+
+/* Token gate. Only engaged when a token is configured, which is required for
+ * any non-loopback bind. A token in the query string sets a cookie so the page
+ * and its fetches work from a bookmark. */
+function authorized(req, res, url) {
+  if (!TOKEN) return true;
+  const header = req.headers["x-jarvis-token"];
+  const query = url.searchParams.get("token");
+  const cookie = (req.headers.cookie || "").match(/jarvis_token=([^;]+)/);
+  const given = header || query || (cookie && decodeURIComponent(cookie[1]));
+  if (given === TOKEN) {
+    if (query) res.setHeader("Set-Cookie", `jarvis_token=${encodeURIComponent(TOKEN)}; Path=/; HttpOnly; SameSite=Strict`);
+    return true;
+  }
+  res.writeHead(401, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: "unauthorized" }));
+  return false;
+}
+
+function collectBody(req, res, limit, cb) {
+  const chunks = [];
+  let size = 0;
+  let aborted = false;
+  req.on("data", (c) => {
+    if (aborted) return;
+    size += c.length;
+    if (size > limit) {
+      aborted = true;
+      sendJson(res, { error: "payload too large" }, 413);
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
+  req.on("end", () => { if (!aborted) cb(Buffer.concat(chunks)); });
+}
+
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, "http://x");
+  if (!authorized(req, res, url)) return;
+
+  if (req.method === "GET") {
+    if (url.pathname === "/api/data") return apiData(res);
+    if (url.pathname === "/api/agents") return apiAgents(res);
+    if (url.pathname === "/api/doc") return apiDoc(res, url.searchParams);
+    if (url.pathname === "/api/status") return apiStatus(res);
+    if (url.pathname === "/api/config") return apiGetConfig(res);
+  }
+
+  if (req.method === "POST") {
+    // audio arrives as a raw body, everything else as JSON
+    if (url.pathname === "/api/stt") {
+      return collectBody(req, res, MAX_AUDIO, (buf) =>
+        apiStt(res, buf, req.headers["content-type"]));
+    }
+    return collectBody(req, res, MAX_JSON, (raw) => {
+      let body = {};
+      try { body = JSON.parse(raw.toString() || "{}"); } catch {}
+      if (url.pathname === "/api/chat") return apiChat(req, res, body);
+      if (url.pathname === "/api/directives") return apiDirectives(res, body);
+      if (url.pathname === "/api/tts") return apiTts(res, body);
+      if (url.pathname === "/api/refresh") return apiRefresh(res);
+      if (url.pathname === "/api/agents/run") return apiAgentRun(res, body);
+      if (url.pathname === "/api/config") return apiPutConfig(res, body);
+      sendJson(res, { error: "unknown endpoint" }, 404);
+    });
+  }
+
+  // static
+  const rel = url.pathname === "/" ? "/index.html" : url.pathname;
+  const file = path.join(ROOT, "public", path.normalize(rel));
+  if (!file.startsWith(path.join(ROOT, "public"))) return sendJson(res, { error: "forbidden" }, 403);
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile())
+    return sendJson(res, { error: "not found" }, 404);
+  res.writeHead(200, {
+    "Content-Type": MIME[path.extname(file)] || "text/plain",
+    "Cache-Control": "no-cache",
+  });
+  fs.createReadStream(file).pipe(res);
+});
+
+// A non-loopback bind without a token would hand anyone on the network a shell
+// through /api/chat. Refuse rather than warn.
+if (!isLoopback(HOST) && !TOKEN && process.env.JARVIS_ALLOW_INSECURE !== "1") {
+  console.error(
+    `\nRefusing to bind ${HOST} without a token.\n` +
+    `/api/chat runs a coding agent with write access to this machine.\n\n` +
+    `Fix: put JARVIS_TOKEN=<a long random string> in .env, or set server.host\n` +
+    `back to 127.0.0.1. See docs/SECURITY.md.\n`,
+  );
+  process.exit(1);
+}
+
+server.listen(PORT, HOST, () => {
+  const shown = isLoopback(HOST) ? "localhost" : HOST;
+  console.log(`JARVIS online -> http://${shown}:${PORT}${TOKEN ? "?token=..." : ""}`);
+  if (!CFG.configured)
+    console.log(`No config.json yet - run \`npm run setup\` to make this yours.`);
+});

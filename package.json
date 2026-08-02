@@ -1,0 +1,39 @@
+{
+  "name": "jarvis-hud",
+  "version": "2.0.0",
+  "description": "A self-hosted operations HUD for solo operators. Live vitals, scheduled agents that write their own reports, and a voice command bar wired to Claude Code.",
+  "license": "Unlicense",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "jarvis": "bin/jarvis"
+  },
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node scripts/setup.js",
+    "collect": "python3 scripts/collect.py --fetch",
+    "doctor": "node bin/jarvis doctor",
+    "agents": "node bin/jarvis agents"
+  },
+  "keywords": [
+    "jarvis",
+    "dashboard",
+    "hud",
+    "claude-code",
+    "ai-agents",
+    "self-hosted",
+    "voice-assistant"
+  ],
+  "dependencies": {},
+  "files": [
+    "bin",
+    "lib",
+    "agents",
+    "public",
+    "scripts",
+    "server.js",
+    "config.default.json"
+  ]
+}

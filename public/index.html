@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S.</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stars"></canvas>
+<canvas id="brain"></canvas>
+
+<header>
+  <div class="logo"><h1 id="name">J.A.R.V.I.S.</h1><span id="tagline"></span></div>
+  <div class="modes">
+    <span><span class="dot" id="dot-core"></span>CORE · <b id="m-core">ONLINE</b></span>
+    <span><span class="dot" id="dot-link"></span>LINK · <b id="m-link">ONLINE</b></span>
+    <span><span class="dot" id="dot-runner"></span>RUNNER · <b id="m-runner">IDLE</b></span>
+  </div>
+</header>
+
+<div class="rail left">
+  <div class="panel">
+    <h2>SYSTEM VITALS <small>AUDIENCE.LINK</small></h2>
+    <div id="vitals"></div>
+  </div>
+  <div class="panel">
+    <h2>DIRECTIVES <small>TOP.3</small></h2>
+    <div id="directives"></div>
+  </div>
+  <div class="panel">
+    <h2>RADAR <small>COMPETITOR.WATCH</small></h2>
+    <div id="radar"></div>
+  </div>
+  <div class="panel">
+    <h2>DOCUMENTS <small>INBOX.TRAIL</small></h2>
+    <div id="documents"></div>
+  </div>
+</div>
+
+<div class="rail right">
+  <div class="panel" id="comms">
+    <h2>COMMS <small>CLAUDE.CODE</small></h2>
+    <div class="msgs" id="msgs">
+      <div class="msg sys">channel open - all requests route to claude code in the background</div>
+    </div>
+  </div>
+</div>
+
+<div id="agents"></div>
+
+<div id="calstrip"></div>
+
+<div id="primary">
+  <div class="label" id="pd-label">PRIMARY DIRECTIVE</div>
+  <div class="big"><span id="pd-num">—</span> <small>SUBS</small></div>
+  <div class="meta" id="pd-meta"></div>
+  <div class="deploy" id="pd-deploy"></div>
+</div>
+
+<button id="mic" title="push to talk"><span>◉</span><small>VOICE</small></button>
+
+<div id="bar">
+  <button id="wake" title="wake word: say 'jarvis ...'">W</button>
+  <input id="cmd" autocomplete="off" placeholder="SPEAK OR TYPE A DIRECTIVE...">
+  <button id="speak" title="voice replies">♪</button>
+  <button id="theme" title="cycle theme (reactor / nebula / ember)">◐</button>
+  <button id="settings-btn" title="settings (cmd+,)">⚙</button>
+</div>
+
+<div id="modal"><div class="inner"><h3 id="modal-title"></h3><div id="modal-body"></div></div></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="app.js"></script>
+<script src="brain.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>

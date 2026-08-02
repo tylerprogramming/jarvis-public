@@ -1,0 +1,172 @@
+#!/usr/bin/env node
+/* Jarvis CLI.
+ *
+ *   jarvis                  start the HUD
+ *   jarvis setup            first-run wizard
+ *   jarvis collect [--fetch]refresh vitals
+ *   jarvis agents           list agents and their schedules
+ *   jarvis agent <name>     run one agent now, in the foreground
+ *   jarvis agents install   put enabled agents on the OS scheduler
+ *   jarvis agents uninstall remove them
+ *   jarvis doctor           check what is actually wired up
+ */
+const path = require("path");
+const fs = require("fs");
+const { spawn, execFileSync } = require("child_process");
+
+const ROOT = path.join(__dirname, "..");
+const { load } = require(path.join(ROOT, "lib", "config"));
+
+const [, , cmd = "start", ...rest] = process.argv;
+
+const has = (c) => {
+  try { execFileSync("which", [c], { stdio: "ignore" }); return true; } catch { return false; }
+};
+
+/* yt-dlp goes stale in a specific, confusing way: YouTube changes something,
+ * the old version starts erroring with "The page needs to be reloaded", and
+ * the dashboard quietly fills with zeroes. Jarvis retries on other clients,
+ * but the real fix is upgrading, so say so. */
+function ytdlpStatus() {
+  if (!has("yt-dlp")) return "no    install: pipx install yt-dlp";
+  let version = "";
+  try {
+    version = execFileSync("yt-dlp", ["--version"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"], // yt-dlp warns on stderr; not our problem
+    }).trim();
+  } catch {}
+  const m = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
+  if (!m) return `yes   (${version || "unknown version"})`;
+  const age = (Date.now() - Date.UTC(+m[1], +m[2] - 1, +m[3])) / 86400000;
+  if (age > 120)
+    return `yes   ${version} is ${Math.round(age)} days old - upgrade it: pipx upgrade yt-dlp`;
+  return `yes   (${version})`;
+}
+
+function run(file, args = [], opts = {}) {
+  const child = spawn(process.execPath, [file, ...args], { stdio: "inherit", cwd: ROOT, ...opts });
+  child.on("close", (code) => process.exit(code || 0));
+}
+
+function python(file, args = []) {
+  const child = spawn("python3", [file, ...args], { stdio: "inherit", cwd: ROOT });
+  child.on("close", (code) => process.exit(code || 0));
+}
+
+async function main() {
+  switch (cmd) {
+    case "start":
+      return run(path.join(ROOT, "server.js"));
+
+    case "setup":
+      return run(path.join(ROOT, "scripts", "setup.js"));
+
+    case "collect":
+      return python(path.join(ROOT, "scripts", "collect.py"), rest);
+
+    case "agent": {
+      const cfg = load();
+      const agents = require(path.join(ROOT, "lib", "agents"));
+      const name = rest[0];
+      if (!name) {
+        console.error("usage: jarvis agent <name>");
+        process.exit(1);
+      }
+      const res = await agents.run(cfg, name, { onLog: (l) => console.log(l) });
+      if (res.skipped) console.log(`skipped: missing config for ${res.missing.join(", ")}`);
+      return;
+    }
+
+    case "agents": {
+      const cfg = load();
+      const agents = require(path.join(ROOT, "lib", "agents"));
+      const schedule = require(path.join(ROOT, "lib", "schedule"));
+      const all = agents.list(cfg);
+      const sub = rest[0];
+
+      if (sub === "install") {
+        const { platform, installed } = await schedule.install(cfg, all);
+        if (!installed.length) {
+          console.log("nothing to install - no enabled agents have a schedule");
+          console.log(`enable some in config.json under agents.enabled`);
+          return;
+        }
+        console.log(`installed on ${platform === "darwin" ? "launchd" : "cron"}:`);
+        installed.forEach((i) => console.log(`  ${i}`));
+        return;
+      }
+      if (sub === "uninstall") {
+        const { removed } = await schedule.uninstall(cfg, all);
+        console.log(removed.length ? `removed: ${removed.join(", ")}` : "nothing installed");
+        return;
+      }
+
+      for (const a of all) {
+        const unmet = agents.unmetRequirements(a, cfg);
+        const state = !a.enabled ? "off" : unmet.length ? `needs ${unmet.join(",")}` : "on";
+        let last = "never run";
+        try { last = new Date(fs.statSync(a.log).mtimeMs).toLocaleString(); } catch {}
+        console.log(`  ${a.name.padEnd(15)} ${String(a.schedule || "on demand").padEnd(14)} ${state.padEnd(16)} ${last}`);
+      }
+      console.log(`\n  run one now:  jarvis agent <name>`);
+      console.log(`  schedule all: jarvis agents install`);
+      return;
+    }
+
+    case "doctor": {
+      const cfg = load();
+      const tts = require(path.join(ROOT, "lib", "tts"));
+      const stt = require(path.join(ROOT, "lib", "stt"));
+      const voice = await tts.status(cfg);
+      const mic = await stt.status(cfg);
+      const ok = (b) => (b ? "yes" : "no");
+
+      console.log(`\n  CONFIG`);
+      console.log(`    config.json        ${ok(cfg.configured)}${cfg.configured ? "" : "   <- run 'jarvis setup'"}`);
+      console.log(`    owner              ${cfg.profile.owner || "(unset)"}`);
+      console.log(`    youtube            ${cfg.profile.channels.youtube || "(unset)"}`);
+      console.log(`    persona override   ${ok(fs.existsSync(path.join(ROOT, "PERSONA.md")))}`);
+
+      console.log(`\n  TOOLS`);
+      console.log(`    claude code        ${ok(has("claude"))}`);
+      console.log(`    yt-dlp             ${ytdlpStatus()}`);
+      console.log(`    ffmpeg             ${ok(mic.ffmpeg)}   (needed for local whisper)`);
+
+      console.log(`\n  VOICE OUT (first available wins: ${cfg.voice.chain.join(" -> ")})`);
+      for (const [k, v] of Object.entries(voice)) console.log(`    ${k.padEnd(18)} ${ok(v)}`);
+
+      console.log(`\n  VOICE IN (${cfg.stt.chain.join(" -> ")})`);
+      console.log(`    local whisper      ${ok(mic.local)}`);
+      console.log(`    openai whisper     ${ok(mic.openai)}`);
+      console.log(`    browser fallback   yes   (chrome only, audio leaves this machine)`);
+
+      console.log(`\n  SERVER`);
+      const loopback = ["127.0.0.1", "localhost", "::1"].includes(cfg.server.host);
+      console.log(`    bind               ${cfg.server.host}:${cfg.server.port}`);
+      console.log(`    token              ${cfg.server.token ? "set" : "not set"}`);
+      if (!loopback && !cfg.server.token)
+        console.log(`    WARNING            exposed without a token - the server will refuse to start`);
+
+      const agents = require(path.join(ROOT, "lib", "agents"));
+      const enabled = agents.list(cfg).filter((a) => a.enabled);
+      console.log(`\n  AGENTS             ${enabled.length} enabled: ${enabled.map((a) => a.name).join(", ") || "none"}\n`);
+      return;
+    }
+
+    case "--help":
+    case "-h":
+    case "help":
+      console.log(fs.readFileSync(__filename, "utf8").split("*/")[0].replace(/^#![^\n]*\n/, "").replace(/\/\* ?/g, "").replace(/^ \* ?/gm, ""));
+      return;
+
+    default:
+      console.error(`unknown command: ${cmd}\ntry: jarvis help`);
+      process.exit(1);
+  }
+}
+
+main().catch((e) => {
+  console.error(e.message || e);
+  process.exit(1);
+});
