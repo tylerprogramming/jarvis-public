@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased
+
+### Themes
+
+- Eight themes, up from three. Nord, Catppuccin Mocha, Tokyo Night, and Gruvbox
+  use their upstream projects' published palettes, so they match the editor
+  theme you already run. Daylight is the light one.
+- A theme now sets the chrome as well as the colours: `glass` is blurred with
+  sharp corners, `soft` is rounded with a heavier blur, `flat` has no blur and
+  goes opaque. Gruvbox on flat reads as a different program to Tokyo Night on
+  soft.
+- The stylesheet no longer contains a single colour literal. Twenty were
+  hardcoded, including every large number, so they ignored the theme entirely.
+- Cycling replaced by a picker whose swatches are painted from each theme's own
+  tokens.
+
+### MCP servers
+
+- Jarvis inherits the servers your `claude` CLI is connected to, and can now be
+  allowed to use them. Default is still none, since these are the tools that
+  send email and post publicly.
+- `jarvis mcp`, `jarvis mcp allow <name>`, checkboxes in settings, a section in
+  `doctor`, and a list on first run. The failure this prevents is specific: a
+  connected server that is not allowed is rejected locally and reads exactly
+  like the service being down.
+- The persona is told the difference, so it says "not enabled for Jarvis yet"
+  rather than "unreachable".
+
+### Fixed
+
+- Settings apply on save. The server read config once at boot, so every change
+  really did need a restart. Only the bind address and port do now.
+- The microphone failure message claimed "permission denied" for all five ways
+  `getUserMedia` can fail. The common one on a desktop is no capture device at
+  all. `doctor` now checks for one, separately from whether Whisper is ready.
+- MCP discovery returned an empty list when it timed out or the `claude` CLI was
+  missing, which rendered as "you have no MCP servers".
+- Selects in settings had no styling and rendered as raw OS dropdowns. The
+  sticky header let content scroll through the title.
+
+### Changed
+
+- Jarvis answers in one to three sentences. The persona said "keep it tight",
+  which is an adjective, and it was read as a suggestion.
+
 ## 2.1.0
 
 The first release meant for other people to run. Everything before this assumed

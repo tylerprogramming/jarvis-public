@@ -22,12 +22,15 @@ There is no build step, no bundler, and no test suite. You run it and look at it
 | `lib/agents.js` | Frontmatter parsing, placeholder rendering, running, preflight. |
 | `lib/persona.js` | Builds the system prompt, including what Jarvis may claim it can do. |
 | `lib/brain/` | Pluggable brain. `index.js` picks a provider, others implement one. |
+| `lib/mcp.js` | Discovers the operator's MCP servers and derives their tool prefixes. |
 | `lib/tts.js`, `lib/stt.js` | Voice out and in, each a fallback chain. |
 | `lib/schedule.js` | Generates launchd plists or crontab lines from agent frontmatter. |
 | `agents/*.md` | The agents themselves. Prompt plus frontmatter, no code. |
 | `scripts/` | Python and shell helpers. Collection, transcripts, indexes, installers. |
 | `plugins/collectors/` | Optional per-user collectors the operator drops in. |
-| `public/` | The HUD. Vanilla JS, no framework. |
+| `public/app.js` | The HUD, plus the `THEMES` table at the top of the file. |
+| `public/settings.js` | The settings panel. Writes `config.json` through `/api/config`. |
+| `public/` | The rest of the HUD. Vanilla JS, no framework. |
 | `docs/` | The deep references, see below. |
 
 Read the doc rather than re-deriving it from code:
@@ -63,6 +66,17 @@ exists because Jarvis used to read the config, notice skills it could not run,
 and offer them. If you give it a new capability, grant the tool, do not describe
 the capability in prose.
 
+**No colour literals in the stylesheet.** Every colour in `style.css` is a
+token, and the `THEMES` table in `public/app.js` sets all of them. Hardcoding a
+hex, even for something as small as a big number being white, silently excludes
+that element from every theme and breaks the light one outright. If you need a
+new colour, add a token and give all eight themes a value.
+
+**Settings apply without a restart.** `apiPutConfig` reassigns `CFG` after
+writing, so `CFG` is `let`, not `const`. Only the bind address and port need a
+restart, and the response says which. Do not go back to telling people to
+restart because it is easier than reloading.
+
 **Document naming lives in one place.** `docConvention()` in `lib/agents.js` is
 the single source, injected into every agent as `{{doc_convention}}`. Agents do
 not restate the rule. Change it there or it drifts.
@@ -85,6 +99,11 @@ node bin/jarvis agent morning   # run one in the foreground and watch it
 node bin/jarvis                 # start the HUD on 127.0.0.1:4747
 ```
 
+Anything touching the HUD has to be checked in a browser. Every UI bug in this
+repo's history looked correct in the diff: a status object read one level too
+high rendered "no MCP servers" while eleven were connected, and a sticky header
+with no z-index let checkboxes scroll through the title. Open it and look.
+
 `doctor` is deliberately slow in places. It fetches with yt-dlp instead of
 reading `--version`, because a stale copy answers `--version` perfectly and then
 fails every real request. Keep that property.
@@ -106,6 +125,12 @@ the tool prefix; `chat.mcp_servers` in config decides which are allowed. Default
 is none on purpose. Do not change that default to "all" to make something work,
 and do not add a server to the list on a user's behalf without being asked, as
 these are the tools that send email and post publicly.
+
+**Add a theme.** One entry in `THEMES` at the top of `public/app.js`: the
+colour tokens, a `chrome` (`glass`, `soft`, or `flat`, which controls blur and
+corner radius), and a brain `mode` and `hue`. Copy the nearest existing theme so
+you get every token; a missing one falls back to whatever the last theme set,
+which looks like a rendering bug rather than a missing value.
 
 **Add a brain, TTS, or STT provider.** Each is a fallback chain: a list of
 provider names, first available wins. Implement the provider, add it to the

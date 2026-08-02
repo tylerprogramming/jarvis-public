@@ -135,6 +135,22 @@ curl -L -o ~/models/ggml-base.en.bin --create-dirs \
 Then point `stt.local.model_path` at that file, in `config.json` or the
 settings panel.
 
+### If the mic will not start
+
+The HUD tells you which of the five ways it failed, because they need different
+fixes and only one of them is a permission:
+
+| What it says | What is actually wrong |
+|---|---|
+| no microphone found | Nothing is plugged in. A Mac Studio and most desktops have no built-in mic. |
+| microphone blocked | Allow it for the site in your browser, and check System Settings > Privacy & Security > Microphone. |
+| something else is holding it | Another app has the device open. Close it. |
+| refused on this origin | You opened a LAN address. Use localhost or 127.0.0.1. |
+
+`jarvis doctor` reports whether a capture device exists at all, separately from
+whether Whisper is ready, because the whole chain can be green on a machine that
+cannot record a single sample.
+
 ### Day to day
 
 ```bash
@@ -144,6 +160,7 @@ jarvis agent morning       # run one now instead of waiting for 7am
 jarvis transcript <url>    # transcript of any YouTube video
 jarvis index               # rebuild index.md in every documents folder
 jarvis ytdlp status        # is yt-dlp current and can it fetch
+jarvis mcp                 # which MCP servers Jarvis is allowed to call
 ```
 
 ## Transcripts cost nothing
