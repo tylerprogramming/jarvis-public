@@ -25,3 +25,5 @@ __pycache__/
 
 .venv-kokoro/
 models/
+
+bin/yt-dlp

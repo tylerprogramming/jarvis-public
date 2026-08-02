@@ -7,21 +7,38 @@ back to the android client before giving up. That single retry is the
 difference between a dashboard full of numbers and a dashboard full of zeroes.
 """
 import json
+import os
 import subprocess
 import sys
 
 FALLBACK_CLIENTS = [None, "android", "ios"]
 
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def binary():
+    """The bundled copy wins over PATH.
+
+    A user can easily end up with a stale yt-dlp earlier on PATH than a current
+    one, and it fails every request while still answering --version. If Jarvis
+    installed its own, use that and stop guessing.
+    """
+    override = os.environ.get("JARVIS_YTDLP")
+    if override and os.path.exists(override):
+        return override
+    bundled = os.path.join(_ROOT, "bin", "yt-dlp")
+    return bundled if os.access(bundled, os.X_OK) else "yt-dlp"
+
 
 def _run(args, timeout):
     try:
         r = subprocess.run(
-            ["yt-dlp", "--no-warnings", "--ignore-config", *args],
+            [binary(), "--no-warnings", "--ignore-config", *args],
             capture_output=True, text=True, timeout=timeout,
         )
         return r.stdout.strip(), r.returncode
     except FileNotFoundError:
-        print("yt-dlp is not installed - install it with: pipx install yt-dlp",
+        print("yt-dlp not found. Install a known-good copy with: jarvis ytdlp install",
               file=sys.stderr)
         return "", 1
     except subprocess.TimeoutExpired:

@@ -5,6 +5,7 @@
  *   jarvis setup            first-run wizard
  *   jarvis collect [--fetch]refresh vitals
  *   jarvis voice <cmd>      kokoro setup: install | start | stop | status
+ *   jarvis ytdlp <cmd>      bundle a known-good yt-dlp: install | status | remove
  *   jarvis index            rebuild index.md in every documents folder
  *   jarvis transcript <url> transcript via captions, whisper only if needed
  *   jarvis agents           list agents and their schedules
@@ -26,25 +27,67 @@ const has = (c) => {
   try { execFileSync("which", [c], { stdio: "ignore" }); return true; } catch { return false; }
 };
 
-/* yt-dlp goes stale in a specific, confusing way: YouTube changes something,
- * the old version starts erroring with "The page needs to be reloaded", and
- * the dashboard quietly fills with zeroes. Jarvis retries on other clients,
- * but the real fix is upgrading, so say so. */
+/* Checking the version is not enough.
+ *
+ * A stale yt-dlp still reports a version, still answers --version, and then
+ * fails every real request with "The page needs to be reloaded" while the
+ * dashboard quietly fills with zeroes. Worse, an old copy earlier on PATH can
+ * shadow a current one, so the fix looks applied and is not. So: actually
+ * fetch something and see if data comes back.
+ */
 function ytdlpStatus() {
-  if (!has("yt-dlp")) return "no    install: pipx install yt-dlp";
-  let version = "";
+  // same resolution order as scripts/ytdlp_util.py: bundled copy wins
+  const bundled = path.join(ROOT, "bin", "yt-dlp");
+  let exe = null;
+  try { fs.accessSync(bundled, fs.constants.X_OK); exe = bundled; } catch {}
+  if (!exe && has("yt-dlp")) exe = "yt-dlp";
+  if (!exe) {
+    return "no    fix: jarvis ytdlp install   (bundles its own python, no brew needed)";
+  }
+  const where = exe === bundled ? "bundled" : "PATH";
+
+  let version = "unknown";
   try {
-    version = execFileSync("yt-dlp", ["--version"], {
+    version = execFileSync(exe, ["--version"], {
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"], // yt-dlp warns on stderr; not our problem
+      stdio: ["ignore", "pipe", "ignore"], // it warns on stderr; not our problem
     }).trim();
   } catch {}
-  const m = version.match(/^(\d{4})\.(\d{2})\.(\d{2})/);
-  if (!m) return `yes   (${version || "unknown version"})`;
-  const age = (Date.now() - Date.UTC(+m[1], +m[2] - 1, +m[3])) / 86400000;
-  if (age > 120)
-    return `yes   ${version} is ${Math.round(age)} days old - upgrade it: pipx upgrade yt-dlp`;
-  return `yes   (${version})`;
+
+  // a second copy earlier on PATH is the trap that hides every other fix
+  let shadowed = "";
+  try {
+    const all = execFileSync("which", ["-a", "yt-dlp"], { encoding: "utf8" })
+      .trim().split("\n").filter(Boolean);
+    if (all.length > 1) {
+      shadowed = `\n                       ${all.length} copies on PATH, using ${all[0]}` +
+                 `\n                       shadowed: ${all.slice(1).join(", ")}`;
+    }
+  } catch {}
+
+  // Two steps: search still works on a stale yt-dlp, it is the per-video fetch
+  // that dies. And no hardcoded video id, because they get taken down - the
+  // first version of this check tested a video that no longer exists and
+  // reported a perfectly good binary as broken.
+  let works = false;
+  try {
+    const q = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 45000 };
+    const id = execFileSync(exe,
+      ["ytsearch1:claude code", "--flat-playlist", "--print", "%(id)s", "--no-warnings"], q)
+      .trim().split("\n")[0];
+    if (id) {
+      const views = execFileSync(exe,
+        [`https://www.youtube.com/watch?v=${id}`, "--skip-download",
+         "--print", "%(view_count)s", "--no-warnings"], q).trim();
+      works = /^\d+$/.test(views);
+    }
+  } catch {}
+
+  if (!works) {
+    return `BROKEN  ${version} (${where}) answers --version but cannot fetch.` +
+           `\n                       fix: jarvis ytdlp install` + shadowed;
+  }
+  return `yes   ${version} (${where}), fetch verified${shadowed}`;
 }
 
 function run(file, args = [], opts = {}) {
@@ -70,6 +113,14 @@ async function main() {
 
     case "voice": {
       const child = spawn("bash", [path.join(ROOT, "scripts", "voice.sh"), ...rest], {
+        stdio: "inherit", cwd: ROOT,
+      });
+      child.on("close", (code) => process.exit(code || 0));
+      return;
+    }
+
+    case "ytdlp": {
+      const child = spawn("bash", [path.join(ROOT, "scripts", "ytdlp.sh"), ...rest], {
         stdio: "inherit", cwd: ROOT,
       });
       child.on("close", (code) => process.exit(code || 0));
