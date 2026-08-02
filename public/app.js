@@ -117,10 +117,12 @@ function render(d) {
   $("vitals").innerHTML = html ||
     `<div class="msg sys">no channels configured yet - run <b>jarvis setup</b> or open settings</div>`;
 
-  // directives
+  // directives - the empty state has to teach, since a new user has none
   $("directives").innerHTML = d.directives.map((x, i) =>
     `<div class="directive ${x.done ? "done" : ""}" data-i="${i}"><span class="box"></span><span>${esc(x.text)}</span></div>`
-  ).join("") || '<div class="msg sys">no active directives</div>';
+  ).join("") ||
+    `<div class="msg sys">nothing queued. ask jarvis to "add a directive to ..." or let the
+     morning agent set them.</div>`;
   document.querySelectorAll(".directive").forEach((el) =>
     el.onclick = async () => {
       await fetch("/api/directives", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ toggle: +el.dataset.i }) });
@@ -130,17 +132,23 @@ function render(d) {
   // radar
   const radar = d.radar || {};
   const brks = (radar.breakouts || []).slice(0, 4);
+  const watching = (radar.channels || []).length;
   $("radar").innerHTML = brks.length
     ? brks.map((b) =>
-        `<div class="doc" onclick="window.open('https://youtube.com/watch?v=${esc(b.id)}')">
-          <span title="${esc(b.title)}">${esc(b.title.slice(0, 30))}</span>
+        `<div class="doc" onclick="window.open('https://youtube.com/watch?v=${esc(b.id)}')"
+              title="${esc(b.title)} - running ${b.multiple}x this channel's normal pace">
+          <span>${esc(b.title.slice(0, 30))}</span>
           <span class="age" style="color:var(--amber)">${b.multiple}x</span></div>`).join("")
-    : `<div class="msg sys">no breakouts - watching ${(radar.channels || []).length} channels</div>`;
+    : watching
+      ? `<div class="msg sys">no breakouts - watching ${watching} channel${watching > 1 ? "s" : ""}</div>`
+      : `<div class="msg sys">add channels to watch in settings, then run the radar agent</div>`;
 
   // documents
   $("documents").innerHTML = d.documents.map((x) =>
-    `<div class="doc" data-f="${esc(x.file)}"><span>${esc(x.name.slice(0, 32))}</span><span class="age">${x.age}</span></div>`
-  ).join("");
+    `<div class="doc" data-f="${esc(x.file)}" title="click to read"><span>${esc(x.name.slice(0, 32))}</span><span class="age">${x.age}</span></div>`
+  ).join("") ||
+    `<div class="msg sys">empty. agent reports and drafts land here - click an agent on the
+     ring to run one now.</div>`;
   document.querySelectorAll(".doc").forEach((el) =>
     el.onclick = async () => {
       const r = await (await fetch("/api/doc?f=" + encodeURIComponent(el.dataset.f))).json();
@@ -151,6 +159,29 @@ function render(d) {
 
   renderPrimary();
   renderCalendar(d.calendar);
+  greet(d);
+}
+
+/* First thing a new user sees in COMMS. A blinking cursor teaches nothing, so
+ * open with what to actually type - tailored to whether setup is done. */
+let greeted = false;
+function greet(d) {
+  if (greeted) return;
+  greeted = true;
+  const asked = (t) =>
+    `<span class="try" onclick="send('${t.replace(/'/g, "\\'")}')">${esc(t)}</span>`;
+  const el = document.createElement("div");
+  el.className = "msg sys";
+  el.innerHTML = d.config.configured
+    ? `try asking: ${[
+        "what can you do?",
+        "how am I tracking this week?",
+        "add a directive to film the agent video",
+      ].map(asked).join(" · ")}`
+    : `setup isn't finished, so most numbers will be blank. run <b>jarvis setup</b> in a
+       terminal, or press the gear button. then try ${asked("what can you do?")}`;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 function renderCalendar(cal) {
@@ -422,7 +453,15 @@ $("speak").onclick = () => {
 let STT_SERVER = false;
 fetch("/api/status")
   .then((r) => r.json())
-  .then((s) => { STT_SERVER = Boolean(s.stt_server_side); })
+  .then((s) => {
+    STT_SERVER = Boolean(s.stt_server_side);
+    // name the brain that is actually answering, rather than assuming one
+    const label = $("brain-label");
+    const active = (s.brain || {}).active;
+    if (label) label.textContent = active ? active.replace("-", ".").toUpperCase() : "NO BRAIN";
+    if (!active)
+      addMsg("sys", "no brain available - install claude code, or set OPENAI_API_KEY, or point brain.openai.base_url at a local model");
+  })
   .catch(() => {});
 
 let mediaRec = null, chunks = [], recording = false;

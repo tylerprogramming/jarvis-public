@@ -62,7 +62,7 @@
   "chat": {
     "cwd": "~",
     "permission_mode": "acceptEdits",
-    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
+    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
     "disallowed_tools": "",
     "speak_replies": true,
     "model": null
