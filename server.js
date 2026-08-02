@@ -264,6 +264,7 @@ async function apiStatus(res) {
     stt: await stt.status(CFG),
     stt_server_side: await stt.serverSideAvailable(CFG),
     brain: await brain.status(CFG),
+    mcp: await require("./lib/mcp").status(CFG).catch(() => []),
     configured: CFG.configured,
   });
 }

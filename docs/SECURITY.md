@@ -104,6 +104,21 @@ for anything that publishes:
 Scheduled agents get their own `tools:` line in their frontmatter, so an agent
 can be restricted independently of the chat bar.
 
+## MCP servers
+
+Jarvis inherits the MCP servers your `claude` CLI is connected to, but cannot
+call any of them until you list it in `chat.mcp_servers`. Default is none.
+
+This matters more than the other tool settings. File tools are scoped and
+read mostly local data; MCP servers send email, post to channels, move money in
+some cases, and delete records. Allowing one gives the command bar that reach,
+and the command bar is one prompt away from anything the model decides to do.
+
+Turn on the ones you need rather than `allow all`, and remember the iron rule in
+the persona (never post, send, or publish without an explicit go-ahead) is a
+prompt instruction, not an enforced boundary. If a server can do something you
+would not want done on a bad day, leave it off.
+
 ## Secrets
 
 `.env` is gitignored, and so are `config.json` and `PERSONA.md`. Before you

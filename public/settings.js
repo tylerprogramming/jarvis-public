@@ -105,6 +105,19 @@
         <div class="snote">Schedules apply after running <code>jarvis agents install</code>.</div>
       </section>
 
+      <section><h4>MCP SERVERS <small>tools Jarvis may reach</small></h4>
+        ${(status.mcp || []).length ? `
+          <div class="sagents">${(status.mcp || []).map((m) => `
+            <label class="scheck">
+              <input type="checkbox" data-mcp="${esc(m.name)}" ${m.enabled ? "checked" : ""}>
+              <b>${esc(m.name)}</b> <small>${esc(m.prefix)}</small>
+              ${m.connected ? "" : `<div class="swarn">${esc(m.status)}</div>`}
+            </label>`).join("")}</div>
+          <div class="snote">These are the servers your <code>claude</code> CLI already has.
+            Off means Jarvis cannot call them, even though they are connected.</div>`
+        : `<div class="snote">No MCP servers configured for the <code>claude</code> CLI.</div>`}
+      </section>
+
       <section><h4>BRAIN <small>who answers the command bar</small></h4>
         ${chooser("s-brain-chain", "Model", e.brain.chain, status.brain.providers,
           missingHint(e.brain.chain, status.brain.providers))}
@@ -183,6 +196,11 @@
         enabled: [...document.querySelectorAll("[data-agent]")]
           .filter((el) => el.checked)
           .map((el) => el.dataset.agent),
+      },
+      chat: {
+        mcp_servers: [...document.querySelectorAll("[data-mcp]")]
+          .filter((el) => el.checked)
+          .map((el) => el.dataset.mcp),
       },
     };
 

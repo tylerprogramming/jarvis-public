@@ -104,6 +104,37 @@ these directories.
 `cwd` is where the agent starts, so point it at the folder you actually work
 in. See [SECURITY.md](SECURITY.md) before widening `allowed_tools`.
 
+## chat.mcp_servers
+
+Which MCP servers Jarvis may call. Names exactly as `claude mcp list` shows
+them, or the string `"all"`.
+
+```json
+"chat": { "mcp_servers": ["clickup", "claude.ai Gmail"] }
+```
+
+Jarvis does not connect to MCP servers itself. It inherits whatever your
+`claude` CLI already has, and this key decides which of those it is allowed to
+use. Default is `[]`, none, because these are the tools that send email, post
+to channels, and delete records. Opt in per server.
+
+Manage it without editing JSON:
+
+```bash
+jarvis mcp                  list servers and whether Jarvis can reach them
+jarvis mcp allow clickup    turn one on
+jarvis mcp deny clickup     turn it off
+jarvis mcp allow all
+```
+
+Settings has checkboxes for the same thing, and `jarvis doctor` reports it.
+
+Worth understanding the failure mode: a server that is connected but not listed
+here gets rejected locally, before the request ever leaves your machine. It
+looks identical to the service being down. That is why the persona is told to
+say "not enabled for Jarvis yet" rather than "unreachable", and why setup
+mentions your servers on first run.
+
 ## brain
 
 Which model answers the command bar. Ordered chain, first available wins.

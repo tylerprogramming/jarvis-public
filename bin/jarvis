@@ -6,6 +6,7 @@
  *   jarvis collect [--fetch]refresh vitals
  *   jarvis voice <cmd>      kokoro setup: install | start | stop | status
  *   jarvis ytdlp <cmd>      bundle a known-good yt-dlp: install | status | remove
+ *   jarvis mcp              list MCP servers: mcp allow <name> | deny <name>
  *   jarvis index            rebuild index.md in every documents folder
  *   jarvis transcript <url> transcript via captions, whisper only if needed
  *   jarvis agents           list agents and their schedules\n *   jarvis agents check     preflight every agent before trusting a schedule
@@ -127,6 +128,78 @@ async function main() {
       return;
     }
 
+    /* MCP servers are the one integration Jarvis inherits rather than owns.
+     * The CLI has to make the state visible, because the failure when a server
+     * is connected but not allowed is a local rejection that reads like an
+     * outage. */
+    case "mcp": {
+      const cfg = load();
+      const mcp = require(path.join(ROOT, "lib", "mcp"));
+      const { save } = require(path.join(ROOT, "lib", "config"));
+      const [sub, ...names] = rest;
+
+      if (!sub || sub === "list") {
+        const servers = await mcp.status(cfg);
+        if (!servers.length) {
+          console.log("\n  No MCP servers configured for the `claude` CLI.");
+          console.log("  Add one with: claude mcp add <name> <url>\n");
+          return;
+        }
+        console.log("");
+        for (const s of servers) {
+          const state = s.enabled ? "ON " : "off";
+          const health = s.connected ? "" : `  (${s.status})`;
+          console.log(`  ${state}  ${s.name.padEnd(26)} ${s.prefix}${health}`);
+        }
+        const off = servers.filter((s) => !s.enabled).length;
+        if (off) {
+          console.log(`\n  ${off} server(s) connected but not available to Jarvis.`);
+          console.log(`  Turn one on:  jarvis mcp allow <name>`);
+          console.log(`  Or all:       jarvis mcp allow all\n`);
+        } else {
+          console.log(`\n  All ${servers.length} available to Jarvis.\n`);
+        }
+        return;
+      }
+
+      if (sub === "allow" || sub === "deny") {
+        if (!names.length) {
+          console.error(`usage: jarvis mcp ${sub} <name> [name...]   (or "all")`);
+          process.exit(1);
+        }
+        const servers = await mcp.discover();
+        if (names[0] === "all") {
+          save({ chat: { mcp_servers: sub === "allow" ? "all" : [] } });
+          console.log(sub === "allow"
+            ? `  all MCP servers are now available to Jarvis`
+            : `  no MCP servers are available to Jarvis`);
+          return;
+        }
+        const current = mcp.enabledNames(cfg);
+        // "all" is not a list, so turning one off has to expand it first
+        let list = current === "all" ? servers.map((s) => s.name) : [...current];
+        for (const n of names) {
+          const hit = servers.find((s) => s.name.toLowerCase() === n.toLowerCase());
+          if (!hit) {
+            console.error(`  no such MCP server: ${n}`);
+            console.error(`  known: ${servers.map((s) => s.name).join(", ") || "none"}`);
+            process.exit(1);
+          }
+          const has = list.some((x) => String(x).toLowerCase() === hit.name.toLowerCase());
+          if (sub === "allow" && !has) list.push(hit.name);
+          if (sub === "deny") list = list.filter((x) => String(x).toLowerCase() !== hit.name.toLowerCase());
+        }
+        save({ chat: { mcp_servers: list } });
+        console.log(`  ${sub === "allow" ? "allowed" : "denied"}: ${names.join(", ")}`);
+        console.log(`  Jarvis can now use: ${list.length ? list.join(", ") : "no MCP servers"}`);
+        console.log(`  Restart the server for it to take effect.`);
+        return;
+      }
+
+      console.error("usage: jarvis mcp [list | allow <name> | deny <name>]");
+      process.exit(1);
+    }
+
     case "index":
       return python(path.join(ROOT, "scripts", "index.py"), rest);
 
@@ -243,6 +316,24 @@ async function main() {
       console.log(`    token              ${cfg.server.token ? "set" : "not set"}`);
       if (!loopback && !cfg.server.token)
         console.log(`    WARNING            exposed without a token - the server will refuse to start`);
+
+      /* A connected-but-not-allowed server fails as a local rejection, which
+       * reads like the service being down. Showing both states is the
+       * difference between a five second fix and debugging the wrong layer. */
+      const mcpLib = require(path.join(ROOT, "lib", "mcp"));
+      const servers = await mcpLib.status(cfg).catch(() => []);
+      if (servers.length) {
+        const on = servers.filter((s) => s.enabled);
+        console.log(`\n  MCP SERVERS        ${on.length} of ${servers.length} available to Jarvis`);
+        for (const s of servers) {
+          const why = !s.connected ? `   (${s.status})` : "";
+          console.log(`    ${s.name.padEnd(24)} ${s.enabled ? "yes" : "no "}${why}`);
+        }
+        if (on.length < servers.length)
+          console.log(`    fix                jarvis mcp allow <name>`);
+      } else {
+        console.log(`\n  MCP SERVERS        none configured for the claude CLI`);
+      }
 
       const agents = require(path.join(ROOT, "lib", "agents"));
       const enabled = agents.list(cfg).filter((a) => a.enabled);

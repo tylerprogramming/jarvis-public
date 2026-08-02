@@ -91,7 +91,9 @@
     "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
     "disallowed_tools": "",
     "speak_replies": true,
-    "model": null
+    "model": null,
+    "$comment_mcp": "MCP servers Jarvis may use. Names as shown by `claude mcp list`, or \"all\". Empty means none, because these tools send email and post publicly. Manage with: jarvis mcp",
+    "mcp_servers": []
   },
   "voice": {
     "chain": [

@@ -199,6 +199,26 @@ async function main() {
     }
   }
 
+  /* Surface MCP here rather than letting people find out by having a request
+     fail. Anything already configured for the claude CLI is one command away,
+     but it is off until asked for, because these tools send and post. */
+  try {
+    const servers = await require("../lib/mcp").discover({ timeout: 8000 });
+    if (servers.length) {
+      console.log(`
+  You have ${servers.length} MCP server(s) set up for the claude CLI:
+    ${servers.map((x) => x.name).join(", ")}
+
+  Jarvis cannot use them until you say so. A connected server that is not
+  allowed fails as if it were offline, so turn on the ones you want:
+
+    jarvis mcp                 see them all
+    jarvis mcp allow <name>    turn one on`);
+    }
+  } catch {
+    // no claude CLI, or it timed out. Not worth failing setup over.
+  }
+
   console.log(`
   Done. Next:
 

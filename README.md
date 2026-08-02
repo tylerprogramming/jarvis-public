@@ -260,6 +260,24 @@ nearest one, change the tokens, pick a chrome and a brain mode. The stylesheet
 holds no colour literals at all, every one is a token, so a theme really does
 control the whole interface.
 
+**Use the MCP servers you already have.** If your `claude` CLI is connected to
+anything (ClickUp, Slack, Gmail, Notion, your own server), Jarvis inherits those
+connections. It will not call them until you allow it, because these are the
+tools that send email and post publicly.
+
+```bash
+jarvis mcp                  what you have, and what Jarvis can reach
+jarvis mcp allow clickup    turn one on
+jarvis mcp allow all        turn on everything
+```
+
+There are checkboxes for the same thing in settings, and `jarvis doctor` lists
+them. This is worth knowing because of how the failure looks: a server that is
+connected but not allowed gets rejected locally, before the request leaves your
+machine, so it reads as the service being down when nothing is wrong with it.
+Jarvis is told to say "not enabled yet" rather than "unreachable" for exactly
+this reason.
+
 **Teach it your own commands.** Create `PERSONA.md` in the project root and
 write instructions in plain English. It is appended to the system prompt on
 every turn, so "when I say `ship it`, do X" just works. Also gitignored.

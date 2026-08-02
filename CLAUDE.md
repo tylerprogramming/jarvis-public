@@ -100,6 +100,13 @@ give it a `schedule` if it should run itself. End the prompt with
 `config.default.json` under `vitals.show` plus the HUD. Per-user sources that
 cannot ship publicly go in `plugins/collectors/` as a drop-in.
 
+**Allow an MCP server.** Jarvis does not connect to MCP servers, it inherits
+whatever the `claude` CLI already has. `lib/mcp.js` discovers them and derives
+the tool prefix; `chat.mcp_servers` in config decides which are allowed. Default
+is none on purpose. Do not change that default to "all" to make something work,
+and do not add a server to the list on a user's behalf without being asked, as
+these are the tools that send email and post publicly.
+
 **Add a brain, TTS, or STT provider.** Each is a fallback chain: a list of
 provider names, first available wins. Implement the provider, add it to the
 chain default, and make its `status()` prove it works rather than that it
