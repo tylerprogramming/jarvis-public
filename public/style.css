@@ -410,3 +410,110 @@
   :root[data-chrome="flat"] .panel,
   :root[data-chrome="flat"] #calstrip,
   :root[data-chrome="flat"] #primary { box-shadow: none; }
+
+
+  /* ---------- settings panel, refined ----------
+     The selects were never styled, so they rendered as raw OS dropdowns in the
+     middle of a themed panel. Everything interactive here now shares one
+     surface, one border, and one focus treatment. */
+
+  #settings .sinner { border-radius: var(--radius); padding: 0 28px 26px; }
+  #settings .shead { padding: 22px 0 15px; }
+  #settings h4 {
+    margin: 26px 0 12px; display: flex; align-items: center; gap: 10px;
+    color: var(--accent-hi);
+  }
+  /* a rule that fills the rest of the line, so sections read as sections */
+  #settings h4::after {
+    content: ""; flex: 1; height: 1px; background: var(--line-soft);
+  }
+  #settings h4 small {
+    font-family: var(--sans); letter-spacing: 0; font-size: 10px;
+    color: var(--dim); text-transform: none;
+  }
+
+  /* inputs and selects share a surface */
+  .sfield input,
+  .sfield select,
+  #settings select {
+    width: 100%; background: var(--panel-deep); border: 1px solid var(--line);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 9px 11px; outline: none; border-radius: var(--radius-sm);
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .sfield input::placeholder { color: var(--dim); opacity: .7; }
+  .sfield input:hover, #settings select:hover { border-color: var(--line); }
+  .sfield input:focus,
+  #settings select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .16);
+  }
+
+  /* the native dropdown arrow is the giveaway, so draw our own */
+  #settings select {
+    appearance: none; -webkit-appearance: none;
+    padding-right: 32px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+                      linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+    background-position: calc(100% - 17px) calc(50% + 1px),
+                         calc(100% - 12px) calc(50% + 1px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  /* the open list is OS-drawn; at least keep it legible on dark themes */
+  #settings select option { background: var(--modal); color: var(--text); }
+
+  /* checkboxes: native ones ignore the theme entirely */
+  #settings input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 14px; height: 14px; flex-shrink: 0;
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--panel-deep); cursor: pointer; position: relative;
+    vertical-align: -2px; margin-right: 7px;
+    transition: background .12s, border-color .12s;
+  }
+  #settings input[type="checkbox"]:hover { border-color: var(--accent); }
+  #settings input[type="checkbox"]:checked {
+    background: var(--accent); border-color: var(--accent);
+  }
+  #settings input[type="checkbox"]:checked::after {
+    content: ""; position: absolute; left: 4px; top: 1px;
+    width: 4px; height: 8px; border: solid var(--bg);
+    border-width: 0 2px 2px 0; transform: rotate(42deg);
+  }
+  #settings input[type="checkbox"]:focus-visible {
+    outline: none; box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .18);
+  }
+
+  /* selectable cards should look selected */
+  .scheck {
+    border-radius: var(--radius-sm); background: var(--panel-deep);
+    transition: border-color .12s, background .12s;
+  }
+  .scheck:hover { border-color: var(--line); }
+  .scheck:has(input:checked) {
+    border-color: var(--accent); background: rgba(var(--accent-rgb), .07);
+  }
+  .scheck:has(input:checked) b { color: var(--accent-hi); }
+
+  .sactions { gap: 16px; margin-top: 28px; }
+  #s-save { border-radius: var(--radius-sm); cursor: pointer;
+    transition: background .12s, color .12s; }
+  #s-save:hover { background: var(--accent); color: var(--bg); }
+  #settings #s-close { font-size: 18px; line-height: 1; padding: 0 4px;
+    border-radius: var(--radius-sm); }
+
+  /* the MCP list is a long list of short names; two columns wastes less space */
+  .sagents { gap: 9px; }
+
+  /* The sticky header was semi-transparent, so cards scrolled visibly under
+     the title. It has to be opaque to actually cover what passes beneath it. */
+  #settings .shead { background: var(--modal); }
+  #settings .sinner { background: var(--modal); }
+  .snote.swarn { color: var(--amber); }
+
+  /* Opaque was not enough. Sticky without a z-index still loses to any element
+     that creates its own stacking context, so the checkboxes painted over the
+     title as they scrolled past. */
+  #settings .shead { z-index: 3; }
+  #settings .sinner { position: relative; isolation: isolate; }

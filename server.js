@@ -20,7 +20,7 @@ const stt = require("./lib/stt");
 const brain = require("./lib/brain");
 const agentsLib = require("./lib/agents");
 
-const CFG = load();
+let CFG = load(); // reassigned when settings are saved, see apiPutConfig
 const ROOT = CFG.paths.root;
 const PORT = CFG.server.port || 4747;
 const HOST = CFG.server.host || "127.0.0.1";
@@ -264,7 +264,7 @@ async function apiStatus(res) {
     stt: await stt.status(CFG),
     stt_server_side: await stt.serverSideAvailable(CFG),
     brain: await brain.status(CFG),
-    mcp: await require("./lib/mcp").status(CFG).catch(() => []),
+    mcp: await require("./lib/mcp").status(CFG).catch((e) => ({ servers: [], error: e.message })),
     configured: CFG.configured,
   });
 }
@@ -313,7 +313,24 @@ function apiPutConfig(res, body) {
   const current = readJson(file, {});
   const next = merge(current, patch);
   fs.writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
-  sendJson(res, { saved: true, restart_required: true });
+
+  /* Saving used to write the file and tell you to restart, which meant every
+   * settings change cost a restart even though almost nothing here is read at
+   * boot. Reload in place instead, and only ask for a restart for the two
+   * things that genuinely cannot change under a running server: the address it
+   * is bound to and the port it is listening on. */
+  const before = { host: CFG.server.host, port: CFG.server.port };
+  try {
+    CFG = load();
+  } catch (e) {
+    return sendJson(res, { error: `saved, but could not reload: ${e.message}` }, 500);
+  }
+  // discovery is cached per process, so a changed server list must re-read
+  try { require("./lib/mcp").discover({ fresh: true }); } catch {}
+
+  const restart_required =
+    CFG.server.host !== before.host || CFG.server.port !== before.port;
+  sendJson(res, { saved: true, restart_required });
 }
 
 // ---------- plumbing ----------

@@ -64,6 +64,11 @@
       fetch("/api/status").then((r) => r.json()),
       fetch("/api/agents").then((r) => r.json()),
     ]);
+    // /api/status returns { servers, error } for mcp - reading .length off the
+    // wrapper yields undefined, which renders as "you have none" and is the
+    // same lie the wrapper exists to prevent.
+    const mcpList = (status.mcp && status.mcp.servers) || [];
+    const mcpErr = status.mcp && status.mcp.error;
     const e = cfg.effective;
     const ch = e.profile.channels || {};
     const cards = e.primary_cards || [];
@@ -106,8 +111,8 @@
       </section>
 
       <section><h4>MCP SERVERS <small>tools Jarvis may reach</small></h4>
-        ${(status.mcp || []).length ? `
-          <div class="sagents">${(status.mcp || []).map((m) => `
+        ${(mcpList || []).length ? `
+          <div class="sagents">${(mcpList || []).map((m) => `
             <label class="scheck">
               <input type="checkbox" data-mcp="${esc(m.name)}" ${m.enabled ? "checked" : ""}>
               <b>${esc(m.name)}</b> <small>${esc(m.prefix)}</small>
@@ -115,7 +120,9 @@
             </label>`).join("")}</div>
           <div class="snote">These are the servers your <code>claude</code> CLI already has.
             Off means Jarvis cannot call them, even though they are connected.</div>`
-        : `<div class="snote">No MCP servers configured for the <code>claude</code> CLI.</div>`}
+        : mcpErr
+          ? `<div class="snote swarn">Could not read your MCP servers: ${esc(mcpErr)}</div>`
+          : `<div class="snote">No MCP servers configured for the <code>claude</code> CLI.</div>`}
       </section>
 
       <section><h4>BRAIN <small>who answers the command bar</small></h4>
@@ -212,7 +219,9 @@
       body: JSON.stringify({ patch }),
     })).json();
     if (r.error) { msg.textContent = r.error; return; }
-    msg.textContent = "saved - restart Jarvis to apply";
+    msg.textContent = r.restart_required
+      ? "saved - restart Jarvis for the new address or port"
+      : "saved and applied";
     if (window.loadData) window.loadData();
   }
 

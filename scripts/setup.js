@@ -203,8 +203,10 @@ async function main() {
      fail. Anything already configured for the claude CLI is one command away,
      but it is off until asked for, because these tools send and post. */
   try {
-    const servers = await require("../lib/mcp").discover({ timeout: 8000 });
-    if (servers.length) {
+    const { servers, error } = await require("../lib/mcp").discover({ timeout: 25000 });
+    if (error) {
+      console.log(`\n  Could not check your MCP servers (${error}).\n  Run \`jarvis mcp\` later to see them.`);
+    } else if (servers.length) {
       console.log(`
   You have ${servers.length} MCP server(s) set up for the claude CLI:
     ${servers.map((x) => x.name).join(", ")}

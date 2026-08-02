@@ -139,7 +139,12 @@ async function main() {
       const [sub, ...names] = rest;
 
       if (!sub || sub === "list") {
-        const servers = await mcp.status(cfg);
+        const { servers, error } = await mcp.status(cfg);
+        if (error) {
+          // never render a failed lookup as "you have none"
+          console.log(`\n  Could not read your MCP servers: ${error}\n`);
+          return;
+        }
         if (!servers.length) {
           console.log("\n  No MCP servers configured for the `claude` CLI.");
           console.log("  Add one with: claude mcp add <name> <url>\n");
@@ -167,7 +172,11 @@ async function main() {
           console.error(`usage: jarvis mcp ${sub} <name> [name...]   (or "all")`);
           process.exit(1);
         }
-        const servers = await mcp.discover();
+        const { servers, error } = await mcp.discover();
+        if (error && names[0] !== "all") {
+          console.error(`  Could not read your MCP servers: ${error}`);
+          process.exit(1);
+        }
         if (names[0] === "all") {
           save({ chat: { mcp_servers: sub === "allow" ? "all" : [] } });
           console.log(sub === "allow"
@@ -321,8 +330,11 @@ async function main() {
        * reads like the service being down. Showing both states is the
        * difference between a five second fix and debugging the wrong layer. */
       const mcpLib = require(path.join(ROOT, "lib", "mcp"));
-      const servers = await mcpLib.status(cfg).catch(() => []);
-      if (servers.length) {
+      const { servers, error: mcpErr } =
+        await mcpLib.status(cfg).catch((e) => ({ servers: [], error: e.message }));
+      if (mcpErr) {
+        console.log(`\n  MCP SERVERS        could not check: ${mcpErr}`);
+      } else if (servers.length) {
         const on = servers.filter((s) => s.enabled);
         console.log(`\n  MCP SERVERS        ${on.length} of ${servers.length} available to Jarvis`);
         for (const s of servers) {
