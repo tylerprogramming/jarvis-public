@@ -284,3 +284,41 @@
   .agent.off { opacity: .25; }
   .msg .try { color: var(--accent); cursor: pointer; border-bottom: 1px dotted var(--line); }
   .msg .try:hover { color: var(--accent-hi); border-bottom-color: var(--accent-hi); }
+
+  /* ---------- tooltips ----------
+     Native title= waits ~1s and renders in OS chrome, which looks pasted-on
+     over a dark HUD. These appear immediately and match the panels. */
+  [data-tip] { position: relative; }
+  [data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%) translateY(3px);
+    width: max-content; max-width: 216px;
+    padding: 7px 10px; border-radius: 8px;
+    background: var(--panel-deep); border: 1px solid var(--line);
+    color: var(--text); font-family: var(--mono); font-size: 10.5px;
+    line-height: 1.5; letter-spacing: .2px; text-align: center;
+    white-space: normal; backdrop-filter: blur(10px);
+    box-shadow: 0 8px 22px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+    z-index: 40;
+  }
+  /* the little pointer */
+  [data-tip]::before {
+    content: ""; position: absolute; bottom: calc(100% + 5px); left: 50%;
+    transform: translateX(-50%) translateY(3px);
+    border: 5px solid transparent; border-top-color: var(--line);
+    opacity: 0; pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+    z-index: 40;
+  }
+  [data-tip]:hover::after, [data-tip]:hover::before,
+  [data-tip]:focus-visible::after, [data-tip]:focus-visible::before {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+  }
+  /* edge buttons would push their tooltip off-screen; anchor those inward */
+  #bar > button:first-child[data-tip]::after { left: 0; transform: translateX(0) translateY(3px); }
+  #bar > button:first-child[data-tip]:hover::after { transform: translateX(0) translateY(0); }
+  #bar > button:last-child[data-tip]::after { left: auto; right: 0; transform: translateX(0) translateY(3px); }
+  #bar > button:last-child[data-tip]:hover::after { transform: translateX(0) translateY(0); }

@@ -324,10 +324,16 @@ addEventListener("resize", layoutAgents);
 loadAgents();
 setInterval(loadAgents, 8000);
 
+/* Tooltips report live state - a toggle whose tip always reads "on" is worse
+ * than no tip, since it tells you the opposite of the truth half the time. */
+const tip = (id, text) => { const el = $(id); if (el) el.dataset.tip = text; };
+
 $("theme").onclick = () => {
   const names = Object.keys(THEMES);
   applyTheme(names[(names.indexOf(themeName) + 1) % names.length]);
+  tip("theme", `Theme — ${themeName}. Click to cycle.`);
 };
+tip("theme", `Theme — ${themeName}. Click to cycle.`);
 $("modal").onclick = () => $("modal").classList.remove("open");
 loadData();
 setInterval(loadData, 5 * 60 * 1000);
@@ -438,11 +444,18 @@ async function speak(text, quiet = false) {
   u.onend = u.onerror = () => setState("idle");
   speechSynthesis.speak(u);
 }
+const speakTip = () =>
+  tip("speak", speakOn
+    ? "Spoken replies — on. Answers are read aloud."
+    : "Spoken replies — off. Click to hear answers.");
+
 $("speak").onclick = () => {
   speakOn = !speakOn;
   $("speak").classList.toggle("off", !speakOn);
   if (!speakOn) stopSpeaking();
+  speakTip();
 };
+speakTip();
 
 /* ---------- voice in ----------
  * Two paths. If the server has a working speech-to-text provider (local
@@ -576,13 +589,22 @@ function syncWake() {
 }
 const origSetState = setState;
 setState = (s) => { origSetState(s); syncWake(); };
-$("wake").classList.toggle("on", wakeOn);
-$("wake").classList.toggle("off", !wakeOn);
+const wakeTip = () =>
+  tip("wake", wakeOn
+    ? "Wake word — armed. Say “jarvis, …” out loud; no clicking."
+    : "Wake word — off. Turn on and just say “jarvis, …” out loud.");
+
+function syncWakeButton() {
+  $("wake").classList.toggle("on", wakeOn);
+  $("wake").classList.toggle("off", !wakeOn);
+  wakeTip();
+}
+
+syncWakeButton();
 $("wake").onclick = () => {
   wakeOn = !wakeOn;
   localStorage.setItem("jarvis_wake", wakeOn ? "1" : "0");
-  $("wake").classList.toggle("on", wakeOn);
-  $("wake").classList.toggle("off", !wakeOn);
+  syncWakeButton();
   if (wakeOn) addMsg("sys", "wake word armed - say 'jarvis, <request>'");
   syncWake();
 };
