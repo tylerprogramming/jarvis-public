@@ -243,3 +243,29 @@ jarvis transcript <url> --force-asr   # skip captions, transcribe the audio
 
 For local Whisper: `brew install whisper-cpp`, download a `ggml-*.bin` model,
 and set `stt.local.model_path` to it. That same setup powers the microphone.
+
+## Running Kokoro
+
+```bash
+jarvis voice install [--docker|--native]
+jarvis voice start | stop | status
+```
+
+Two ways to run the same thing:
+
+| | Size | Notes |
+|---|---|---|
+| Docker | ~1.5GB image | `ghcr.io/remsky/kokoro-fastapi-cpu`. Upstream's own build. |
+| Native | ~200MB venv + 337MB model | `kokoro-onnx` on onnxruntime, no PyTorch. Served by `scripts/kokoro_server.py`. |
+
+With no flag, the installer uses Docker when the daemon is reachable and falls
+back to native otherwise. The choice is remembered in `data/.kokoro-mode`, so
+`start` and `stop` do the right thing afterwards.
+
+Both expose `POST /v1/audio/speech` and `GET /v1/models` on port 8880, which is
+what `voice.kokoro.url` points at by default. Jarvis reads the response's
+`Content-Type`, so it does not matter that the Docker build returns mp3 while
+the native server returns wav.
+
+Change the voice with `voice.kokoro.voice` (default `am_michael`); the model
+ships 54 of them. Set `KOKORO_PORT` to move it off 8880.

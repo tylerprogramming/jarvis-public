@@ -127,7 +127,7 @@ the first thing that works:
 | Provider | Cost | Notes |
 |---|---|---|
 | [ElevenLabs](https://elevenlabs.io) | paid | Best quality. Set `ELEVENLABS_API_KEY` in `.env`. |
-| [Kokoro](https://github.com/hexgrad/kokoro) | free, local | 82M params, Apache-2.0, runs on CPU. Point `voice.kokoro.url` at any OpenAI-compatible speech server. |
+| [Kokoro](https://github.com/hexgrad/kokoro) | free, local | **Default.** `jarvis voice install` sets it up either way — Docker if you have it, native if you don't. |
 | [Piper](https://github.com/rhasspy/piper) | free, local | MIT, 900+ voices, fast on small hardware. |
 | system | free | macOS `say` / Linux `espeak-ng`. Robotic but always there. |
 | browser | free | `speechSynthesis`. The last resort. |
@@ -137,6 +137,26 @@ is the default** so your audio stays on your machine. OpenAI's Whisper endpoint
 is used only if you supply `OPENAI_API_KEY`. If neither exists it falls back to
 the browser's speech recognition, which is Chrome-only and uploads your audio to
 Google - `jarvis doctor` tells you which one you are on.
+
+### Installing Kokoro
+
+```bash
+jarvis voice install     # picks Docker if present, native otherwise
+jarvis voice start
+```
+
+Upstream Kokoro runs via Docker, which is one command if you already have it and
+a large detour if you don't. The native path avoids it: `kokoro-onnx` uses
+onnxruntime rather than PyTorch, so it's ~200MB of wheels plus a 337MB model
+instead of a multi-gigabyte CUDA stack. Both serve the same
+`/v1/audio/speech` endpoint, so nothing else in Jarvis changes.
+
+Force one or the other with `--docker` / `--native`. Once it's running Jarvis
+uses it automatically, since Kokoro is first in the chain. `jarvis voice stop`
+falls back to whatever is next.
+
+Measured on an M-series Mac: about 1.2 seconds to generate 4.8 seconds of
+speech, so it stays ahead of playback.
 
 Press `W` to arm the wake word, then say "jarvis, ..." hands free.
 

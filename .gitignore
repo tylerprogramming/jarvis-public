@@ -22,3 +22,6 @@ plugins/collectors/*
 
 __pycache__/
 *.pyc
+
+.venv-kokoro/
+models/
