@@ -22,6 +22,7 @@ There is no build step, no bundler, and no test suite. You run it and look at it
 | `lib/agents.js` | Frontmatter parsing, placeholder rendering, running, preflight. |
 | `lib/persona.js` | Builds the system prompt, including what Jarvis may claim it can do. |
 | `lib/brain/` | Pluggable brain. `index.js` picks a provider, others implement one. |
+| `scripts/posts.py` | The cross-platform post store and the breakout math. Read the docstring. |
 | `lib/mcp.js` | Discovers the operator's MCP servers and derives their tool prefixes. |
 | `lib/tts.js`, `lib/stt.js` | Voice out and in, each a fallback chain. |
 | `lib/schedule.js` | Generates launchd plists or crontab lines from agent frontmatter. |
@@ -131,6 +132,13 @@ colour tokens, a `chrome` (`glass`, `soft`, or `flat`, which controls blur and
 corner radius), and a brain `mode` and `hue`. Copy the nearest existing theme so
 you get every token; a missing one falls back to whatever the last theme set,
 which looks like a rendering bug rather than a missing value.
+
+**Add a post collector.** Write to `data/posts.json` through
+`scripts/posts.py`'s `upsert()`, never by hand. It merges on (platform, id) and
+appends to each post's daily reading series, which is what makes the same-age
+breakout comparison possible. A collector that cannot read a view count must
+omit the post rather than write zero, because a zero drags down the median every
+other post is judged against.
 
 **Add a brain, TTS, or STT provider.** Each is a fallback chain: a list of
 provider names, first available wins. Implement the provider, add it to the

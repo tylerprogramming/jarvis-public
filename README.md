@@ -164,6 +164,28 @@ jarvis ytdlp status        # is yt-dlp current and can it fetch
 jarvis mcp                 # which MCP servers Jarvis is allowed to call
 ```
 
+## Post-level data, and your own breakouts
+
+`data/posts.json` is one list of posts across every platform. YouTube fills it
+for free through yt-dlp, so this works with no keys and no scraper. The optional
+`social` agent adds Instagram, TikTok, and X if you pay for Apify, and anything
+else can write to it from `plugins/collectors/` or an official API with a key
+you hold. Everything downstream reads the store rather than the collector, so
+missing a source costs you that platform, not the feature.
+
+Two things read it today. Radar now flags **your own** posts that are outrunning
+your own normal, not just the channels you watch. And the postmortem can ask
+whether a topic that underperformed on one platform did well on another, which
+is the question a single-platform review cannot reach.
+
+The comparison is deliberately careful. Lifetime views over age always flatters
+a new post, because a mature post's average is dragged down by its own long
+tail, so each post carries a daily reading and a breakout is measured against
+where your other posts stood at the **same age**. When there is not enough
+history yet it falls back to the cruder lifetime average and labels itself
+`method: lifetime`, so a weak comparison never gets mistaken for a strong one.
+Platforms with fewer than four mature posts are skipped rather than guessed at.
+
 ## Transcripts cost nothing
 
 Most YouTube videos already have captions. `jarvis transcript` grabs those —

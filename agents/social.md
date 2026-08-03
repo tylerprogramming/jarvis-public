@@ -57,7 +57,43 @@ below, and nothing speculative.
    real number is useful; a zero is a lie that will show up as a cliff in the
    sparkline and get treated as a collapse in audience.
 
-4. Print one line per platform, in this shape, and nothing else:
+4. While you have each profile open, collect that platform's RECENT POSTS too.
+   Follower counts are a scoreboard; per-post numbers are what the postmortem
+   actually reasons about. Most profile actors return recent posts in the same
+   run, so take them from the run you already paid for rather than calling a
+   second actor.
+
+   For each post capture: the post id, its url, a title or the first line of the
+   caption, the published date, and its view or play count. Likes and comments
+   if the actor returned them. Then merge into the shared store with python3:
+
+       python3 - <<'EOF'
+       import sys; sys.path.insert(0, "{{root}}/scripts")
+       import posts
+       posts.upsert([
+         {"platform": "tiktok", "id": "7123", "url": "https://...",
+          "title": "...", "published": "20260731", "views": 12004,
+          "likes": 340, "comments": 12},
+       ])
+       EOF
+
+   posts.upsert merges on (platform, id), so re-reading the same post tomorrow
+   updates its numbers and adds to its history rather than duplicating it. That
+   daily history is what lets a post be judged against where others stood at the
+   same age, instead of the cruder lifetime average, so it is worth recording
+   even on days when nothing looks interesting.
+
+   Omit any post whose view count you could not read. Do not write zero.
+
+5. Record what this run cost, so the spend does not stay invisible. Append one
+   line to {{data}}/spend.log:
+
+       date  actor-runs  compute-units  platforms-succeeded
+
+   Take compute units from the run stats the actor calls return. If a run did
+   not report them, write "?" rather than a guess.
+
+6. Print one line per platform, in this shape, and nothing else:
    instagram 4,210 (was 4,188)
    tiktok 12,004 (unchanged)
    x FAILED: actor returned no follower field

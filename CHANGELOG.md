@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- `data/posts.json`, one post store across platforms. YouTube fills it free via
+  yt-dlp; the optional social agent adds IG/TikTok/X via Apify; plugins or an
+  official API can fill it too. Consumers read the store, not the collector.
+- Radar flags your own breakouts, not just watched channels.
+- The postmortem reasons across platforms, so a topic that stalled in one format
+  can be recognised as working in another.
+- Breakouts compare a post against where others stood at the same age, falling
+  back to lifetime average only when history is too short, and saying which was
+  used. Lifetime alone systematically favours new posts.
+- The social agent collects per-post numbers alongside follower counts, and logs
+  what each run cost. `doctor` reports the running total.
+
 ## 2.2.0
 
 ### Themes

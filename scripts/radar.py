@@ -55,10 +55,7 @@ def main():
     cfg = config()
     channels_cfg = cfg.get("channels", [])
     if not channels_cfg:
-        print("no radar channels configured - nothing to sweep")
-        json.dump({"updated_at": datetime.now().isoformat(timespec="seconds"),
-                   "channels": [], "breakouts": []}, open(OUT, "w"), indent=2)
-        return
+        print("no radar channels configured - checking your own posts only")
 
     per_channel = int(cfg.get("per_channel", 8))
     recent_days = int(cfg.get("recent_days", 7))
@@ -66,7 +63,7 @@ def main():
     min_views = int(cfg.get("min_views", 5000))
 
     channels, breakouts = [], []
-    for handle in channels_cfg:
+    for handle in channels_cfg or []:
         try:
             vids = channel_videos(handle, per_channel)
         except Exception as e:
@@ -84,12 +81,27 @@ def main():
         print(f"{handle}: {len(vids)} videos, median {median}/day")
 
     breakouts.sort(key=lambda b: -b["multiple"])
+
+    # The same question, asked about the operator's own output. Radar has always
+    # watched other people; this notices when one of YOUR posts is outrunning
+    # your own normal, on whichever platforms something is filling posts.json.
+    # No watched channels and no scraper still gets this, from YouTube alone.
+    own = []
+    try:
+        import posts as _posts
+        own = _posts.breakouts(multiple=multiple, recent_days=recent_days)
+        for o in own:
+            print(f"own {o['platform']}: {o.get('title', o['id'])[:40]} "
+                  f"{o['multiple']}x ({o['method']})")
+    except Exception as e:
+        print(f"own-post check skipped ({e})", file=sys.stderr)
+
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     json.dump({"updated_at": datetime.now().isoformat(timespec="seconds"),
                "names": cfg.get("names", {}),
-               "channels": channels, "breakouts": breakouts},
+               "channels": channels, "breakouts": breakouts, "own": own},
               open(OUT, "w"), indent=2)
-    print(f"breakouts: {len(breakouts)}")
+    print(f"breakouts: {len(breakouts)} watched, {len(own)} of your own")
 
 
 if __name__ == "__main__":

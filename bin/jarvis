@@ -347,6 +347,24 @@ async function main() {
         console.log(`\n  MCP SERVERS        none configured for the claude CLI`);
       }
 
+      /* Recurring scraper cost is easy to stop noticing, which is how a few
+       * cents a day becomes a line item nobody remembers agreeing to. The
+       * social agent appends one line per run; this just adds them up. */
+      try {
+        const spendFile = path.join(cfg.paths.data, "spend.log");
+        const lines = fs.readFileSync(spendFile, "utf8").trim().split("\n").filter(Boolean);
+        const recent = lines.slice(-30);
+        const units = recent
+          .map((l) => parseFloat((l.match(/([0-9]*\.?[0-9]+)\s*(?:cu|compute)/i) || [])[1]))
+          .filter((n) => !isNaN(n));
+        const total = units.reduce((a, b) => a + b, 0);
+        console.log(`\n  SCRAPER SPEND      ${recent.length} run(s) logged` +
+          (units.length ? `, ${total.toFixed(3)} compute units over the last ${units.length}` : ""));
+        if (recent.length) console.log(`    latest             ${recent[recent.length - 1].trim().slice(0, 70)}`);
+      } catch {
+        // no log yet: the social agent has not run, or is not enabled
+      }
+
       const agents = require(path.join(ROOT, "lib", "agents"));
       const enabled = agents.list(cfg).filter((a) => a.enabled);
       console.log(`\n  AGENTS             ${enabled.length} enabled: ${enabled.map((a) => a.name).join(", ") || "none"}\n`);

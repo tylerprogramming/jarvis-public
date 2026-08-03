@@ -48,4 +48,24 @@ becomes evidence for the next one.
    changelog line. Distilled rules only, never raw data dumps. If no playbook
    is configured, put the rule at the top of the report instead.
 
+
+CROSS-PLATFORM. {{data}}/posts.json holds posts from every platform something is
+collecting, not just YouTube. Read it with:
+
+    python3 -c "import sys; sys.path.insert(0,'{{root}}/scripts'); import posts, json; \
+      print(json.dumps(posts.summary(), indent=2)); \
+      print(json.dumps(posts.breakouts(), indent=2))"
+
+Use it to ask the question a single-platform review cannot: did a topic that
+underperformed here do well somewhere else? A long-form video that stalled while
+its cut-down reel outran your reel median is not a failed topic, it is a topic
+that wanted a different format, and that distinction is worth a rule.
+
+Two cautions. Compare each platform against ITSELF, never against another; raw
+views across platforms mean nothing. And check the `method` field on any
+breakout: `same-age` is the real comparison, while `lifetime` systematically
+favours newer posts and should be treated as a hint rather than evidence. If
+only YouTube is present, say so plainly and review it alone rather than implying
+you looked wider than you did.
+
 {{doc_convention}}
