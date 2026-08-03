@@ -47,6 +47,13 @@ is how you get a confident report full of invented numbers.
 
 A skipped agent logs why and exits without writing anything.
 
+`social` is met when at least one non-YouTube handle is set in
+`profile.channels`. `apify` is met when an Apify MCP server is listed in
+`chat.mcp_servers`. That one reads config rather than probing the network,
+because requirements are evaluated every time you list agents and a live MCP
+health check takes seconds. Whether the server actually answers is left to the
+agent, which is told to fail loudly rather than write a wrong number.
+
 ## Running and scheduling
 
 ```bash

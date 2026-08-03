@@ -39,6 +39,7 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 | `scout` | Fri 15:00 | Search what is actually pulling right now, hand back two topics with evidence |
 | `study` | Wed 16:00 | Reads the transcripts of the strongest videos in your lanes and writes down what's reusable |
 | `weekly-review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
+| `social` | daily 06:00 | Follower counts for your other platforms, via Apify. Off by default, needs a paid scraper |
 
 **A command bar with hands.** Type or talk, and it goes to a real agent with
 your context loaded — it reads your files, edits your data, runs your tools.
