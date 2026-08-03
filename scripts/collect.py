@@ -179,6 +179,21 @@ def main():
         vitals.update(collect_youtube(handle))
 
     vitals.update(run_plugins())
+
+    # YouTube fills the cross-platform post store for free. Everything that
+    # reads posts.json (postmortem, own-post breakouts) therefore works for
+    # someone with no scraper and no keys, seeing YouTube only.
+    try:
+        import posts as _posts
+        _posts.upsert([
+            {"platform": "youtube", "id": v.get("id"),
+             "url": f"https://www.youtube.com/watch?v={v.get('id')}",
+             "title": v.get("title"), "published": v.get("upload_date"),
+             "views": v.get("views"), "duration": v.get("duration")}
+            for v in (vitals.get("yt_recent") or []) if v.get("id")
+        ])
+    except Exception as e:
+        print(f"posts store: skipped ({e})", file=sys.stderr)
     vitals["updated_at"] = datetime.now().isoformat(timespec="seconds")
 
     update_calendar(cfg, vitals.get("yt_recent"))
