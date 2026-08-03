@@ -386,6 +386,9 @@ const server = http.createServer((req, res) => {
   if (!authorized(req, res, url)) return;
 
   if (req.method === "GET") {
+    // Browsers and bookmark managers still request this even with a <link>
+    // pointing at the SVG. Serve the SVG rather than leaving a 404 in the log.
+    if (url.pathname === "/favicon.ico") url.pathname = "/favicon.svg";
     if (url.pathname === "/api/data") return apiData(res);
     if (url.pathname === "/api/agents") return apiAgents(res);
     if (url.pathname === "/api/doc") return apiDoc(res, url.searchParams);

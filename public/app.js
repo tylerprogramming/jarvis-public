@@ -124,6 +124,36 @@ function applyTheme(name) {
   if (window.__brain3d) window.__brain3d.setTheme(THEME);
   const btn = document.getElementById("theme");
   if (btn) btn.dataset.tip = `Theme — ${THEME.label}. Click to change.`;
+  paintFavicon(THEME);
+}
+
+/* The tab icon follows the theme.
+ *
+ * A static favicon is fine until you switch to Daylight and a near-black disc
+ * is sitting in a light tab strip. Redrawing it from the same tokens costs one
+ * data URI and keeps the tab recognisable as this dashboard rather than as a
+ * generic page. Built as a string rather than fetched so it needs no request
+ * and cannot 404. */
+function paintFavicon(theme) {
+  const v = theme.vars;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<circle cx="16" cy="16" r="16" fill="${v["--bg"]}"/>
+<g fill="none" stroke="${v["--accent"]}" stroke-linecap="round">
+<circle cx="16" cy="16" r="11.5" stroke-width="1.4" opacity=".45"/>
+<circle cx="16" cy="16" r="7.5" stroke-width="1.8" opacity=".85"/>
+<path d="M16 1.6v3.2M16 27.2v3.2M1.6 16h3.2M27.2 16h3.2" stroke-width="1.6" opacity=".7"/>
+</g><circle cx="16" cy="16" r="3.4" fill="${v["--accent-hi"]}"/></svg>`;
+  const href = "data:image/svg+xml," + encodeURIComponent(svg);
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/svg+xml";
+    document.head.appendChild(link);
+  }
+  link.href = href;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = v["--bg"];
 }
 
 
