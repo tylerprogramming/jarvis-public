@@ -4,7 +4,7 @@ label: SOCIAL
 schedule: "0 6 * * *"
 description: Pull follower counts for the non-YouTube platforms into vitals, via Apify.
 requires: [apify, social]
-tools: Read Write Edit ToolSearch mcp__claude_ai_Apify
+tools: Read Write Edit ToolSearch Bash(python3:*) mcp__claude_ai_Apify
 ---
 You are JARVIS running the daily social sweep for {{owner}}. Today is {{today}}.
 
@@ -35,9 +35,22 @@ below, and nothing speculative.
    these exact keys:
    ig_followers, tiktok_followers, x_followers, linkedin_followers.
 
-   Preserve every other key in the file. Do not touch yt_subs, yt_latest,
-   yt_recent, community_members, or updated_at. Something else owns those, and
-   the collector merges rather than replaces for this reason.
+   Merge with python3 rather than rewriting the file with Write. vitals.json
+   holds yt_recent, which is twelve videos of nested JSON, and regenerating all
+   of that by hand to change one integer risks losing it to a transcription
+   slip. Read, set the keys you fetched, write back:
+
+       python3 - <<'EOF'
+       import json
+       p = "{{data}}/vitals.json"
+       d = json.load(open(p))
+       d["tiktok_followers"] = 612          # only the keys you actually fetched
+       json.dump(d, open(p, "w"), indent=2)
+       EOF
+
+   Do not touch yt_subs, yt_latest, yt_recent, community_members, or updated_at.
+   Something else owns those, and the collector merges rather than replaces for
+   this reason.
 
    If a fetch failed, LEAVE THE EXISTING VALUE ALONE. Do not write null, do not
    write zero, and do not carry a number sideways from another platform. A stale
