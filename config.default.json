@@ -170,6 +170,17 @@
     "~/jarvis/reports",
     "~/jarvis/drafts"
   ],
+  "$comment_social": "Which Apify actor to use per platform. Pinned on purpose: an agent that searches the store every morning can silently pick a different actor with different cost, different output, and different reliability. Change these to swap, and the agent reports a failure rather than substituting.",
+  "social": {
+    "actors": {
+      "instagram": "apify/instagram-profile-scraper",
+      "tiktok": "clockworks/tiktok-profile-scraper",
+      "x": "delicious_zebu/advanced-x-twitter-profile-scraper",
+      "linkedin": "harvestapi/linkedin-profile-scraper"
+    },
+    "post_window_days": 30,
+    "max_posts_per_platform": 25
+  },
   "agents": {
     "enabled": [
       "morning",

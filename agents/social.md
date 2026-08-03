@@ -18,18 +18,32 @@ below, and nothing speculative.
    instagram {{instagram}}, tiktok {{tiktok}}, x {{x}}, linkedin {{linkedin}}.
    Skip any that are blank. A blank handle is not an error and not worth a note.
 
-2. For each handle that IS set, fetch the current follower count with the Apify
-   tools. Prefer the purpose-built actors where they exist:
-   - instagram: the Instagram profile scraper
-   - tiktok: the TikTok profile scraper
-   - x and linkedin: no dedicated actor is wired up, so search the Apify store
-     for a profile scraper for that platform and call it. If you cannot find one
-     that returns a follower count in a single run, skip that platform and say
-     so. Do not chain three actors together trying to make it work.
+2. For each handle that IS set, fetch with the actor pinned for that platform:
 
-   Call one actor per platform. If an actor errors or returns no follower count,
-   record that platform as failed and move on. Do not retry more than once, and
-   never substitute a different actor to "get something".
+    {{social_actors}}
+
+   USE THESE EXACT ACTORS. Do not search the store for an alternative, and do
+   not substitute a different one when a call fails. An agent that picks its own
+   dependency every morning silently changes its cost, its output shape, and its
+   reliability, and nothing in the log says why. If a pinned actor fails, that is
+   a result worth reporting: say which actor and what it said, and move on. The
+   operator can swap it in config.
+
+   Two of these need particular input:
+
+   x: this actor scrapes tweets rather than a profile, which is why it was
+      chosen. It requires accountUrls, startDate, endDate, splitMode and
+      language, all mandatory. Use endDate = today, startDate =
+      {{post_window_days}} days ago, splitMode "week", language "any", sort
+      "Latest", excludeReplies true, and maxCollections {{max_posts}}. Every
+      tweet it returns carries authorFollowers, so the follower count comes from
+      the same run as the posts. Take it from the newest record.
+
+   linkedin: the profile scraper is strict about its input enums. If it rejects
+      the call, read the error, correct the field it named, and retry ONCE. Do
+      not go hunting for a different actor.
+
+   Cap every platform at {{max_posts}} posts so the cost stays predictable.
 
 3. Write ONLY the numbers you actually fetched into {{data}}/vitals.json, using
    these exact keys:
