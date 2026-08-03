@@ -4,6 +4,8 @@ label: SOCIAL
 schedule: "0 6 * * *"
 description: Pull follower counts for the non-YouTube platforms into vitals, via Apify.
 requires: [apify, social]
+pre:
+  - python3 scripts/collect.py --fetch
 tools: Read Write Edit ToolSearch Bash(python3:*) mcp__claude_ai_Apify
 ---
 You are JARVIS running the daily social sweep for {{owner}}. Today is {{today}}.
@@ -13,6 +15,12 @@ Everything else is behind an API that needs an app review, a partner
 application, or a paid scraper. You are the paid-scraper path, so treat every
 call as costing money: one lookup per platform, no retries beyond the rules
 below, and nothing speculative.
+
+The YouTube collector runs first, as a pre-command in this same run, so one
+process gathers every platform in order. That is deliberate rather than tidy:
+five different things write vitals.json, agents are separate OS jobs with no
+locking between them, and two of them starting in the same minute would both
+read the file, both write it, and silently drop whichever finished first.
 
 1. Read {{data}}/vitals.json and the operator's handles from their config:
    instagram {{instagram}}, tiktok {{tiktok}}, x {{x}}, linkedin {{linkedin}}.

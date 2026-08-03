@@ -82,6 +82,13 @@ restart because it is easier than reloading.
 the single source, injected into every agent as `{{doc_convention}}`. Agents do
 not restate the rule. Change it there or it drifts.
 
+**Do not co-schedule two agents that write `data/vitals.json`.** Each agent is
+its own launchd job, there is no locking anywhere, and five things write that
+file. Two starting in the same minute both read it, both write it, and one set
+of numbers disappears with nothing in any log. When work needs to happen
+together, chain it as a `pre` command inside one agent, the way `social` runs
+the YouTube collector before its own fetch. Staggered schedules are load-bearing.
+
 **Agents get `bin/` prepended to PATH.** That is how they find the bundled
 `yt-dlp` rather than whatever is on the user's system. Preserve it when touching
 how agents spawn.

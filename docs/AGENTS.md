@@ -56,6 +56,12 @@ agent, which is told to fail loudly rather than write a wrong number.
 
 ## Running and scheduling
 
+Agents run as independent OS jobs with no locking between them, so two that
+write the same data file must not share a start time. Chain the work as a `pre`
+command in one agent instead. `social` does this: its pre runs the YouTube
+collector, so a single sequential run gathers every platform.
+
+
 ```bash
 jarvis agents              # list, with schedule and last run
 jarvis agent scout         # run one now, output streams to your terminal
