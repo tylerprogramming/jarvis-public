@@ -33,6 +33,17 @@ There is no build step, no bundler, and no test suite. You run it and look at it
 | `public/settings.js` | The settings panel. Writes `config.json` through `/api/config`. |
 | `public/` | The rest of the HUD. Vanilla JS, no framework. |
 | `docs/` | The deep references, see below. |
+| `data/` | State every agent reasons from. Read `data/README.md` before writing any of it. |
+| `reports/` | Finished agent output. Empty on a fresh clone. |
+| `drafts/` | Agent output still waiting on a human. `status: draft`. |
+| `journal/` | One entry per day from `nightly`. See `journal/CLAUDE.md`. |
+
+The four output folders ship with their own label and nothing else — their
+contents are gitignored, because they are a record of the operator's business
+rather than part of the software. `index.md`, `README.md`, `CLAUDE.md`, and
+`*.example.md` are folder furniture and are skipped by both the documents trail
+and `jarvis index`; if you add another such file, add it to `isFolderMeta()` in
+`server.js` and `is_folder_meta()` in `scripts/index.py`, which must agree.
 
 Read the doc rather than re-deriving it from code:
 

@@ -64,6 +64,19 @@ function docTitle(file, fallback) {
   return h1 ? h1[1].trim() : fallback;
 }
 
+/* Folder furniture, not documents.
+ *
+ * index.md is navigation, README/CLAUDE label the folder, and *.example.md
+ * shows the shape on a fresh clone. The trail holds nine slots and sorts by
+ * mtime, so on a new install these four would fill half of it and stay there,
+ * burying the reports the panel exists to surface. Same list is applied by
+ * scripts/index.py. */
+function isFolderMeta(name) {
+  const n = name.toLowerCase();
+  return n === "index.md" || n === "readme.md" || n === "claude.md" ||
+    /\.example\.(md|txt)$/.test(n);
+}
+
 function documents() {
   const out = [];
   for (const dir of docDirs()) {
@@ -71,8 +84,7 @@ function documents() {
     try { entries = fs.readdirSync(dir); } catch { continue; }
     for (const name of entries) {
       if (name.startsWith(".")) continue;
-      // index.md is navigation, not a document - listing it buries the real ones
-      if (name.toLowerCase() === "index.md") continue;
+      if (isFolderMeta(name)) continue;
       const full = path.join(dir, name);
       let st;
       try { st = fs.statSync(full); } catch { continue; }

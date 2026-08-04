@@ -11,12 +11,15 @@ data/*.json
 data/*.log
 data/.kokoro-mode
 !data/*.example.json
+!data/README.md
+# Output folders: the folder's own label ships, the contents never do.
 reports/*
 drafts/*
 journal/*
-!reports/.gitkeep
-!drafts/.gitkeep
-!journal/.gitkeep
+!reports/README.md
+!drafts/README.md
+!journal/CLAUDE.md
+!journal/*.example.md
 
 # Private integrations you drop in. See plugins/collectors/README.md.
 plugins/collectors/*
