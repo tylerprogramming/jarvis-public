@@ -1,6 +1,6 @@
 {
   "name": "jarvis-hud",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A self-hosted operations HUD for solo operators. Live vitals, scheduled agents that write their own reports, and a voice command bar wired to Claude Code.",
   "license": "Unlicense",
   "engines": {

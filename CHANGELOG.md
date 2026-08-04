@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 2.3.0
+
+### The day, written down
+
 - `nightly` agent: at 21:00 it reads its own agent logs, the reports written
   that day, and the numbers, then writes one dated entry into `journal/`. It
   records the days nothing happened as plainly as the days something did, which
@@ -27,6 +31,20 @@
   used. Lifetime alone systematically favours new posts.
 - The social agent collects per-post numbers alongside follower counts, and logs
   what each run cost. `doctor` reports the running total.
+
+### Ready for someone else's machine
+
+- The four folders that ship empty now explain themselves. `data/`, `reports/`,
+  and `drafts/` get a README; `journal/` gets a CLAUDE.md and an example entry,
+  because it is the folder an agent writes into and the shape is the hard part.
+  Labels ship, contents stay gitignored.
+- Nothing assumes the repo lives at `~/jarvis`. `documents_dirs` had that path
+  hardcoded, which meant anyone who cloned elsewhere got a documents trail and
+  an indexer pointing at a folder that did not exist. It now defaults to empty
+  and means what it always claimed: extra folders, beyond the built-in three.
+- `index.md`, `README.md`, `CLAUDE.md`, and `*.example.md` are folder furniture.
+  The documents trail and the indexer both skip them, so a README cannot sit at
+  the top of a nine-slot panel burying the reports it exists to surface.
 
 ## 2.2.0
 
