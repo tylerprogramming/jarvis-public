@@ -38,7 +38,10 @@ const isLoopback = (h) =>
 
 // ---------- documents trail ----------
 function docDirs() {
-  return [...new Set([CFG.paths.reports, CFG.paths.drafts, ...CFG.documents_dirs.map(expand)])];
+  return [...new Set([
+    CFG.paths.reports, CFG.paths.drafts, CFG.paths.journal,
+    ...CFG.documents_dirs.map(expand),
+  ])];
 }
 
 /* Prefer the frontmatter title over the filename.

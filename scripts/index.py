@@ -171,6 +171,7 @@ def main():
         targets = [
             os.path.join(ROOT, "reports"),
             os.path.join(ROOT, "drafts"),
+            expand(cfg.get("journal", {}).get("dir")) or os.path.join(ROOT, "journal"),
             *[expand(d) for d in cfg.get("documents_dirs", [])],
             *[expand(d) for d in cfg.get("knowledge", {}).get("context_dirs", [])],
         ]

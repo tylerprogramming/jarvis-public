@@ -166,14 +166,11 @@
   "research": {
     "lanes": []
   },
-  "documents_dirs": [
-    "~/jarvis/reports",
-    "~/jarvis/drafts",
-    "~/jarvis/journal"
-  ],
-  "$comment_journal": "The nightly entry. deliver is none, gmail, or resend. none writes the file and stops - the default, because the other two leave your machine. gmail creates a DRAFT you press send on; the Gmail connector cannot send. resend actually sends, and needs RESEND_API_KEY and JARVIS_MAIL_FROM in .env.",
+  "$comment_documents_dirs": "EXTRA folders to show in the documents trail. reports/, drafts/, and journal/ are always included and are found relative to wherever you cloned this, so they do not belong here. Use this for a notes vault or a project folder elsewhere on disk.",
+  "documents_dirs": [],
+  "$comment_journal": "The nightly entry. dir is empty to mean journal/ beside the repo; set it only to keep entries somewhere else. deliver is none, gmail, or resend. none writes the file and stops - the default, because the other two leave your machine. gmail creates a DRAFT you press send on; the Gmail connector cannot send. resend actually sends, and needs RESEND_API_KEY and JARVIS_MAIL_FROM in .env.",
   "journal": {
-    "dir": "~/jarvis/journal",
+    "dir": "",
     "deliver": "none",
     "to": ""
   },
