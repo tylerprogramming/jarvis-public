@@ -43,6 +43,15 @@ needs write access to real files, so it is less trivial than it looks.
 **Push when something is urgent.** An agent that finds a 5x breakout at 6:30am
 writes a report nobody reads until evening. ntfy or a webhook, opt-in.
 
+**More ways for the recap to reach you.** The nightly journal already has the
+seam: `journal.deliver` names a method, `journalDelivery()` hands the agent one
+exact instruction, and the default is to do nothing. Slack is the obvious next
+one - a DM to yourself is where a lot of people actually read things, and the
+MCP server for it is already common, so it is `mcp: [slack]` plus one branch
+rather than new plumbing. Discord and ntfy drop into the same slot. The rule
+that has to survive: every method is named and never improvised, and each one
+stays off until someone turns it on.
+
 **Pre-flight gate.** Score a planned title against the playbook plus a live
 search before the work gets made. This existed in v1 as a chat command and
 should come back as a real UI with a verdict and alternatives.
