@@ -47,9 +47,17 @@ read the file, both write it, and silently drop whichever finished first.
       tweet it returns carries authorFollowers, so the follower count comes from
       the same run as the posts. Take it from the newest record.
 
-   linkedin: the profile scraper is strict about its input enums. If it rejects
-      the call, read the error, correct the field it named, and retry ONCE. Do
-      not go hunting for a different actor.
+   linkedin: pass publicIdentifiers, NOT queries and NOT urls. The public
+      identifier is the last path segment of the configured profile URL, so
+      https://www.linkedin.com/in/some-handle/ becomes "some-handle". Set
+      profileScraperMode to exactly "Profile details no email ($4 per 1k)".
+      The follower count is followerCount on the returned record.
+
+      This matters because the failure is silent: given a URL in queries or
+      urls, the run still exits SUCCEEDED and simply returns an empty dataset.
+      There is no error to read and nothing to correct, so it looks like the
+      actor is broken when the input was just the wrong shape. Verified working
+      with publicIdentifiers on 2026-08-04.
 
    Cap every platform at {{max_posts}} posts so the cost stays predictable.
 
