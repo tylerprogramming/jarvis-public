@@ -136,6 +136,36 @@ curl -L -o ~/models/ggml-base.en.bin --create-dirs \
 Then point `stt.local.model_path` at that file, in `config.json` or the
 settings panel.
 
+### Will the agents actually run at those times
+
+Only if the machine is awake. Neither launchd nor cron wakes a sleeping
+computer, and nothing runs during sleep because the CPU is halted. Power Nap
+does not change this: it wakes briefly for a few Apple services, not for your
+jobs.
+
+What happens when it is asleep differs by platform, and the difference matters:
+
+- **macOS** replays what it missed once it wakes, spread over a few hours. You
+  still get the day's data, just late.
+- **Linux cron** skips a missed job permanently. That day is simply gone.
+
+`jarvis doctor` reports which situation you are in rather than letting you find
+out days later, and `jarvis agents install` says it at the moment you set the
+schedules. Three ways to fix it:
+
+```bash
+sudo pmset repeat wakeorpoweron MTWRFSU 05:55:00   # wake just before the run
+sudo pmset -a sleep 0                              # or never sleep at all
+```
+
+Or run Jarvis on something that is always on. It is Node 18+ with zero
+dependencies plus python3, so any small VPS works. Two cautions if you do:
+the Claude Code brain needs the `claude` CLI authenticated on that machine, or
+point `brain.openai` at an API endpoint instead; and do not expose the HUD to
+the internet, because `/api/chat` reaches a brain that reads files and runs
+commands. Put it behind a VPN or an SSH tunnel. See
+[docs/SECURITY.md](docs/SECURITY.md).
+
 ### If the mic will not start
 
 The HUD tells you which of the five ways it failed, because they need different

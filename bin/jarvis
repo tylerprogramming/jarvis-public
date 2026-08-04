@@ -91,6 +91,58 @@ function ytdlpStatus() {
   return `yes   ${version} (${where}), fetch verified${shadowed}`;
 }
 
+
+/* Will the scheduled times actually happen?
+ *
+ * launchd and cron both fire against wall-clock time on a machine that is
+ * awake. Neither wakes a sleeping one. macOS at least replays what it missed,
+ * a few hours late and trickling in; cron simply skips a missed job forever.
+ * Either way "07:00" in the agent list is a promise the OS may not keep, and
+ * silently running late is the kind of thing someone discovers three days in
+ * when a report they expected never appeared. So say it up front.
+ */
+function sleepAdvice() {
+  if (process.platform !== "darwin") {
+    return {
+      warn: true,
+      lines: [
+        "cron does not run jobs missed while the machine was off or asleep.",
+        "If this machine sleeps, schedule a wake, or keep it awake overnight.",
+      ],
+    };
+  }
+  let sleeps = null, hasWake = false;
+  try {
+    const out = execFileSync("pmset", ["-g", "custom"], { encoding: "utf8" });
+    // the idle-sleep minutes for the active power source; 0 means never
+    const m = out.match(/^\s*sleep\s+(\d+)/m);
+    if (m) sleeps = Number(m[1]);
+  } catch {}
+  try {
+    const sched = execFileSync("pmset", ["-g", "sched"], { encoding: "utf8" });
+    // Only a REPEATING wake counts. The "Scheduled power events" list is full
+    // of transient one-offs the system books for itself (calendar refresh,
+    // analytics), and matching those reported this machine as fine on a day we
+    // had just watched every agent run three hours late.
+    const rep = sched.split(/Repeating power events:/i)[1];
+    hasWake = Boolean(rep && /wake|poweron/i.test(rep));
+  } catch {}
+
+  if (sleeps === 0) return { warn: false, lines: ["this machine does not sleep, so agents run on time"] };
+  if (hasWake) return { warn: false, lines: ["a scheduled wake exists, so agents should run close to their times"] };
+  return {
+    warn: true,
+    lines: [
+      `this Mac sleeps after ${sleeps === null ? "an idle period" : sleeps + " min"} and has no scheduled wake,`,
+      "so agents run whenever it next wakes, typically hours late. macOS does",
+      "replay what it missed, so nothing is lost, it is just not on time.",
+      "To have them run at the scheduled times, either:",
+      "  sudo pmset repeat wakeorpoweron MTWRFSU 05:55:00   # wake just before",
+      "  sudo pmset -a sleep 0                              # or never sleep",
+    ],
+  };
+}
+
 function run(file, args = [], opts = {}) {
   const child = spawn(process.execPath, [file, ...args], { stdio: "inherit", cwd: ROOT, ...opts });
   child.on("close", (code) => process.exit(code || 0));
@@ -248,6 +300,11 @@ async function main() {
         }
         console.log(`installed on ${platform === "darwin" ? "launchd" : "cron"}:`);
         installed.forEach((i) => console.log(`  ${i}`));
+        const advice = sleepAdvice();
+        if (advice.warn) {
+          console.log(`\n  HEADS UP: these times assume the machine is awake.`);
+          advice.lines.forEach((l) => console.log(`  ${l}`));
+        }
         return;
       }
       if (sub === "check") {
@@ -364,6 +421,10 @@ async function main() {
       } catch {
         // no log yet: the social agent has not run, or is not enabled
       }
+
+      const adv = sleepAdvice();
+      console.log(`\n  SCHEDULE           ${adv.warn ? "AGENTS WILL RUN LATE" : "ok"}`);
+      adv.lines.forEach((l) => console.log(`    ${l}`));
 
       const agents = require(path.join(ROOT, "lib", "agents"));
       const enabled = agents.list(cfg).filter((a) => a.enabled);
