@@ -87,6 +87,55 @@ files win. `reports/` and `drafts/` are always included. A directory containing
 This is also the allowlist for `/api/doc` - Jarvis will not open a file outside
 these directories.
 
+## journal
+
+Where the `nightly` agent writes the day, and what it does with it afterwards.
+
+```json
+{
+  "journal": {
+    "dir": "~/jarvis/journal",
+    "deliver": "none",
+    "to": ""
+  }
+}
+```
+
+One file per day, named `YYYY-MM-DD.md`. The folder is in `documents_dirs` by
+default, so entries show up in the DOCUMENTS panel, and `journal/*` is
+gitignored - it is a record of your business, not of the software.
+
+`deliver` is one of three values, and the default does nothing on purpose:
+
+| | |
+|---|---|
+| `none` | Write the file and stop. Nothing leaves the machine. |
+| `gmail` | Create a **draft** in Gmail. You press send. |
+| `resend` | Actually send the email. |
+
+**`gmail`** needs a Gmail MCP server enabled in
+[`chat.mcp_servers`](#chatmcp_servers). It creates a draft rather than sending
+because the Gmail connector has no send tool — and that turns out to be the
+better default anyway, since a recap you glance at before it goes anywhere is
+hard to regret. If the server is not enabled the agent still writes the file
+and tells you the draft was skipped.
+
+**`resend`** genuinely sends, through [Resend](https://resend.com), using
+`scripts/mail.py` and the standard library — no package to install. Two lines
+in `.env`:
+
+```
+RESEND_API_KEY=re_...
+JARVIS_MAIL_FROM=jarvis@yourdomain.com
+```
+
+The from address has to be on a domain you verified with Resend. That is not a
+Jarvis rule; every provider works that way. Send it to yourself.
+
+`jarvis agents check` catches the half-configured states — a `deliver` with no
+`to`, an unknown method, `resend` with no key — before they turn into a recap
+you assumed went out and didn't.
+
 ## chat
 
 ```json
@@ -223,6 +272,8 @@ Set `calendar.enabled` to `false` to hide the strip.
 ELEVENLABS_API_KEY=...   # premium voice
 OPENAI_API_KEY=...       # hosted Whisper, only if you want it
 KOKORO_API_KEY=...       # only if your local server requires one
+RESEND_API_KEY=...       # only for journal.deliver = resend
+JARVIS_MAIL_FROM=...     # the from address, on a domain verified with Resend
 JARVIS_TOKEN=...         # required for any non-loopback bind
 JARVIS_HOST=127.0.0.1
 JARVIS_PORT=4747

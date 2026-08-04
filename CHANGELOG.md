@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- `nightly` agent: at 21:00 it reads its own agent logs, the reports written
+  that day, and the numbers, then writes one dated entry into `journal/`. It
+  records the days nothing happened as plainly as the days something did, which
+  is the only version of a journal worth keeping.
+- The recap can reach your inbox. `journal.deliver` is `none` by default;
+  `gmail` creates a draft you press send on (the connector cannot send, and that
+  is the better default anyway); `resend` actually sends, through
+  `scripts/mail.py` and the standard library. `agents check` catches the
+  half-configured states rather than letting them fail quietly.
+- Agents declare MCP servers by kind (`mcp: [gmail]`) instead of naming a token.
+  The token is resolved from whatever you called that server, so an agent file
+  is portable between two setups. Each agent still gets only the kinds it asked
+  for, so enabling Gmail for the recap does not let the morning agent send mail.
+- Agent runs no longer log a stdin warning on every run.
 - `data/posts.json`, one post store across platforms. YouTube fills it free via
   yt-dlp; the optional social agent adds IG/TikTok/X via Apify; plugins or an
   official API can fill it too. Consumers read the store, not the collector.

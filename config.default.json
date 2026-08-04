@@ -168,8 +168,15 @@
   },
   "documents_dirs": [
     "~/jarvis/reports",
-    "~/jarvis/drafts"
+    "~/jarvis/drafts",
+    "~/jarvis/journal"
   ],
+  "$comment_journal": "The nightly entry. deliver is none, gmail, or resend. none writes the file and stops - the default, because the other two leave your machine. gmail creates a DRAFT you press send on; the Gmail connector cannot send. resend actually sends, and needs RESEND_API_KEY and JARVIS_MAIL_FROM in .env.",
+  "journal": {
+    "dir": "~/jarvis/journal",
+    "deliver": "none",
+    "to": ""
+  },
   "$comment_social": "Which Apify actor to use per platform. Pinned on purpose: an agent that searches the store every morning can silently pick a different actor with different cost, different output, and different reliability. Change these to swap, and the agent reports a failure rather than substituting.",
   "social": {
     "actors": {

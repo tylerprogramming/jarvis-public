@@ -40,6 +40,14 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 | `study` | Wed 16:00 | Reads the transcripts of the strongest videos in your lanes and writes down what's reusable |
 | `weekly-review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
 | `social` | daily 06:00 | Follower counts for your other platforms, via Apify. Off by default, needs a paid scraper |
+| `nightly` | daily 21:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail you the recap |
+
+**A journal it keeps for you.** At the end of the day the `nightly` agent reads
+its own agent logs, the reports written that day, and the numbers, then writes
+one dated entry in `journal/`. Not a summary of your plans — a record of what
+the evidence says happened, including the days nothing did. A week of those is
+what makes Sunday's review honest. It can also drop the recap in your inbox;
+see [journal](docs/CONFIGURATION.md#journal).
 
 **A command bar with hands.** Type or talk, and it goes to a real agent with
 your context loaded — it reads your files, edits your data, runs your tools.

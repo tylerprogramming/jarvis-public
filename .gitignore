@@ -13,8 +13,10 @@ data/.kokoro-mode
 !data/*.example.json
 reports/*
 drafts/*
+journal/*
 !reports/.gitkeep
 !drafts/.gitkeep
+!journal/.gitkeep
 
 # Private integrations you drop in. See plugins/collectors/README.md.
 plugins/collectors/*

@@ -12,6 +12,7 @@ label: MORNING             # what shows on the HUD ring
 schedule: "0 7 * * *"      # standard cron: minute hour day month weekday
 description: One line shown in the settings panel.
 requires: [youtube]        # skip cleanly when config is missing this
+mcp: [gmail]               # MCP kinds this agent may use, if you enabled them
 pre:                       # shell commands run before the prompt
   - python3 scripts/collect.py --fetch
 tools: Read Write Edit Bash(yt-dlp:*)
@@ -35,6 +36,26 @@ Only `name` and a body are required.
 | `{{root}}` `{{data}}` `{{reports}}` `{{drafts}}` | absolute paths |
 | `{{brain_files}}` `{{context_dirs}}` | your `knowledge` paths |
 | `{{radar_channels}}` `{{lanes}}` | watched channels, research lanes |
+| `{{journal_dir}}` `{{journal_delivery}}` | where the nightly entry goes, and what to do with it |
+
+## mcp
+
+An agent names the *kind* of MCP server it needs, not the server's token:
+
+```markdown
+mcp: [gmail]
+```
+
+At run time that is matched against the servers you enabled in
+`chat.mcp_servers`, and the real token is appended to the agent's tools. So
+`mcp: [gmail]` works whether you called yours `gmail` or `claude.ai Gmail`, and
+an agent file stays portable between two people who named things differently.
+
+Two things this deliberately does not do. It does not enable anything — if the
+server is not in `chat.mcp_servers` the agent runs without it and says so in
+its log. And it does not hand an agent every server you have on: each agent
+gets only the kinds it declared, so turning Gmail on for the nightly recap does
+not give the morning agent the ability to email people.
 
 ## requires
 

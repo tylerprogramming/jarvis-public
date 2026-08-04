@@ -41,6 +41,30 @@ def expand(p):
     return os.path.expanduser(p) if isinstance(p, str) else p
 
 
+def env(key, default=None):
+    """A value from the real environment, falling back to .env.
+
+    Same precedence as lib/config.js: the process environment wins, because
+    that is how you override a file for one run. Secrets live in .env and never
+    in config.json, which is the whole reason this reads two places instead of
+    one. Nothing here is cached - a key added to .env works on the next call.
+    """
+    if os.environ.get(key) is not None:
+        return os.environ[key]
+    try:
+        with open(os.path.join(ROOT, ".env")) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                if k.strip() == key:
+                    return v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return default
+
+
 def paths():
     return {
         "root": ROOT,

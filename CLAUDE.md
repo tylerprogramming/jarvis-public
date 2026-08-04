@@ -91,7 +91,22 @@ the YouTube collector before its own fetch. Staggered schedules are load-bearing
 
 **Agents get `bin/` prepended to PATH.** That is how they find the bundled
 `yt-dlp` rather than whatever is on the user's system. Preserve it when touching
-how agents spawn.
+how agents spawn. Their stdin is `ignore` for the same reason: nobody is typing
+at a scheduled job, and an open pipe only earns a warning in every log.
+
+**Delivery defaults to off, and never improvises.** `journal.deliver` is
+`none` out of the box, and the exact instruction the nightly agent receives is
+built by `journalDelivery()` in `lib/agents.js`, not decided by the model.
+Sending mail is the one thing in this repo that leaves the machine and cannot
+be taken back, so the prompt says precisely one method or precisely none, and a
+misconfigured setting produces a stated skip rather than a guess at an address.
+
+**An agent declares MCP servers by kind, not by token.** `mcp: [gmail]` in
+frontmatter, resolved at run time against the servers the operator enabled.
+Never hardcode `mcp__claude_ai_Gmail` in an agent file — it only works for
+people who named their server the way you named yours. And never append every
+enabled server to every agent: each one gets only the kinds it declared, which
+is what stops the morning report from being able to send email.
 
 ## Verifying a change
 
@@ -133,6 +148,12 @@ the tool prefix; `chat.mcp_servers` in config decides which are allowed. Default
 is none on purpose. Do not change that default to "all" to make something work,
 and do not add a server to the list on a user's behalf without being asked, as
 these are the tools that send email and post publicly.
+
+**Give an agent an MCP server.** Add `mcp: [<kind>]` to its frontmatter — a
+substring matched against the operator's enabled server names. Nothing else.
+Do not add the server to `chat.mcp_servers` for them; declaring the need and
+granting it are separate on purpose, and the log says when a declared kind is
+not enabled.
 
 **Add a theme.** One entry in `THEMES` at the top of `public/app.js`: the
 colour tokens, a `chrome` (`glass`, `soft`, or `flat`, which controls blur and

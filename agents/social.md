@@ -6,7 +6,8 @@ description: Pull follower counts for the non-YouTube platforms into vitals, via
 requires: [apify, social]
 pre:
   - python3 scripts/collect.py --fetch
-tools: Read Write Edit ToolSearch Bash(python3:*) mcp__claude_ai_Apify
+mcp: [apify]
+tools: Read Write Edit ToolSearch Bash(python3:*)
 ---
 You are JARVIS running the daily social sweep for {{owner}}. Today is {{today}}.
 
