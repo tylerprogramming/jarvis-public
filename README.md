@@ -118,8 +118,18 @@ your real numbers so the dashboard is not empty on first open.
 ### 3. Check it
 
 ```bash
-jarvis doctor
+node bin/jarvis doctor      # or: npm run doctor
 ```
+
+Cloning does not put `jarvis` on your PATH. To type the short form, add an
+alias once, from inside the repo:
+
+```bash
+echo "alias jarvis='node $PWD/bin/jarvis'" >> ~/.zshrc && source ~/.zshrc
+```
+
+The rest of this README uses `jarvis ...` for readability. Without the alias,
+`node bin/jarvis ...` does the same thing everywhere.
 
 This is the honest inventory: which brain answers, whether yt-dlp can actually
 *fetch* rather than merely exist, which voice providers are live, and whether
