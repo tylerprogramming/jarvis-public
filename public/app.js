@@ -291,8 +291,8 @@ ${who} · ${fmt(b.views)} views in ${b.age_days}d · ${b.multiple}x that channel
   $("documents").innerHTML = d.documents.map((x) =>
     `<div class="doc" data-f="${esc(x.file)}" title="click to read"><span>${esc(x.name.slice(0, 32))}</span><span class="age">${x.age}</span></div>`
   ).join("") ||
-    `<div class="msg sys">empty. agent reports and drafts land here - click an agent on the
-     ring to run one now.</div>`;
+    `<div class="msg sys">empty. agent reports and drafts land here - click any agent on the
+     ring to see what it does, and run it from there.</div>`;
   document.querySelectorAll(".doc").forEach((el) =>
     el.onclick = async () => {
       const r = await (await fetch("/api/doc?f=" + encodeURIComponent(el.dataset.f))).json();
@@ -435,15 +435,14 @@ async function loadAgents() {
     const box = $("agents");
     if (!box.children.length || changed) {
       box.innerHTML = AGENTS_LIST.map((a) =>
-        `<div class="agent" id="ag-${esc(a.id)}" title="${esc(a.description || a.label)}${a.id === "runner" ? "" : " - click to run now"}">
+        `<div class="agent" id="ag-${esc(a.id)}" title="${esc(a.description || a.label)}${a.id === "runner" ? "" : " - click to see what it does"}">
           <span class="adot"></span>${esc(a.label)}<span class="atag">${esc(a.tag)}</span></div>`
       ).join("");
       layoutAgents();
-      // clicking an agent runs it now, which is how you test one without
-      // waiting for its scheduled hour
+      // clicking an agent explains it, with a button to run it there and then
       AGENTS_LIST.filter((a) => a.id !== "runner").forEach((a) => {
         const el = $("ag-" + a.id);
-        if (el) el.onclick = () => runAgent(a);
+        if (el) el.onclick = () => explainAgent(AGENTS_LIST.find((x) => x.id === a.id) || a);
       });
     }
     for (const a of AGENTS_LIST) {
@@ -453,6 +452,62 @@ async function loadAgents() {
       el.classList.toggle("off", a.enabled === false || (a.unmet || []).length > 0);
     }
   } catch {}
+}
+
+/* Clicking an agent explains it before it does anything.
+ *
+ * It used to fire the agent immediately. That is a surprising amount of
+ * consequence for one click on a word you have never seen - some of these
+ * spend money - and it taught nobody what the agent was for. Now the click
+ * answers "what is this and when does it run", and running is a deliberate
+ * second click.
+ */
+const CRON_WORDS = (c) => {
+  const p = String(c || "").trim().split(/\s+/);
+  if (p.length < 5) return "on demand only";
+  const [min, hr, , , dow] = p;
+  const at = /^\d+$/.test(hr) && /^\d+$/.test(min)
+    ? `${String(hr).padStart(2, "0")}:${String(min).padStart(2, "0")}` : c;
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  if (dow === "*") return `every day at ${at}`;
+  if (/^\d$/.test(dow)) return `every ${days[+dow]} at ${at}`;
+  return `${c} (cron)`;
+};
+
+function explainAgent(a) {
+  const unmet = a.unmet || [];
+  const rows = [
+    ["Runs", a.enabled === false ? "not enabled" : CRON_WORDS(a.schedule)],
+    ["Writes", "a report into the documents trail, bottom left"],
+  ];
+  if (unmet.length) rows.push(["Needs", `${unmet.join(", ")} - it will skip until you set that`]);
+
+  $("modal-title").textContent = a.label;
+  const body = $("modal-body");
+  body.textContent = "";
+  const p = document.createElement("p");
+  p.textContent = a.description || "No description in this agent's frontmatter.";
+  p.style.cssText = "margin:0 0 14px; line-height:1.5;";
+  body.appendChild(p);
+  for (const [k, v] of rows) {
+    const line = document.createElement("div");
+    line.style.cssText = "margin:4px 0; font-size:12px; opacity:.85;";
+    line.textContent = `${k}: ${v}`;
+    body.appendChild(line);
+  }
+  const btn = document.createElement("button");
+  btn.textContent = unmet.length ? "Run anyway" : "Run it now";
+  btn.style.cssText = "margin-top:16px; padding:8px 14px; cursor:pointer;" +
+    "font-family:var(--mono); font-size:11px; letter-spacing:1.5px;" +
+    "background:transparent; color:var(--accent-hi);" +
+    "border:1px solid var(--accent); border-radius:var(--radius-sm);";
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    $("modal").classList.remove("open");
+    runAgent(a);
+  };
+  body.appendChild(btn);
+  $("modal").classList.add("open");
 }
 
 async function runAgent(a) {

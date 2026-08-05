@@ -237,9 +237,29 @@ async function main() {
 
   // ---- everything else, only if they want it now
   let elevenKey = "", openaiKey = "";
-  console.log("  The rest has working defaults: system voice, browser mic, the");
-  console.log("  standard agents on, radar off until you name a channel. All of");
-  console.log("  it is editable later in Settings, or in config.json.");
+  // ---- voice, offered up front because it is the thing people actually want
+  console.log("  VOICE");
+  console.log("  Out of the box Jarvis speaks with your system voice and hears");
+  console.log("  you through the browser. Kokoro runs a much better voice");
+  console.log("  locally, for free, and nothing leaves this machine.");
+  if (await askYes("  Install Kokoro now (a few minutes, ~350MB)", false)) {
+    try {
+      execFileSync("bash", [path.join(ROOT, "scripts", "voice.sh"), "install"], { stdio: "inherit" });
+      state.kokoro = true;
+      writeConfig();
+      console.log("  kokoro installed and put first in the voice chain");
+      console.log(`  start it whenever you want it: ${CMD} voice start`);
+    } catch {
+      console.log(`  install did not finish - retry later with: ${CMD} voice install`);
+    }
+  } else {
+    console.log(`  fine - the system voice works today. ${CMD} voice install adds Kokoro later.`);
+  }
+  console.log();
+
+  console.log("  The rest has working defaults: browser mic, the standard agents");
+  console.log("  on, radar off until you name a channel. All of it is editable");
+  console.log("  later in Settings, or in config.json.");
 
   if (await askYes("  Set those up now instead", false)) {
     state.about = await ask("\n  One line on what you do (Jarvis uses it for topic picks)", state.about);
@@ -265,9 +285,7 @@ async function main() {
     );
     state.lanes = lanesRaw.split(",").map((t) => t.trim()).filter(Boolean);
 
-    console.log("\n  VOICE - free out of the box using your system voice.");
-    elevenKey = await ask("  ElevenLabs key for the best voice (optional)", "");
-    state.kokoro = await askYes("  Do you run a local Kokoro server", false);
+    elevenKey = await ask("\n  ElevenLabs key, if you want the paid voice (optional)", "");
     openaiKey = await ask("  OpenAI key for hosted Whisper (optional)", "");
 
     if (!(await askYes("\n  Enable the standard agents", true))) state.agents = ["morning"];

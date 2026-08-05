@@ -228,6 +228,9 @@ function apiAgents(res) {
         enabled: a.enabled,
         running: RUNNING.has(a.name) || procs.includes(`agents/${a.name}.md`),
         unmet: agentsLib.unmetRequirements(a, CFG),
+        // the raw expression too, so the HUD can say "every day at 07:00"
+        // rather than only the compact tag that fits on the ring
+        schedule: a.schedule || "",
         lastRun,
       };
     });
