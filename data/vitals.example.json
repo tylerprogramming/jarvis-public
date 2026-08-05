@@ -1,0 +1,33 @@
+{
+  "$comment": "The shape of data/vitals.json, with everything zeroed. The real file is written by scripts/collect.py and is gitignored. This exists so you can see what a collector is expected to produce, and so the HUD has something to describe before anything has run. Nothing reads this file.",
+  "yt_channel": "",
+  "yt_subs": 0,
+  "yt_total_videos": 0,
+  "yt_latest": {
+    "id": "",
+    "title": "",
+    "views": 0,
+    "upload_date": "",
+    "views_per_day": 0
+  },
+  "yt_fetched_at": "1970-01-01T00:00:00",
+  "ig_followers": 0,
+  "tiktok_followers": 0,
+  "linkedin_followers": 0,
+  "x_followers": 0,
+  "$comment_community": "Filled only if you drop a collector into plugins/collectors/. There is no built-in source for it, because every community platform is different. See plugins/collectors/community.example.py.",
+  "community_members": 0,
+  "community_joins_7d": 0,
+  "$comment_business": "Optional, and there is no collector for it either. Add it from your own billing data if you want the ARR card to show something.",
+  "business": {
+    "mrr": 0,
+    "arr": 0,
+    "email_subs": 0
+  },
+  "$comment_canary": "Your own daily check-in, set from the command bar. Nothing fetches this.",
+  "canary": {
+    "last_checkin": "1970-01-01",
+    "mood": 0
+  },
+  "updated_at": "1970-01-01T00:00:00"
+}
