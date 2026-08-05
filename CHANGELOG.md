@@ -2,9 +2,16 @@
 
 ## Unreleased
 
-- `nightly` moved from 21:00 to 20:00. An end-of-day agent that slips past
-  midnight reviews a day that is minutes old, finds nothing, and reports that
-  the whole system has died. An hour of headroom is cheap insurance.
+- `nightly` moved from 21:00 to 20:00, and now closes out `{{journal_day}}`
+  rather than `{{today}}`. An end-of-day agent that slips past midnight was
+  reviewing a day minutes old, finding nothing, and reporting that the whole
+  system had died. Before 04:00 it treats the day as still being yesterday's.
+- `doctor` catches a clock that is lying. launchd reads the timezone once at
+  boot and never again, so changing it afterwards leaves every scheduled agent
+  firing in the old zone - silently, surviving a job reload, and looking
+  exactly like a machine that sleeps. The check compares scheduled times
+  against what the logs say actually happened, and only trusts an offset that
+  shows up across two or more agents, so a run started by hand cannot fake it.
 
 ## 2.3.0
 

@@ -37,6 +37,7 @@ Only `name` and a body are required.
 | `{{brain_files}}` `{{context_dirs}}` | your `knowledge` paths |
 | `{{radar_channels}}` `{{lanes}}` | watched channels, research lanes |
 | `{{journal_dir}}` `{{journal_delivery}}` | where the nightly entry goes, and what to do with it |
+| `{{journal_day}}` | the day being closed out. Before 04:00 this is *yesterday*, not `{{today}}` |
 
 ## mcp
 

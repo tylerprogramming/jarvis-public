@@ -143,6 +143,109 @@ function sleepAdvice() {
   };
 }
 
+/* What offset do the agent logs ACTUALLY show, scheduled time vs run time?
+ *
+ * Written because the check above looked at the schedule, said "ok", and was
+ * wrong on a day every agent ran exactly three hours late. Configuration says
+ * what should happen; the logs say what did. Only the logs can catch a clock
+ * that is lying, and by the time you are asking, that is the question.
+ *
+ * A run started by hand shows up here as noise, so an offset only counts when
+ * at least two different agents show the same one. Nobody manually runs two
+ * agents the same distance from their schedules.
+ */
+function observedOffset(cfg) {
+  let agents = [];
+  try {
+    agents = require(path.join(ROOT, "lib", "agents")).list(cfg).filter((a) => a.enabled && a.schedule);
+  } catch { return { offset: null, runs: 0 }; }
+
+  let runs = 0;
+  const byOffset = new Map(); // rounded minutes -> Set of agent names
+  for (const a of agents) {
+    const m = String(a.schedule).trim().split(/\s+/);
+    const min = Number(m[0]), hr = Number(m[1]);
+    if (!Number.isInteger(min) || !Number.isInteger(hr)) continue; // wildcards, steps
+    const want = hr * 60 + min;
+
+    let log = "";
+    try { log = fs.readFileSync(a.log, "utf8"); } catch { continue; }
+    for (const line of log.split("\n").slice(-400)) {
+      const t = line.match(/^=== \S+ \d{4}-\d{2}-\d{2} (\d{2}):(\d{2}) ===/);
+      if (!t) continue;
+      runs++;
+      const got = Number(t[1]) * 60 + Number(t[2]);
+      // wrap into -12h..+12h so a job at 21:00 running at 00:00 reads +3h,
+      // not -21h, which is the same event described uselessly
+      let d = got - want;
+      if (d > 720) d -= 1440;
+      if (d < -720) d += 1440;
+      if (Math.abs(d) < 20) continue; // ran close enough to on time
+      const key = Math.round(d / 15) * 15;
+      if (!byOffset.has(key)) byOffset.set(key, new Set());
+      byOffset.get(key).add(a.name);
+    }
+  }
+  let best = null;
+  for (const [mins, names] of byOffset)
+    if (names.size >= 2 && (!best || names.size > best.names.size))
+      best = { mins, names: [...names] };
+  return { offset: best, runs };
+}
+
+/* launchd reads the timezone once, when it starts, and never again.
+ *
+ * Change the timezone after boot and every StartCalendarInterval keeps firing
+ * in the old one until you restart. It is silent, it survives reloading the
+ * job, and it looks exactly like a machine that sleeps - which is what it got
+ * misdiagnosed as here, for a day, complete with pmset advice that would not
+ * have helped.
+ */
+function timezoneAdvice(cfg) {
+  if (process.platform !== "darwin") return { warn: false, lines: [] };
+
+  let bootMs = null, tzMs = null;
+  try {
+    const m = execFileSync("sysctl", ["-n", "kern.boottime"], { encoding: "utf8" }).match(/sec\s*=\s*(\d+)/);
+    if (m) bootMs = Number(m[1]) * 1000;
+  } catch {}
+  try { tzMs = fs.lstatSync("/etc/localtime").mtimeMs; } catch {}
+
+  const changedAfterBoot = bootMs && tzMs && tzMs > bootMs;
+  const { offset, runs } = observedOffset(cfg);
+
+  if (offset) {
+    const h = (offset.mins / 60).toFixed(offset.mins % 60 ? 2 : 0);
+    return {
+      warn: true,
+      confirmed: true,
+      lines: [
+        `agents are running ${offset.mins > 0 ? "+" : ""}${h}h off their schedule`,
+        `  (seen in: ${offset.names.join(", ")})`,
+        ...(changedAfterBoot
+          ? ["the timezone was changed after this machine booted, and launchd",
+             "still holds the old one. Reloading a job does not clear it.",
+             "Restart the machine."]
+          : ["check the timezone, and whether this machine sleeps."]),
+      ],
+    };
+  }
+  // The logs are the better witness. If agents have been running and none of
+  // them drifted, the clock is fine whatever the file timestamps suggest -
+  // launchd may well have been restarted since. Only warn on the timestamps
+  // when there is no run history to contradict them.
+  if (changedAfterBoot && runs === 0)
+    return {
+      warn: true,
+      lines: [
+        "the timezone was changed after boot. launchd caches it at start, so",
+        "scheduled agents may fire in the OLD zone until you restart. Nothing",
+        "has run yet, so there is no evidence either way.",
+      ],
+    };
+  return { warn: false, lines: [] };
+}
+
 function run(file, args = [], opts = {}) {
   const child = spawn(process.execPath, [file, ...args], { stdio: "inherit", cwd: ROOT, ...opts });
   child.on("close", (code) => process.exit(code || 0));
@@ -422,8 +525,17 @@ async function main() {
         // no log yet: the social agent has not run, or is not enabled
       }
 
+      // Two different reasons an agent misses its time, and they need
+      // different fixes. The clock one wins the headline because it is the one
+      // that reads as "fine" everywhere else.
       const adv = sleepAdvice();
-      console.log(`\n  SCHEDULE           ${adv.warn ? "AGENTS WILL RUN LATE" : "ok"}`);
+      const tz = timezoneAdvice(cfg);
+      const state = tz.confirmed ? "AGENTS ARE RUNNING AT THE WRONG TIME"
+        : tz.warn ? "CLOCK MAY BE WRONG"
+        : adv.warn ? "AGENTS WILL RUN LATE" : "ok";
+      console.log(`\n  SCHEDULE           ${state}`);
+      tz.lines.forEach((l) => console.log(`    ${l}`));
+      if (tz.warn && adv.lines.length) console.log(`    --`);
       adv.lines.forEach((l) => console.log(`    ${l}`));
 
       const agents = require(path.join(ROOT, "lib", "agents"));

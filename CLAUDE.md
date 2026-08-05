@@ -126,6 +126,14 @@ without exercising the thing. It has happened with Whisper, with yt-dlp, and
 twice in the checks written to catch it. When you add a check, make it do the
 real work.
 
+The sharpest example: every agent ran three hours late for two weeks because
+launchd caches the timezone at boot and it had been changed fourteen minutes
+after. `doctor` read the schedule config and said "ok" the whole time, and the
+first diagnosis blamed the machine sleeping - which fit the same evidence and
+was wrong. Configuration says what should happen; only the logs say what did.
+`observedOffset()` in `bin/jarvis` now reads the run history instead, and
+requires the offset to appear across two agents so a manual run cannot fake it.
+
 ```bash
 node bin/jarvis doctor          # what is actually wired up, end to end
 node bin/jarvis agents check    # preflight every agent before trusting a schedule
