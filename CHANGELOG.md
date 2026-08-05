@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `nightly` moved from 21:00 to 20:00. An end-of-day agent that slips past
+  midnight reviews a day that is minutes old, finds nothing, and reports that
+  the whole system has died. An hour of headroom is cheap insurance.
+
 ## 2.3.0
 
 ### The day, written down

@@ -1,8 +1,13 @@
 # journal/
 
 One file per day, named `YYYY-MM-DD.md`. Written by the `nightly` agent at
-21:00. This folder is meant to be read in order, which is why the filename is
+20:00. This folder is meant to be read in order, which is why the filename is
 nothing but the date.
+
+The hour is deliberately not later. An end-of-day agent that slips past
+midnight starts reviewing a day that is minutes old, finds nothing, and
+concludes the whole system has died - which is exactly what happened the first
+night this ran. Late is survivable; across midnight is not.
 
 ## What it is for
 

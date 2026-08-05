@@ -1,7 +1,7 @@
 ---
 name: nightly
 label: NIGHTLY
-schedule: "0 21 * * *"
+schedule: "0 20 * * *"
 description: End of day - write today's journal entry, and deliver the recap if delivery is on.
 mcp: [gmail]
 tools: Read Glob Grep Write Edit Bash(python3:*) Bash(ls:*) Bash(cat:*)

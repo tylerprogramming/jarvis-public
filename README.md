@@ -40,7 +40,7 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 | `study` | Wed 16:00 | Reads the transcripts of the strongest videos in your lanes and writes down what's reusable |
 | `weekly-review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
 | `social` | daily 06:00 | Follower counts for your other platforms, via Apify. Off by default, needs a paid scraper |
-| `nightly` | daily 21:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail you the recap |
+| `nightly` | daily 20:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail you the recap |
 
 **A journal it keeps for you.** At the end of the day the `nightly` agent reads
 its own agent logs, the reports written that day, and the numbers, then writes
