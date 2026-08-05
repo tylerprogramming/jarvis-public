@@ -96,6 +96,20 @@ git clone https://github.com/tylerprogramming/jarvis-public.git jarvis
 cd jarvis
 ```
 
+**Two ways from here.** Both end in the same place, so pick whichever you
+prefer:
+
+| | |
+|---|---|
+| **Run the wizard** | `npm run setup` — two questions, then you are done. Steps 2 onward below. |
+| **Let Claude Code do it** | `cd` into this folder, run `claude`, and say **"read CLAUDE.md and set Jarvis up for me"**. It reads the repo, asks what it needs, edits `config.json`, and checks its own work with `jarvis doctor`. |
+
+The second one works because this repo documents itself for exactly that: the
+setup procedure an agent should follow lives in
+[CLAUDE.md](CLAUDE.md#setting-this-up-for-someone). If you are going to use
+Claude Code as the brain anyway, having it do the install is a fair first test
+that the connection works.
+
 Nothing to build and nothing to `npm install` - the `dependencies` block is
 empty and stays that way. npm is only a convenience here: every script in
 `package.json` is a one-line wrapper, so `node scripts/setup.js` does exactly

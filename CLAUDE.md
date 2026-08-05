@@ -150,6 +150,50 @@ with no z-index let checkboxes scroll through the title. Open it and look.
 reading `--version`, because a stale copy answers `--version` perfectly and then
 fails every real request. Keep that property.
 
+## Setting this up for someone
+
+If the operator asks you to set Jarvis up, do this rather than improvising.
+The wizard (`npm run setup`) does the same thing; you are the alternative for
+someone who would rather talk than answer prompts.
+
+1. **Check the prerequisites and say what is missing.** `node --version` (needs
+   18+), `python3 --version`, and `which claude`. Node is the one that stops
+   people: macOS does not ship it, so `brew install node` or the LTS installer
+   from nodejs.org. Do not continue past a missing Node - nothing will run.
+
+2. **Claude Code is the brain.** If `claude` is missing, say so plainly and give
+   `npm install -g @anthropic-ai/claude-code`, then `claude` once to sign in.
+   It is not strictly required - `brain.chain` falls back to any
+   OpenAI-compatible endpoint, including a local model - but chat and every
+   agent go through it by default, so a missing `claude` means a HUD that shows
+   numbers and answers nothing.
+
+3. **Ask only for what cannot be guessed:** their name and their YouTube handle.
+   Everything else has a working default. Do not interrogate them about voice
+   providers, radar channels, or research lanes unless they raise it.
+
+4. **Write `config.json`, never `config.default.json`.** Only the keys that
+   differ. It is gitignored, deep-merged over the defaults, and arrays replace
+   wholesale rather than merging.
+
+5. **Put `jarvis` on their PATH** if it is not already - symlink `bin/jarvis`
+   into the npm global bin (`npm prefix -g` + `/bin`) when that is writable,
+   which it is on a Mac with Homebrew node. Telling someone to type
+   `node bin/jarvis` is not a substitute.
+
+6. **Verify by running it, not by reading it.** `jarvis doctor` and
+   `jarvis agents check`. Report what it actually says, including anything
+   missing, rather than declaring success.
+
+7. **Do not schedule anything unless asked.** `jarvis agents install` writes
+   real launchd or cron entries that survive reboot, and on a second machine it
+   duplicates work the first one is already doing - including the `social`
+   agent, which spends real money per run.
+
+Their numbers, reports, and journal are theirs: everything under `data/`,
+`reports/`, `drafts/`, and `journal/` is gitignored, and API keys belong in
+`.env`, never in `config.json`.
+
 ## Common tasks
 
 **Add an agent.** Create `agents/<name>.md` with frontmatter and a prompt. No
