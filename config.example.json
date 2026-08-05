@@ -65,9 +65,8 @@
       "~/notes/research"
     ]
   },
+  "$comment_documents_dirs": "EXTRA folders only. reports/, drafts/, and journal/ are always included, found relative to wherever you cloned this.",
   "documents_dirs": [
-    "~/jarvis/reports",
-    "~/jarvis/drafts",
     "~/notes/inbox"
   ],
   "voice": {
