@@ -61,8 +61,29 @@ ahead of this week.
 
 ## Install
 
-**You need:** [Node 18+](https://nodejs.org) and `python3` (macOS and most
-Linux ship it). Everything else the setup will offer to handle.
+**You need:** [Node 18+](https://nodejs.org) and `python3`.
+
+Check both first. This is the step people actually get stuck on:
+
+```bash
+node --version      # needs v18 or higher
+python3 --version   # 3.8 or higher
+```
+
+macOS ships `python3` but **does not ship Node**, so on a clean Mac the first
+command comes back `command not found`. Install it either way:
+
+```bash
+brew install node
+```
+
+No Homebrew? Download the macOS **LTS** installer from
+[nodejs.org](https://nodejs.org), run it, then open a new terminal so `PATH`
+picks it up. npm comes bundled with Node, so `npm: command not found` is the
+same problem with the same fix.
+
+On Debian or Ubuntu: `sudo apt install nodejs npm`. Everything else the setup
+will offer to handle.
 
 **You want:** [Claude Code](https://claude.com/claude-code). It is the default
 brain and the best one. Without it, Jarvis runs on any OpenAI-compatible
@@ -71,10 +92,14 @@ endpoint instead, including a local model, so it is not a hard requirement.
 ### 1. Clone it
 
 ```bash
-git clone <this-repo> jarvis && cd jarvis
+git clone https://github.com/tylerprogramming/jarvis-public.git jarvis
+cd jarvis
 ```
 
-There is nothing to build and nothing to `npm install`. Zero dependencies.
+Nothing to build and nothing to `npm install` - the `dependencies` block is
+empty and stays that way. npm is only a convenience here: every script in
+`package.json` is a one-line wrapper, so `node scripts/setup.js` does exactly
+what `npm run setup` does if you ever want to skip it.
 
 ### 2. Run setup
 
@@ -105,6 +130,7 @@ moving on.
 
 ```bash
 npm start          # http://localhost:4747
+# or: node server.js
 ```
 
 Type in the command bar, or press the mic and talk. Ask it "what can you do?"
