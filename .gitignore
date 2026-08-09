@@ -6,6 +6,9 @@ config.json
 .env
 PERSONA.md
 
+# What the agents have concluded about you. Yours, not the software's.
+playbook.md
+
 # Everything Jarvis generates about you.
 data/*.json
 data/*.log

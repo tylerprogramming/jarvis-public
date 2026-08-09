@@ -19,6 +19,7 @@ const tts = require("./lib/tts");
 const stt = require("./lib/stt");
 const brain = require("./lib/brain");
 const agentsLib = require("./lib/agents");
+const playbook = require("./lib/playbook");
 
 let CFG = load(); // reassigned when settings are saved, see apiPutConfig
 const ROOT = CFG.paths.root;
@@ -138,6 +139,9 @@ function apiData(res) {
     radar: readJson(path.join(CFG.paths.data, "radar.json"), null),
     directives: readJson(path.join(CFG.paths.data, "directives.json"), { directives: [] }).directives,
     documents: documents(),
+    // What the agents have concluded, newest first. The panel shows a few;
+    // the count is what tells you the loop is actually running.
+    playbook: { rules: playbook.read(CFG, { limit: 12 }), ...playbook.summary(CFG) },
   });
 }
 
@@ -147,7 +151,13 @@ function apiDoc(res, q) {
   const requested = q.get("f") || "";
   let real;
   try { real = fs.realpathSync(requested); } catch { return sendJson(res, { error: "not found" }, 404); }
-  const allowed = docDirs().some((dir) => {
+  // The playbook is allowed by exact path, not by directory. It usually lives
+  // outside every documents dir - often in a notes vault - and opening it from
+  // the panel should not mean whitelisting whatever folder it happens to be in.
+  const playbookOk = playbook.playbookFiles(CFG).some((f) => {
+    try { return fs.realpathSync(f) === real; } catch { return false; }
+  });
+  const allowed = playbookOk || docDirs().some((dir) => {
     let realDir;
     try { realDir = fs.realpathSync(dir); } catch { return false; }
     return real === realDir || real.startsWith(realDir + path.sep);

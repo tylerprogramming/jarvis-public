@@ -287,6 +287,30 @@ ${who} · ${fmt(b.views)} views in ${b.age_days}d · ${b.multiple}x that channel
       ? `<div class="msg sys">no breakouts - watching ${watching} channel${watching > 1 ? "s" : ""}</div>`
       : `<div class="msg sys">add channels to watch in settings, then run the radar agent</div>`;
 
+  // playbook - what the agents have concluded
+  const pb = d.playbook || { rules: [], count: 0, newest: "", sections: 0 };
+  $("pb-cap").textContent = pb.count
+    ? `${pb.count} RULE${pb.count === 1 ? "" : "S"}` : "LEARNED";
+  $("playbook").innerHTML = pb.rules.length
+    ? pb.rules.slice(0, 5).map((r) => {
+        // strip the inline date stamp - the panel already shows it in the meta
+        const text = r.text.replace(/\s*\[(?:confirmed |updated )?\d{4}-\d{2}-\d{2}\]:?\s*/, " ")
+          .replace(/\*\*/g, "").trim();
+        return `<div class="rule" data-f="${esc(r.source)}" title="click to open the playbook">
+          <div class="rtext">${esc(text.slice(0, 150))}${text.length > 150 ? "…" : ""}</div>
+          <div class="rmeta">${esc(r.section)}${r.date ? " · " + esc(r.date) : ""}</div>
+        </div>`;
+      }).join("")
+    : `<div class="msg sys">nothing learned yet. the post-mortem and study agents
+       write what they confirm into your playbook, and it shows up here.</div>`;
+  document.querySelectorAll(".rule").forEach((el) =>
+    el.onclick = async () => {
+      const r = await (await fetch("/api/doc?f=" + encodeURIComponent(el.dataset.f))).json();
+      $("modal-title").textContent = r.name || "playbook";
+      $("modal-body").textContent = r.content || r.error;
+      $("modal").classList.add("open");
+    });
+
   // documents
   $("documents").innerHTML = d.documents.map((x) =>
     `<div class="doc" data-f="${esc(x.file)}" title="click to read"><span>${esc(x.name.slice(0, 32))}</span><span class="age">${x.age}</span></div>`

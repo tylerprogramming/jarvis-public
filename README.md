@@ -56,8 +56,13 @@ option; if you don't have it, any OpenAI-compatible endpoint works instead,
 including a local model. Voice in and voice out both work for free.
 
 **It draws its own conclusions.** A number on a dashboard is not insight. The
-agents compare, judge, and write down what they learned, so next week starts
-ahead of this week.
+agents compare, judge, and write down what they learned in `playbook.md`, and
+the PLAYBOOK panel puts those rules on screen with the date each was confirmed.
+That is the loop: every review becomes a rule the next review starts from, so
+next week starts ahead of this week instead of from zero.
+
+Point `knowledge.brain_files` at an existing notes file if you already keep one
+and the agents will write there instead.
 
 ## Install
 
@@ -121,13 +126,15 @@ what `npm run setup` does if you ever want to skip it.
 npm run setup
 ```
 
-It asks who you are, which channels to track, what number you care about, which
-channels to watch, and which agents to turn on. Every question has a usable
-default and you can change all of it later.
+Two questions: your name and your YouTube handle. It writes `config.json` and
+tells you that you are set up. Everything else has a working default and is
+editable later in Settings, so it only asks if you say you want to.
 
-If `yt-dlp` is missing it offers to install a self-contained copy for you, so
-you do not need brew, pip, or a particular python version. At the end it pulls
-your real numbers so the dashboard is not empty on first open.
+Along the way it offers to install anything missing rather than leaving you to
+find out later: a self-contained `yt-dlp` (no brew, no pip), Kokoro for a good
+local voice, and a `jarvis` command on your PATH. At the end it pulls your real
+numbers and runs the morning agent once, so the dashboard has your data, a real
+report, and three things to do the first time you open it.
 
 ### 3. Check it
 
@@ -135,15 +142,10 @@ your real numbers so the dashboard is not empty on first open.
 node bin/jarvis doctor      # or: npm run doctor
 ```
 
-Cloning does not put `jarvis` on your PATH. To type the short form, add an
-alias once, from inside the repo:
-
-```bash
-echo "alias jarvis='node $PWD/bin/jarvis'" >> ~/.zshrc && source ~/.zshrc
-```
-
-The rest of this README uses `jarvis ...` for readability. Without the alias,
-`node bin/jarvis ...` does the same thing everywhere.
+Setup offers to put `jarvis` on your PATH, so if you said yes there, plain
+`jarvis doctor` works and the rest of this README reads literally. If you
+skipped it, `node bin/jarvis ...` does the same thing everywhere, and
+`npm run doctor` is wired up too.
 
 This is the honest inventory: which brain answers, whether yt-dlp can actually
 *fetch* rather than merely exist, which voice providers are live, and whether

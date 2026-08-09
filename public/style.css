@@ -105,6 +105,17 @@
   .doc:hover { color: var(--accent-hi); }
   .doc .age { color: var(--dim); }
 
+  /* ---------- playbook ---------- */
+  /* The rule reads first and the provenance second: what was learned matters
+     more than which section it landed in, but the date is what makes it
+     credible rather than an assertion. */
+  .rule { padding: 6px 0; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .rule:last-child { border-bottom: 0; }
+  .rule .rtext { color: var(--text); line-height: 1.45; }
+  .rule .rmeta { color: var(--dim); font-family: var(--mono); font-size: 9px;
+    letter-spacing: 1.2px; text-transform: uppercase; margin-top: 3px; }
+  .rule:hover .rtext { color: var(--accent-hi); }
+
   /* ---------- comms ---------- */
   #comms { flex: 1; display: flex; flex-direction: column; min-height: 200px; }
   #comms .msgs { flex: 1; overflow-y: auto; scrollbar-width: thin; line-height: 1.55; }
