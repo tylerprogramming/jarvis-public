@@ -38,8 +38,34 @@ install_docker() {
   say "done. start it with: jarvis voice start"
 }
 
+# Debian and Ubuntu ship python3 without the venv module, so `python3 -m venv`
+# fails with an ensurepip error that names a package most people have never
+# heard of. Check first and print the exact command, with the right version
+# number and sudo only when it is actually needed. Found on a fresh Hostinger
+# box, where the old code downloaded nothing, failed, and said "could not
+# create venv" - true, useless, and not what to do about it.
+check_venv() {
+  python3 -c "import ensurepip" >/dev/null 2>&1 && return 0
+  local v pkg sudo_prefix=""
+  v="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null)"
+  # python3.12-venv, not python3+3.12. Falls back to the unversioned package
+  # when the version cannot be read.
+  pkg="python3-venv"
+  [ -n "$v" ] && pkg="python${v}-venv"
+  [ "$(id -u)" = "0" ] || sudo_prefix="sudo "
+  printf "\n"
+  say "python3 on this machine cannot create virtual environments."
+  say "That is a Debian/Ubuntu packaging split, not a Jarvis problem."
+  printf "\n"
+  say "  ${sudo_prefix}apt update && ${sudo_prefix}apt install -y ${pkg}"
+  printf "\n"
+  say "then re-run: jarvis voice install"
+  die "missing ${pkg}"
+}
+
 install_native() {
   have python3 || die "python3 not found"
+  check_venv
   mkdir -p "$MODELS" "$ROOT/data"
 
   say "creating venv at .venv-kokoro"

@@ -42,6 +42,34 @@ It stops a housemate's laptop from stumbling into your agent. It is not
 authentication in any serious sense, there is no TLS, and the token is visible
 to anything sniffing the wire.
 
+## Running it on a VPS, safely
+
+A rented box is the obvious way to get agents that run whether or not your
+laptop is open. The trap is that the HUD then lives on a public IP, and
+`/api/chat` is a shell.
+
+Do not bind it publicly. Tunnel instead - you already have SSH to the box, and
+this needs no config change at all:
+
+```bash
+# on your laptop, leave it running
+ssh -N -L 4747:127.0.0.1:4747 user@your-box
+```
+
+Then open `http://localhost:4747` on your laptop. Jarvis stays bound to
+loopback on the server, nothing is published, and there is no token to leak.
+Everything works exactly as it does locally, because as far as the server is
+concerned the request came from itself.
+
+Two things to know when the box is Linux rather than a Mac:
+
+- Agents are scheduled with cron rather than launchd. `jarvis agents install`
+  handles the difference; a server that never sleeps is the one environment
+  where the schedule is actually kept to the minute.
+- `python3 -m venv` fails on a stock Debian or Ubuntu until you install
+  `python3.X-venv`. `jarvis voice install` checks for this and prints the exact
+  package, but that is the one prerequisite the repo cannot install for you.
+
 ## Do not put this on the internet
 
 Not behind a port forward, not on a public VPS with the port open. If you need
