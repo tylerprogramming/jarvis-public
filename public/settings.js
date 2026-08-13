@@ -225,8 +225,12 @@
     if (window.loadData) window.loadData();
   }
 
-  const btn = document.getElementById("settings-btn");
-  if (btn) btn.onclick = open;
+  // Two entry points now: the composer's + menu and the sidebar rail. Both
+  // open the same dialog rather than one being a shortcut to the other.
+  for (const id of ["settings-btn", "nav-settings"]) {
+    const btn = document.getElementById(id);
+    if (btn) btn.onclick = open;
+  }
   addEventListener("keydown", (e) => {
     if (e.key === "Escape") close();
     if (e.key === "," && e.metaKey) { e.preventDefault(); open(); }
