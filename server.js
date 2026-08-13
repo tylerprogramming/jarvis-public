@@ -107,6 +107,10 @@ function documents() {
     name: docTitle(d.file, d.name),
     file: d.file,
     age: relAge(d.mtime),
+    // The raw timestamp as well as the rendered age. The panel groups by
+    // today/earlier, and deriving that by parsing "2h" back into a duration
+    // would be reverse-engineering a string this function already threw away.
+    mtime: d.mtime,
   }));
 }
 
@@ -142,7 +146,24 @@ function apiData(res) {
     // What the agents have concluded, newest first. The panel shows a few;
     // the count is what tells you the loop is actually running.
     playbook: { rules: playbook.read(CFG, { limit: 12 }), ...playbook.summary(CFG) },
+    // The knowledge base: which areas Jarvis knows anything about, and how much.
+    knowledge: { areas: playbook.areas(CFG), documents: documents().length },
   });
+}
+
+/* Every rule in one knowledge area.
+ *
+ * Unlimited on purpose. /api/data caps the playbook at 12 so the poll stays
+ * small, but this is the "show me everything you know about titles" request and
+ * truncating it would quietly answer a different question. Reads the same files
+ * the panel does and never writes - agents own the playbook. */
+function apiPlaybook(res, q) {
+  const section = (q.get("section") || "").trim();
+  const all = playbook.read(CFG);
+  const rules = section
+    ? all.filter((r) => (r.section || "").toLowerCase() === section.toLowerCase())
+    : all;
+  sendJson(res, { section, count: rules.length, rules });
 }
 
 /* Only serves files that genuinely live inside a configured documents dir,
@@ -420,6 +441,7 @@ const server = http.createServer((req, res) => {
     if (url.pathname === "/api/data") return apiData(res);
     if (url.pathname === "/api/agents") return apiAgents(res);
     if (url.pathname === "/api/doc") return apiDoc(res, url.searchParams);
+    if (url.pathname === "/api/playbook") return apiPlaybook(res, url.searchParams);
     if (url.pathname === "/api/status") return apiStatus(res);
     if (url.pathname === "/api/config") return apiGetConfig(res);
   }
