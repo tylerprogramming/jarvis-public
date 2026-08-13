@@ -23,40 +23,139 @@
 </header>
 
 <div class="rail left">
-  <div class="panel" title="Your audience numbers, refreshed by the collector. Arrows show the weekly change.">
-    <h2>SYSTEM VITALS <small>AUDIENCE.LINK</small></h2>
-    <div id="vitals"></div>
-  </div>
-  <div class="panel" title="What to do next, most important first. Click one to mark it done. Agents rewrite these; so can you, just ask.">
-    <h2>DIRECTIVES <small id="dir-cap">QUEUE</small></h2>
-    <div id="directives"></div>
-  </div>
-  <div class="panel" title="Channels you watch. Flags videos running well above that channel's own baseline, so it catches hot topics rather than big channels.">
-    <h2>RADAR <small>COMPETITOR.WATCH</small></h2>
-    <div id="radar"></div>
-  </div>
-  <div class="panel" title="What your agents have concluded and written into your playbook. This is the loop: every review becomes a rule the next one starts from. Click to open the file.">
-    <h2>PLAYBOOK <small id="pb-cap">LEARNED</small></h2>
-    <div id="playbook"></div>
-  </div>
-  <div class="panel" title="Newest reports and drafts your agents wrote. Click one to read it.">
-    <h2>DOCUMENTS <small>INBOX.TRAIL</small></h2>
-    <div id="documents"></div>
-  </div>
-</div>
+  <nav id="nav" aria-label="Sections">
+    <div class="navlogo" title="J.A.R.V.I.S.">J</div>
+    <button class="navcollapse" id="nav-collapse" aria-label="Collapse sidebar"
+      aria-expanded="true" data-tip="Collapse the sidebar">&laquo;</button>
+    <div class="navrule"></div>
 
-<div class="rail right">
-  <div class="panel" id="comms">
-    <h2>COMMS <small id="brain-label">LINK</small></h2>
-    <div class="msgs" id="msgs">
-      <div class="msg sys">initializing…</div>
+    <button class="navb on" data-view="dashboard" data-tip="Dashboard — audience and the week's plan">
+      <svg viewBox="0 0 24 24"><rect x="3.2" y="4.2" width="17.6" height="15.6" rx="3.2"/><path d="M3.2 9.4h17.6M7.6 16.6v-3.4M12 16.6v-5.2M16.4 16.6v-2"/></svg>
+    </button>
+    <button class="navb" data-view="directives" data-tip="Directives — what to do next">
+      <svg viewBox="0 0 24 24"><path d="M4 7.2l1.9 1.9L9.4 5.6"/><path d="M4 14.2l1.9 1.9 3.5-3.5"/><path d="M12.8 7.4h7.2M12.8 14.6h7.2M12.8 20.4h4.4"/></svg>
+    </button>
+    <button class="navb" data-view="knowledge" data-tip="Knowledge — every area, and how much">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><circle cx="5.2" cy="6" r="1.9"/><circle cx="18.8" cy="6" r="1.9"/><circle cx="5.2" cy="18" r="1.9"/><circle cx="18.8" cy="18" r="1.9"/><path d="M6.8 7.3 10 10.3M17.2 7.3 14 10.3M6.8 16.7 10 13.7M17.2 16.7 14 13.7"/></svg>
+    </button>
+    <button class="navb" data-view="playbook" data-tip="Playbook — rules the agents confirmed">
+      <svg viewBox="0 0 24 24"><path d="M4 5.4A2.4 2.4 0 0 1 6.4 3H11v16.4H6.4A2.4 2.4 0 0 0 4 21.8z"/><path d="M20 5.4A2.4 2.4 0 0 0 17.6 3H13v16.4h4.6a2.4 2.4 0 0 1 2.4 2.4z"/><path d="M15.2 3v6l1.9-1.4L19 9V3"/></svg>
+    </button>
+    <button class="navb" data-view="radar" data-tip="Radar — competitor breakouts">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.6"/><path d="M12 12 18.1 5.9"/><circle cx="15.6" cy="8.6" r="1.15" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button class="navb" data-view="documents" data-tip="Documents — what the agents wrote">
+      <svg viewBox="0 0 24 24"><path d="M8 2.8h6.6L19 7.2v11.4a2.2 2.2 0 0 1-2.2 2.2H8a2.2 2.2 0 0 1-2.2-2.2V5a2.2 2.2 0 0 1 2.2-2.2z"/><path d="M14.4 2.8v4.6H19M9.4 12.6h6M9.4 16.2h4.2"/></svg>
+    </button>
+
+    <span class="navfill"></span>
+    <button class="navb" id="nav-help" data-tip="What everything on this screen means">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.4a2.6 2.6 0 1 1 3.3 3c-.6.2-.8.7-.8 1.2v.4"/><circle cx="12" cy="17.1" r=".95" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button class="navb" id="nav-settings" data-tip="Settings  ⌘,">
+      <svg viewBox="0 0 24 24"><path d="M3.6 7.4h16.8M3.6 12h16.8M3.6 16.6h16.8"/><circle cx="9" cy="7.4" r="2.2" class="knob"/><circle cx="15.4" cy="12" r="2.2" class="knob"/><circle cx="7.6" cy="16.6" r="2.2" class="knob"/></svg>
+    </button>
+  </nav>
+
+  <div id="railbody">
+    <div class="panel" data-view="dashboard" title="Audience numbers and the week's publishing plan.">
+      <h2>Dashboard <small>AUDIENCE &amp; PLAN</small></h2>
+      <div class="panelbody panelscroll">
+        <div id="vitals"></div>
+        <div id="calstrip"></div>
+      </div>
+    </div>
+    <div class="panel" data-view="directives" title="What to do next, most important first. Click the box to mark one done, the text to expand it.">
+      <h2>Directives <small id="dir-cap">QUEUE</small></h2>
+      <div class="panelbody" id="directives"></div>
+    </div>
+    <div class="panel" data-view="knowledge" id="knowledge-panel" title="Every area Jarvis knows something about, and how much. Click an area to read its rules.">
+      <h2>Knowledge <small id="kn-cap">BASE</small></h2>
+      <input class="panelsearch" id="kn-search" placeholder="Search areas" autocomplete="off">
+      <div class="panelbody" id="knowledge"></div>
+      <button class="panelaction" id="kn-open">Open playbook</button>
+    </div>
+    <div class="panel" data-view="playbook" title="What your agents have concluded and written into your playbook. This is the loop: every review becomes a rule the next one starts from.">
+      <h2>Playbook <small id="pb-cap">LEARNED</small></h2>
+      <div class="panelbody" id="playbook"></div>
+    </div>
+    <div class="panel" data-view="radar" title="Channels you watch. Flags videos running well above that channel's own baseline, so it catches hot topics rather than big channels.">
+      <h2>Radar <small>COMPETITOR.WATCH</small></h2>
+      <div class="panelbody" id="radar"></div>
+    </div>
+    <div class="panel" data-view="documents" title="Newest reports and drafts your agents wrote. Click one to read it.">
+      <h2>Documents <small>INBOX.TRAIL</small></h2>
+      <input class="panelsearch" id="doc-search" placeholder="Search documents" autocomplete="off">
+      <div class="panelbody" id="documents"></div>
     </div>
   </div>
 </div>
 
+<div class="rail right"></div>
+
+<div id="dockbar" title="Open Jarvis">
+  <span class="jmark">J</span>
+  <span class="dbtext">Message Jarvis&hellip;</span>
+  <span class="dbstat"><i></i><b id="db-running">0 RUNNING</b></span>
+  <span class="dbchev">&#8963;</span>
+</div>
+
+<div class="panel" id="comms">
+  <div class="dockrail" id="dockrail"></div>
+
+  <div class="dockmain">
+    <div class="dockhead">
+      <span class="dockname" id="dock-name">Jarvis</span>
+      <span class="statuspill" id="dock-status"><i></i><b>ONLINE</b></span>
+      <button class="runnow" id="dock-run" hidden>RUN NOW</button>
+      <span class="fill"></span>
+      <span class="brainpill" id="brain-label" title="Which brain is answering">LINK</span>
+      <button class="dockbtn" id="dock-expand" data-tip="Expand">&#10530;</button>
+      <button class="dockbtn" id="dock-min" data-tip="Minimize to a bar">&#8964;</button>
+    </div>
+
+    <div class="msgs" id="msgs">
+      <div class="msg sys" data-agent="jarvis">initializing&hellip;</div>
+    </div>
+
+    <div id="bar">
+      <div class="dockcomposer">
+      <button id="more" class="ico plus" aria-label="More controls" aria-expanded="false" data-tip="Wake word, spoken replies, theme, settings.">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>
+      </button>
+
+      <span class="statedot" id="statedot" title="Idle"></span>
+
+      <div class="extras" id="extras">
+      <button id="wake" class="ico" aria-label="Wake word" data-tip="Wake word &mdash; off. Turn on and just say &quot;jarvis, &hellip;&quot; out loud; no clicking.">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M7.8 8.4a5.6 5.6 0 0 0 0 7.2M16.2 8.4a5.6 5.6 0 0 1 0 7.2"/><path d="M4.9 5.6a9.6 9.6 0 0 0 0 12.8M19.1 5.6a9.6 9.6 0 0 1 0 12.8" opacity=".5"/></svg>
+      </button>
+      <button id="speak" class="ico" aria-label="Spoken replies" data-tip="Spoken replies &mdash; on. Answers are read aloud.">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.2L12 5.6v12.8L7.2 14.5H4z"/><path class="waves" d="M15.6 9.4a3.8 3.8 0 0 1 0 5.2M18.3 6.9a7.3 7.3 0 0 1 0 10.2"/></svg>
+      </button>
+      <button id="theme" class="ico" aria-label="Theme" data-tip="Theme &mdash; click to cycle.">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button id="settings-btn" class="ico" aria-label="Settings" data-tip="Settings &mdash; name, channels, targets, agents.  &#8984;,">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.4h16.8M3.6 12h16.8M3.6 16.6h16.8"/><circle cx="9" cy="7.4" r="2.2" class="knob"/><circle cx="15.4" cy="12" r="2.2" class="knob"/><circle cx="7.6" cy="16.6" r="2.2" class="knob"/></svg>
+      </button>
+      </div>
+
+      <input id="cmd" autocomplete="off" placeholder="Message Jarvis...">
+
+      <button id="mic" aria-label="Talk" data-tip="Click to talk &mdash; records, transcribes, sends.">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>
+      </button>
+      <button id="send" class="sendbtn" aria-label="Send" data-tip="Send">&#8593;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dispatch"></div>
+
 <div id="agents"></div>
 
-<div id="calstrip"></div>
 
 <div id="primary">
   <div class="label" id="pd-label">PRIMARY DIRECTIVE</div>
@@ -65,29 +164,6 @@
   <div class="deploy" id="pd-deploy"></div>
 </div>
 
-<div id="bar">
-  <button id="wake" class="ico" aria-label="Wake word" data-tip="Wake word — off. Turn on and just say &quot;jarvis, …&quot; out loud; no clicking.">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M7.8 8.4a5.6 5.6 0 0 0 0 7.2M16.2 8.4a5.6 5.6 0 0 1 0 7.2"/><path d="M4.9 5.6a9.6 9.6 0 0 0 0 12.8M19.1 5.6a9.6 9.6 0 0 1 0 12.8" opacity=".5"/></svg>
-  </button>
-
-  <input id="cmd" autocomplete="off" placeholder="Ask Jarvis anything — press / to focus">
-
-  <button id="speak" class="ico" aria-label="Spoken replies" data-tip="Spoken replies — on. Answers are read aloud.">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.2L12 5.6v12.8L7.2 14.5H4z"/><path class="waves" d="M15.6 9.4a3.8 3.8 0 0 1 0 5.2M18.3 6.9a7.3 7.3 0 0 1 0 10.2"/></svg>
-  </button>
-
-  <button id="theme" class="ico" aria-label="Theme" data-tip="Theme — reactor. Click to cycle.">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"/></svg>
-  </button>
-
-  <button id="settings-btn" class="ico" aria-label="Settings" data-tip="Settings — name, channels, targets, agents.  ⌘,">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.1" class="knob"/><circle cx="15" cy="12" r="2.1" class="knob"/><circle cx="8" cy="17" r="2.1" class="knob"/></svg>
-  </button>
-
-  <button id="mic" aria-label="Talk" data-tip="Click to talk — records, transcribes, sends.">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>
-  </button>
-</div>
 
 <div id="modal"><div class="inner"><h3 id="modal-title"></h3><div id="modal-body"></div></div></div>
 

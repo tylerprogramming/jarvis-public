@@ -13,19 +13,28 @@
  * The four borrowed palettes use their projects' published values rather than
  * approximations, so they match the editor themes people already run.
  */
+/* Radii live here rather than in the CSS because the theme owns them.
+ *
+ * "glass" shipped at 0px, which is why every card in the HUD was a hard
+ * rectangle - blurred translucent panels with square corners read as a
+ * terminal, not as glass. Every reference UI in this class rounds its cards to
+ * 12-16px. "flat" keeps 0 on purpose; square IS the point of that one. */
 const CHROME = {
-  glass: { "--blur": "6px",  "--radius": "0px", "--radius-sm": "2px" },
-  soft:  { "--blur": "12px", "--radius": "8px", "--radius-sm": "3px" },
-  flat:  { "--blur": "0px",  "--radius": "0px", "--radius-sm": "0px" },
+  glass: { "--blur": "14px", "--radius": "20px", "--radius-sm": "12px" },
+  soft:  { "--blur": "18px", "--radius": "22px", "--radius-sm": "14px" },
+  flat:  { "--blur": "0px",  "--radius": "0px",  "--radius-sm": "0px" },
 };
 
 const THEMES = {
   reactor: { label: "Reactor", note: "The original. Arc reactor blue.",
-    mode: "rings", hue: "125,211,252", chrome: "glass", vars: {
-    "--bg": "#040810", "--panel": "rgba(10,22,38,0.55)", "--panel-deep": "rgba(6,14,26,0.72)",
-    "--line": "rgba(125,211,252,0.25)", "--line-soft": "rgba(125,211,252,0.10)",
-    "--accent": "#38bdf8", "--accent-hi": "#7dd3fc", "--accent-rgb": "56,189,248",
-    "--text": "#e6f0fb", "--dim": "#8fa3bd", "--strong": "#ffffff",
+    mode: "rings", hue: "127,211,255", chrome: "glass", vars: {
+    /* Values from the Claude Design spec rather than the originals: a deeper
+       ground, softer hairlines and a slightly cooler accent. */
+    "--bg": "#05080F", "--panel": "rgba(12,21,36,0.92)", "--panel-deep": "rgba(7,13,24,0.96)",
+    "--line": "rgba(127,211,255,0.14)", "--line-soft": "rgba(127,211,255,0.09)",
+    "--accent": "#7FD3FF", "--accent-hi": "#BFE6FF", "--accent-rgb": "127,211,255",
+    "--accent-deep": "#2D6FD1",
+    "--text": "#E6EEF9", "--dim": "#6F86A6", "--strong": "#EAF5FF",
     "--red": "#f38ba8", "--red-rgb": "243,139,168", "--green": "#a6e3a1", "--amber": "#f9e2af",
     "--blue": "#89b4fa", "--pink": "#f5c2e7",
     "--scrim": "rgba(4,3,10,0.82)", "--modal": "#0b0817", "--shadow": "rgba(0,0,0,0.5)" } },
@@ -174,6 +183,30 @@ function spark(hist, key) {
   return `<svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="${ptsStr}"/></svg>`;
 }
 
+/* The design's sparkline: a filled area under the line with a dot on the last
+ * point, not a bare polyline. Gradient id is unique per call because several
+ * of these can be on screen and duplicate ids silently share the first fill. */
+let sparkSeq = 0;
+function sparkArea(hist, key) {
+  const vals = hist.map((r) => r[key]).filter((x) => x != null);
+  if (vals.length < 2) return "";
+  const W = 200, H = 44, PAD = 6;
+  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
+  const x = (i) => (i / (vals.length - 1)) * W;
+  const y = (v) => H - PAD - ((v - min) / span) * (H - PAD * 2);
+  const line = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" L");
+  const id = "spk" + (++sparkSeq);
+  return `<svg class="sparkarea" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="M${line} L${W},${H} L0,${H} Z" fill="url(#${id})"/>
+    <path d="M${line}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="${W}" cy="${y(vals[vals.length - 1]).toFixed(1)}" r="2.6" fill="var(--accent)"/>
+  </svg>`;
+}
+
 function weekDelta(hist, key) {
   const rows = hist.filter((r) => r[key] != null);
   if (rows.length < 2) return null;
@@ -203,37 +236,77 @@ function render(d) {
     `<div class="vcell"><div class="lab">${esc(lab)}</div><div class="n">${val}</div><div class="d ${na ? "na" : ""}">${delta}</div></div>`;
   const wkTxt = (wk) => wk == null ? "tracking" : (wk >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(wk)) + "/wk";
 
+  /* Dashboard body, to the Claude Design spec: a hero metric with a progress
+   * bar against the target, a 2x2 grid of channel tiles, then the latest video
+   * with its sparkline. */
   let html = "";
+  const PLAT_DOT = { Instagram: "#F0658F", TikTok: "#7FD3FF", LinkedIn: "#4DA3FF",
+                     X: "#EAF5FF", YouTube: "#E85C4A" };
 
   if (show("yt_subs") && channels.youtube) {
     const subsWk = weekDelta(h, "yt_subs");
-    html += vital("Subscribers", fmt(v.yt_subs), wkTxt(subsWk), spark(h, "yt_subs"), subsWk > 0 ? "good" : "");
+    /* The subs card's metric is "yt_subs", not "subs". Getting that wrong fell
+     * through to primary_cards[0] - the TOTAL AUDIENCE card - so it printed
+     * a follower count against the WRONG target, with the bar pinned at 100%,
+     * that has stopped being about anything. */
+    const card = (cfg.primary_cards || []).find((c) => c.metric === "yt_subs");
+    const target = (card || {}).target || 0;
+    const pct = target ? Math.min(100, (v.yt_subs / target) * 100) : 0;
+    const pace = subsWk > 0 ? { txt: "on pace", col: "#5BE6A8" } : { txt: "stalled", col: "#E0A15C" };
+    html += `<div class="hero">
+      <div class="herohead">
+        <span class="microlabel">SUBSCRIBERS</span>
+        <span class="pill">${esc(wkTxt(subsWk))}</span>
+      </div>
+      <div class="heronum">
+        <b>${fmt(v.yt_subs)}</b>${target ? `<span>of ${fmt(target)}</span>` : ""}
+      </div>
+      ${target ? `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>` : ""}
+      <div class="pace" style="color:${pace.col}">
+        <i style="background:${pace.col}"></i>At this pace &middot; ${pace.txt}
+      </div>
+    </div>`;
   }
 
-  const grid = [];
+  const tiles = [];
+  const tile = (label, value, wk) => {
+    const up = wk != null && wk > 0;
+    tiles.push(`<div class="ctile">
+      <div class="ctop"><i style="background:${PLAT_DOT[label] || "var(--accent)"}"></i>${esc(label)}</div>
+      <div class="cnum"><b>${value}</b>${wk != null
+        ? `<span class="${up ? "up" : "flat"}">${up ? "&#9650; " : ""}${wk === 0 ? "0" : Math.abs(wk)}</span>` : ""}</div>
+    </div>`);
+  };
   const maybe = (key, label, valueKey, histKey) => {
     if (!show(key)) return;
-    const wk = weekDelta(h, histKey);
-    grid.push(cell(label, fmt(v[valueKey]), v[valueKey] == null ? "tell jarvis" : wkTxt(wk), wk == null));
+    tile(label, fmt(v[valueKey]), weekDelta(h, histKey));
   };
-  if (channels.instagram) maybe("instagram", "Instagram", "ig_followers", "ig_followers");
   if (channels.tiktok) maybe("tiktok", "TikTok", "tiktok_followers", "tiktok_followers");
   if (channels.linkedin) maybe("linkedin", "LinkedIn", "linkedin_followers", "linkedin_followers");
+  if (channels.instagram) maybe("instagram", "Instagram", "ig_followers", "ig_followers");
   if (channels.x) maybe("x", "X", "x_followers", "x_followers");
-  if (show("community") && v.community_members != null) {
-    grid.push(cell(cfg.community_label || "Community", fmt(v.community_members),
-      (v.community_joins_7d || 0) + " joins/wk", !v.community_joins_7d));
+  if (show("community") && v.community_members != null)
+    tile(cfg.community_label || "Community", fmt(v.community_members), v.community_joins_7d);
+  if (tiles.length) {
+    // the dashed "add channel" tile only makes sense while a slot is empty
+    const missing = ["instagram", "tiktok", "linkedin", "x"].some((k) => !channels[k]);
+    if (missing) tiles.push(`<div class="ctile add" id="add-channel" title="Open settings to add a channel">
+      <span>+</span> Add channel</div>`);
+    html += `<div class="ctiles">${tiles.join("")}</div>`;
   }
-  if (grid.length) html += `<div class="vgrid">${grid.join("")}</div>`;
 
   const latest = v.yt_latest || {};
   if (show("latest_video") && latest.title) {
-    html += vital("Latest video", fmt(latest.views),
-      latest.views_per_day ? "≈" + fmt(latest.views_per_day) + " /day" : "",
-      spark(h, "latest_views"), "", latest.title);
+    html += `<div class="latest">
+      <div class="herohead">
+        <span class="microlabel">LATEST VIDEO</span>
+        ${latest.views_per_day ? `<span class="rate">&asymp;${fmt(latest.views_per_day)} /day</span>` : ""}
+      </div>
+      <div class="latestrow"><b>${fmt(latest.views)}</b>${sparkArea(h, "latest_views")}</div>
+      <div class="latesttitle">${esc(latest.title)}</div>
+    </div>`;
   }
 
-  // the check-in tile only appears once something is actually writing check-ins
   const canary = v.canary || {};
   if (show("checkin") && canary.last_checkin) {
     const darkDays = Math.round((Date.now() - new Date(canary.last_checkin)) / 86400000);
@@ -247,20 +320,61 @@ function render(d) {
   // directives - the empty state has to teach, since a new user has none
   // an agent's suggestion and your own note look identical otherwise, which
   // matters more now that six can be queued at once
-  $("directives").innerHTML = d.directives.map((x, i) =>
-    `<div class="directive ${x.done ? "done" : ""}" data-i="${i}"
-       title="${x.source ? `proposed by the ${esc(x.source)} agent${x.added ? " on " + esc(x.added) : ""}` : "added by you"}">
-      <span class="box"></span>
-      <span>${esc(x.text)}${x.source ? `<span class="src">${esc(x.source)}</span>` : ""}</span>
-    </div>`
-  ).join("") ||
-    `<div class="msg sys">nothing queued. ask jarvis to "add a directive to ..." or let the
-     morning agent set them.</div>`;
-  document.querySelectorAll(".directive").forEach((el) =>
-    el.onclick = async () => {
-      await fetch("/api/directives", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ toggle: +el.dataset.i }) });
+  /* Progress bar, then cards with a rounded checkbox and mono tags. The tags
+   * come from the directive text itself - a time, a day, or the agent that
+   * proposed it - rather than being invented. */
+  {
+    const done = d.directives.filter((x) => x.done).length;
+    const pct = d.directives.length ? (done / d.directives.length) * 100 : 0;
+    const tagsFor = (x) => {
+      const out = [];
+      const time = (x.text.match(/\b([01]?\d|2[0-3]):[0-5]\d\b/) || [])[0];
+      if (/\btoday\b/i.test(x.text)) out.push(['<span class="dtag due">TODAY</span>']);
+      else if (time) out.push([`<span class="dtag soon">${esc(time)}</span>`]);
+      else if (/\bthis week\b/i.test(x.text)) out.push(['<span class="dtag">THIS WEEK</span>']);
+      if (x.source) out.push([`<span class="dtag">${esc(x.source)}</span>`]);
+      return out.flat().join("");
+    };
+    $("directives").innerHTML =
+      (d.directives.length
+        ? `<div class="dprogress">
+             <span class="track"><i style="width:${pct.toFixed(0)}%"></i></span>
+             <span class="lbl">${done} / ${d.directives.length} DONE</span>
+           </div>` : "") +
+      (d.directives.map((x, i) =>
+        `<div class="directive ${x.done ? "done" : ""}${OPEN_DIRECTIVES.has(i) ? " open" : ""}" data-i="${i}"
+           title="${x.source ? `proposed by the ${esc(x.source)} agent${x.added ? " on " + esc(x.added) : ""}` : "added by you"}">
+          <span class="box" title="mark done"></span>
+          <span class="dbody">
+            <span class="txt">${esc(x.text)}</span>
+            <span class="tags">${tagsFor(x)}</span>
+          </span>
+          <span class="chev" title="expand">&#8943;</span>
+        </div>`).join("") ||
+        `<div class="msg sys">nothing queued. ask jarvis to "add a directive to ..." or let the
+         morning agent set them.</div>`);
+  }
+
+  /* The box ticks it off; the text expands it. Those used to be the same click,
+   * which is fine on a one-line directive and wrong the moment they are
+   * paragraphs - you could not read one without completing it. */
+  document.querySelectorAll(".directive").forEach((el) => {
+    const i = +el.dataset.i;
+    const toggleOpen = () => {
+      el.classList.toggle("open");
+      if (el.classList.contains("open")) OPEN_DIRECTIVES.add(i);
+      else OPEN_DIRECTIVES.delete(i);
+    };
+    el.querySelector(".txt").onclick = toggleOpen;
+    el.querySelector(".chev").onclick = toggleOpen;
+    el.querySelector(".box").onclick = async () => {
+      await fetch("/api/directives", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toggle: i }),
+      });
       loadData();
-    });
+    };
+  });
 
   // radar
   const radar = d.radar || {};
@@ -269,62 +383,111 @@ function render(d) {
   const names = (radar.names) || {};
   // channel + views alongside the multiple: the multiple says "unusual for
   // them", the view count says whether it is worth your time
-  $("radar").innerHTML = brks.length
-    ? brks.map((b) => {
-        const who = esc(names[b.channel] || String(b.channel).replace(/^@|^channel\//, ""));
-        const hot = b.multiple >= 5;
-        return `<div class="brk" onclick="window.open('https://youtube.com/watch?v=${esc(b.id)}')"
-              title="${esc(b.title)}
-${who} · ${fmt(b.views)} views in ${b.age_days}d · ${b.multiple}x that channel's normal pace">
-          <div class="brk-top">
-            <span class="brk-mult ${hot ? "hot" : ""}">${b.multiple}x</span>
-            <span class="brk-title">${esc(b.title.slice(0, 46))}</span>
-          </div>
-          <div class="brk-meta">${who} · <b>${fmt(b.views)}</b> views · ${b.age_days}d</div>
-        </div>`;
-      }).join("")
-    : watching
-      ? `<div class="msg sys">no breakouts - watching ${watching} channel${watching > 1 ? "s" : ""}</div>`
-      : `<div class="msg sys">add channels to watch in settings, then run the radar agent</div>`;
+  /* Cards, with the multiple as a chip and a bar showing it relative to the
+   * biggest breakout in the list - so "8.3x" is legible as a number and as a
+   * magnitude without doing the comparison yourself. */
+  {
+    const max = Math.max(...brks.map((b) => b.multiple), 1);
+    const above = brks.filter((b) => b.multiple >= 6).length;
+    const head = brks.length
+      ? `<div class="grouphead"><span>OUTLIERS &middot; 7D</span><span class="line"></span>
+           <span class="n${above ? " hot" : ""}">${above ? above + " ABOVE 6x" : brks.length}</span></div>`
+      : "";
+    $("radar").innerHTML = head + (brks.length
+      ? brks.map((b, i) => {
+          const who = esc(names[b.channel] || String(b.channel).replace(/^@|^channel\//, ""));
+          return `<div class="brk${i === 0 ? " top" : ""}"
+              onclick="window.open('https://youtube.com/watch?v=${esc(b.id)}')"
+              title="${esc(b.title)}">
+            <div class="brkhead">
+              <span class="brk-mult">${b.multiple}x</span>
+              <span class="brkbar"><i style="width:${Math.round((b.multiple / max) * 100)}%"></i></span>
+            </div>
+            <div class="brk-title">${esc(b.title)}</div>
+            <div class="brk-meta"><b>${who}</b><i>&middot;</i>${fmt(b.views)} views<i>&middot;</i>${b.age_days}d</div>
+          </div>`;
+        }).join("")
+      : watching
+        ? `<div class="msg sys">no breakouts - watching ${watching} channel${watching > 1 ? "s" : ""}</div>`
+        : `<div class="msg sys">add channels to watch in settings, then run the radar agent</div>`);
+  }
 
   // playbook - what the agents have concluded
   const pb = d.playbook || { rules: [], count: 0, newest: "", sections: 0 };
   $("pb-cap").textContent = pb.count
     ? `${pb.count} RULE${pb.count === 1 ? "" : "S"}` : "LEARNED";
-  $("playbook").innerHTML = pb.rules.length
-    ? pb.rules.slice(0, 5).map((r) => {
-        // strip the inline date stamp - the panel already shows it in the meta
-        const text = r.text.replace(/\s*\[(?:confirmed |updated )?\d{4}-\d{2}-\d{2}\]:?\s*/, " ")
-          .replace(/\*\*/g, "").trim();
-        return `<div class="rule" data-f="${esc(r.source)}" title="click to open the playbook">
-          <div class="rtext">${esc(text.slice(0, 150))}${text.length > 150 ? "…" : ""}</div>
-          <div class="rmeta">${esc(r.section)}${r.date ? " · " + esc(r.date) : ""}</div>
-        </div>`;
-      }).join("")
-    : `<div class="msg sys">nothing learned yet. the post-mortem and study agents
-       write what they confirm into your playbook, and it shows up here.</div>`;
-  document.querySelectorAll(".rule").forEach((el) =>
-    el.onclick = async () => {
-      const r = await (await fetch("/api/doc?f=" + encodeURIComponent(el.dataset.f))).json();
-      $("modal-title").textContent = r.name || "playbook";
-      $("modal-body").textContent = r.content || r.error;
-      $("modal").classList.add("open");
+  /* Filter pills over cards. The pills are the sections actually present in
+   * the loaded rules, not a fixed list - an agent inventing a new section
+   * tomorrow gets a pill without anyone maintaining one. */
+  {
+    const rules = pb.rules || [];
+    const sections = [...new Set(rules.map((r) => r.section).filter(Boolean))].slice(0, 4);
+    if (PB_FILTER !== "ALL" && !sections.includes(PB_FILTER)) PB_FILTER = "ALL";
+    const shown = PB_FILTER === "ALL" ? rules : rules.filter((r) => r.section === PB_FILTER);
+
+    const pills = rules.length
+      ? `<div class="pillrow">` +
+        [["ALL", "ALL"], ...sections.map((s2) => [s2, s2])].map(([key, label]) =>
+          `<button class="fpill${PB_FILTER === key ? " on" : ""}" data-pb="${esc(key)}">${esc(String(label).toUpperCase())}</button>`).join("") +
+        `</div>` : "";
+
+    $("playbook").innerHTML = pills + (shown.length
+      ? shown.slice(0, 8).map((r) => {
+          const text = r.text.replace(/\s*\[(?:confirmed |updated )?\d{4}-\d{2}-\d{2}\]:?\s*/, " ").trim();
+          const hue = hueFor(r.section || "unfiled");
+          return `<div class="rule" data-f="${esc(r.source)}" title="click to open the playbook">
+            <div class="rulehead">
+              <span class="sdot" style="background:hsl(${hue} 72% 64%)"></span>
+              <span class="sect" style="color:hsl(${hue} 60% 76%)">${esc(r.section || "unfiled")}</span>
+              <span class="when">${esc(r.date || "undated")}</span>
+            </div>
+            <div class="rtext">${inlineMd(text.slice(0, 190))}${text.length > 190 ? "&hellip;" : ""}</div>
+          </div>`;
+        }).join("")
+      : `<div class="msg sys">nothing learned yet. the post-mortem and study agents
+         write what they confirm into your playbook, and it shows up here.</div>`);
+
+    document.querySelectorAll("#playbook .fpill").forEach((b) => {
+      b.onclick = () => { PB_FILTER = b.dataset.pb; loadData(); };
     });
+    document.querySelectorAll("#playbook .rule").forEach((el) =>
+      el.onclick = async () => {
+        const r = await (await fetch("/api/doc?f=" + encodeURIComponent(el.dataset.f))).json();
+        $("modal-title").textContent = r.name || "playbook";
+        $("modal-body").className = "plain";
+        $("modal-body").textContent = r.content || r.error;
+        $("modal").classList.add("open");
+      });
+  }
 
   // documents
-  $("documents").innerHTML = d.documents.map((x) =>
-    `<div class="doc" data-f="${esc(x.file)}" title="click to read"><span>${esc(x.name.slice(0, 32))}</span><span class="age">${x.age}</span></div>`
-  ).join("") ||
-    `<div class="msg sys">empty. agent reports and drafts land here - click any agent on the
-     ring to see what it does, and run it from there.</div>`;
-  document.querySelectorAll(".doc").forEach((el) =>
-    el.onclick = async () => {
-      const r = await (await fetch("/api/doc?f=" + encodeURIComponent(el.dataset.f))).json();
-      $("modal-title").textContent = r.name || "document";
-      $("modal-body").textContent = r.content || r.error;
-      $("modal").classList.add("open");
-    });
+  /* Grouped by age, the way the spec splits them. Today's items keep their
+   * card; older ones drop to a bare row, so the list reads as a timeline
+   * rather than a stack of equal-weight things. */
+  {
+    const now = Date.now();
+    const fresh = d.documents.filter((x) => now - x.mtime < 864e5);
+    const older = d.documents.filter((x) => now - x.mtime >= 864e5);
+    const dot = (x) => x.name && /fail|stall|down|decl/i.test(x.name) ? "#E0A15C"
+                     : x.name && /success|wrote|done|clean/i.test(x.name) ? "#5BE6A8"
+                     : "var(--accent)";
+    const row = (x, old) => `<div class="doc${old ? " old" : ""}" data-f="${esc(x.file)}" title="${esc(x.name)}">
+        <span class="ddot" style="background:${old ? "" : dot(x)}"></span>
+        <span class="dname">${esc(x.name)}</span>
+        <span class="age">${esc(x.age)}</span>
+      </div>`;
+    const group = (label, items, old) => items.length
+      ? `<div class="grouphead"><span>${label}</span><span class="line"></span>
+           <span class="n">${items.length}</span></div>` + items.map((x) => row(x, old)).join("")
+      : "";
+    $("documents").innerHTML = (group("TODAY", fresh, false) + group("EARLIER", older, true))
+      || `<div class="msg sys">empty. agent reports and drafts land here.</div>`;
+  }
 
+  renderKnowledge(d.knowledge, d.playbook);
+  refreshBadges(d);
+  reapplySearch();
+  { const a = $("add-channel"); if (a) a.onclick = () => $("settings-btn")?.click(); }
   renderPrimary();
   renderCalendar(d.calendar);
   greet(d);
@@ -340,6 +503,7 @@ function greet(d) {
     `<span class="try" onclick="send('${t.replace(/'/g, "\\'")}')">${esc(t)}</span>`;
   const el = document.createElement("div");
   el.className = "msg sys";
+  el.dataset.agent = "jarvis";   // stamped like everything else, or the tab filter hides it
   el.innerHTML = d.config.configured
     ? `try asking: ${[
         "what can you do?",
@@ -349,25 +513,273 @@ function greet(d) {
     : `setup isn't finished, so most numbers will be blank. run <b>jarvis setup</b> in a
        terminal, or press the gear button. then try ${asked("what can you do?")}`;
   msgs.appendChild(el);
-  msgs.scrollTop = msgs.scrollHeight;
+  pinBottom();
 }
+
+/* Legacy slot types map onto platforms so a hand-written calendar.json from
+ * before the Blotato agent still colours correctly. */
+const SLOT_ALIAS = { long: "youtube", short: "youtube", li: "linkedin", ig: "instagram",
+                     tt: "tiktok", x: "twitter", yt: "youtube", pin: "pinterest" };
+const PLATFORM_LABEL = { youtube: "YouTube", linkedin: "LinkedIn", instagram: "Instagram",
+  tiktok: "TikTok", twitter: "X", pinterest: "Pinterest", threads: "Threads",
+  bluesky: "Bluesky", facebook: "Facebook" };
+const slotKind = (type) => {
+  const k = String(type || "").toLowerCase();
+  return SLOT_ALIAS[k] || k;
+};
 
 function renderCalendar(cal) {
   const el = $("calstrip");
-  if (!cal || !cal.days) { el.style.display = "none"; return; }
+  if (!cal || !cal.days || !cal.days.length) { el.style.display = "none"; return; }
+  el.style.display = "";
   const names = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
   const todayIso = new Date().toLocaleDateString("sv-SE");
-  // legend lists only the slot types this week's plan actually uses
-  const types = [...new Set(cal.days.flatMap((d2) => d2.items.map((i2) => i2.type)))];
-  el.innerHTML = cal.days.map((day, i) =>
-    `<div class="day ${day.date === todayIso ? "today" : ""}">
-      <div class="d">${names[i]}</div>
-      <div class="slots">${day.items.map((it) =>
-        `<span class="slot ${esc(it.type)} ${it.done ? "done" : ""}" title="${esc(it.type)}"></span>`).join("")}
-      </div></div>`
-  ).join("") + (types.length
-    ? `<div class="legend"><span>${types.map((t) => `■ ${esc(t)}`).join(" ")}</span></div>`
+
+  /* The month sits above the strip rather than inside it. Parsing the date as
+   * UTC noon rather than `new Date("2026-08-10")`: that string is treated as
+   * UTC midnight, which is the previous day for anyone west of Greenwich, and
+   * the header showed the wrong month for the first day of any month. */
+  const first = cal.days[0] && cal.days[0].date;
+  const monthName = cal.month || (first
+    ? new Date(first + "T12:00:00Z").toLocaleDateString("en-US", { month: "long", timeZone: "UTC" }).toUpperCase()
     : "");
+
+  const kinds = [...new Set(cal.days.flatMap((d2) => (d2.items || []).map((i2) => slotKind(i2.type))))];
+
+  const grid = cal.days.map((day, i) => {
+    const dom = day.date ? Number(day.date.slice(8, 10)) : "";
+    const items = day.items || [];
+    return `<div class="day ${day.date === todayIso ? "today" : ""}">
+      <div class="dow">${names[i % 7]}</div>
+      <div class="dom">${dom}</div>
+      <div class="slots">${items.map((it) => {
+        const k = slotKind(it.type);
+        const when = it.time ? it.time + " " : "";
+        const what = it.title ? " - " + it.title : "";
+        return `<span class="slot p-${esc(k)} ${it.done ? "done" : ""}"
+           title="${esc(when + (PLATFORM_LABEL[k] || k) + what)}"></span>`;
+      }).join("") || `<span class="slot none" title="nothing scheduled"></span>`}
+      </div></div>`;
+  }).join("");
+
+  /* The legend is a SIBLING of the week, not a child of it. While it sat
+   * inside .calbox it was a grid item in a 7-column grid, so it got one
+   * column - 60px - and stacked one platform per line. */
+  el.innerHTML =
+    `<div class="calmonth">${esc(monthName)} <em title="${cal.source === "blotato"
+      ? "refreshed from your scheduler" + (cal.updated ? " at " + esc(cal.updated) : "")
+      : "hand-written calendar.json"}">· Content calendar</em></div>
+     <div class="calbox">${grid}</div>` +
+    (kinds.length
+       ? `<div class="legend">${kinds.map((k) =>
+           `<span class="lg"><i class="p-${esc(k)}"></i>${esc(PLATFORM_LABEL[k] || k)}</span>`).join("")}</div>`
+       : "");
+}
+
+/* Declared above selectView, not beside the badge code it belongs to.
+ * selectView() clears the dot for whatever you just opened, and it runs during
+ * initial script execution to restore the saved view - so if these sat further
+ * down the file the very first call hit the temporal dead zone and killed the
+ * whole script. The HUD rendered its shell and no data at all. */
+const SEEN = {};
+let BADGE_DATA = null;
+
+/* ---------- left sidebar ----------
+ *
+ * One panel visible at a time, chosen from the icon rail. The choice is
+ * remembered, because a HUD that resets to the first tab on every reload
+ * teaches you to stop using the other five.
+ */
+function selectView(name) {
+  document.querySelectorAll("#nav .navb[data-view]").forEach((b) =>
+    b.classList.toggle("on", b.dataset.view === name));
+  document.querySelectorAll("#railbody .panel").forEach((p) =>
+    p.classList.toggle("on", p.dataset.view === name));
+  try { localStorage.setItem("jarvis_view", name); } catch {}
+  // clear the attention dot for whatever you just looked at
+  const b = document.querySelector(`#nav .navb[data-view="${name}"]`);
+  if (b) { b.dataset.badge = ""; SEEN[name] = badgeKey(name); }
+  const s = document.querySelector(`#railbody .panel[data-view="${name}"] .panelsearch`);
+  if (s) s.focus({ preventScroll: true });
+}
+
+document.querySelectorAll("#nav .navb[data-view]").forEach((b) => {
+  b.onclick = () => selectView(b.dataset.view);
+});
+{
+  const saved = (() => { try { return localStorage.getItem("jarvis_view"); } catch { return null; } })();
+  selectView(saved && document.querySelector(`#railbody .panel[data-view="${saved}"]`) ? saved : "dashboard");
+}
+
+/* Sidebar collapse.
+ *
+ * Collapses to the icon rail rather than to nothing: every view stays one
+ * click away instead of disappearing behind a menu, which is the whole reason
+ * the rail exists. The ring relayouts on both edges of the transition - it is
+ * bounded by the sidebar's right edge, so it has to move with it, and the
+ * 260ms is a spring curve that overshoots.
+ */
+const RAIL_OPEN = 400, RAIL_COLLAPSED = 60;   // from the design spec
+function setSidebar(collapsed) {
+  const rail = document.querySelector(".rail.left");
+  const btn = $("nav-collapse");
+  if (!rail || !btn) return;
+  rail.classList.toggle("collapsed", collapsed);
+  // Inline, so there is exactly one source of truth for the width. The CSS
+  // transition still animates it; the cascade is no longer involved.
+  rail.style.width = collapsed ? RAIL_COLLAPSED + "px" : RAIL_OPEN + "px";
+  btn.innerHTML = collapsed ? "&raquo;" : "&laquo;";
+  btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  btn.dataset.tip = collapsed ? "Expand the sidebar" : "Collapse the sidebar";
+  try { localStorage.setItem("jarvis_rail_collapsed", collapsed ? "1" : "0"); } catch {}
+  relayoutDuring();
+}
+{
+  const btn = $("nav-collapse");
+  if (btn) btn.onclick = () => setSidebar(!document.querySelector(".rail.left").classList.contains("collapsed"));
+  let saved = null;
+  try { saved = localStorage.getItem("jarvis_rail_collapsed"); } catch {}
+  setSidebar(saved === "1");
+}
+
+/* Attention dots.
+ *
+ * A badge that means "there is something here" has to be keyed on the CONTENT,
+ * not on a counter: reloading the page should not light up every icon, and
+ * looking at a panel should clear it until the underlying thing actually
+ * changes. So each view reduces to a short signature and the dot is on when
+ * the signature differs from the one you last saw. */
+function badgeKey(view) {
+  const d = BADGE_DATA;
+  if (!d) return "";
+  if (view === "directives") return (d.directives || []).filter((x) => !x.done).length + "";
+  if (view === "documents") return String((d.documents || [])[0] && (d.documents || [])[0].file || "");
+  if (view === "radar") return String(((d.radar || {}).breakouts || []).length);
+  if (view === "playbook" || view === "knowledge") return String((d.playbook || {}).newest || "");
+  return "";
+}
+function refreshBadges(d) {
+  BADGE_DATA = d;
+  for (const view of ["directives", "documents", "radar", "playbook", "knowledge"]) {
+    const b = document.querySelector(`#nav .navb[data-view="${view}"]`);
+    if (!b) continue;
+    const key = badgeKey(view);
+    if (SEEN[view] === undefined) { SEEN[view] = key; b.dataset.badge = ""; continue; }
+    const active = b.classList.contains("on");
+    if (active) { SEEN[view] = key; b.dataset.badge = ""; }
+    else b.dataset.badge = key !== SEEN[view] ? "1" : "";
+  }
+}
+
+/* Panel search filters the rows that are already rendered rather than
+ * re-fetching, so it stays instant and cannot fight the 20s poll. */
+function wireSearch(id, rowSel, textOf) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  input.oninput = () => {
+    const q = input.value.trim().toLowerCase();
+    document.querySelectorAll(rowSel).forEach((el) => {
+      el.style.display = !q || textOf(el).toLowerCase().includes(q) ? "" : "none";
+    });
+  };
+}
+/* The knowledge panel's bottom action opens the real playbook file rather than
+ * a synthesised list, so you land in the thing agents actually write to. */
+{
+  const b = document.getElementById("kn-open");
+  if (b) b.onclick = () => openArea("");
+}
+wireSearch("kn-search", "#knowledge .area", (el) => el.dataset.area || el.textContent);
+wireSearch("doc-search", "#documents .doc", (el) => el.textContent);
+
+/* The 20s poll rebuilds those rows, which silently un-filters a list you were
+ * halfway through searching. Re-fire the handlers after every render. */
+function reapplySearch() {
+  for (const id of ["kn-search", "doc-search"]) {
+    const el = document.getElementById(id);
+    if (el && el.value) el.oninput();
+  }
+}
+
+/* ---------- knowledge base ----------
+ *
+ * Colour is derived from the area name rather than assigned, so a new section
+ * an agent invents tomorrow gets a stable colour without anyone maintaining a
+ * lookup table. Same string always lands on the same hue.
+ */
+function hueFor(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+let KN_ALL = false;
+function renderKnowledge(kn, pb) {
+  const box = $("knowledge");
+  if (!box) return;
+  const areas = (kn && kn.areas) || [];
+  $("kn-cap").textContent = areas.length ? `${(pb && pb.count) || 0} RULES` : "BASE";
+  if (!areas.length) {
+    box.innerHTML = `<div class="msg sys">nothing yet. point <b>knowledge.brain_files</b> at a
+      playbook in settings, or let the post-mortem agent write one.</div>`;
+    return;
+  }
+  const shown = KN_ALL ? areas : areas.slice(0, 8);
+  const top = Math.max(...areas.map((a) => a.count), 1);
+  box.innerHTML =
+    `<div class="grouphead"><span>AREAS</span><span class="line"></span>
+       <span class="n">${areas.length}</span></div>` +
+    shown.map((a) => {
+    const hue = hueFor(a.name);
+    return `<div class="area" data-area="${esc(a.name)}"
+       title="${a.count} rule${a.count === 1 ? "" : "s"}${a.newest ? ", newest " + esc(a.newest) : ""}${
+         a.sources && a.sources.length ? " - " + esc(a.sources.join(", ")) : ""}">
+      <span class="dot2" style="background:hsl(${hue} 72% 64%)"></span>
+      <span class="nm">${esc(a.name)}</span>
+      <span class="kbar"><i style="width:${Math.round((a.count / top) * 100)}%;background:hsl(${hue} 72% 64%)"></i></span>
+      <span class="ct">${a.count}</span>
+    </div>`;}).join("") +
+    (areas.length > 8
+      ? `<div class="more" id="kn-more">${KN_ALL ? "&#9662; show less"
+          : `&#9656; ${areas.length - 8} more area${areas.length - 8 === 1 ? "" : "s"}`}</div>`
+      : "");
+
+  const more = $("kn-more");
+  if (more) more.onclick = () => { KN_ALL = !KN_ALL; renderKnowledge(kn, pb); };
+  box.querySelectorAll(".area").forEach((el) =>
+    el.onclick = () => openArea(el.dataset.area));
+}
+
+/* Playbook rules are markdown - agents write **bold** and `code` into them.
+ * Printing the asterisks and backticks raw is what the panel was doing.
+ *
+ * Escape FIRST, then promote a closed set of markers. Order matters: doing it
+ * the other way round would let a rule's own text inject tags. Only bold and
+ * code, because that is all the agents actually emit. */
+function inlineMd(raw) {
+  return esc(raw)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+/* Clicking an area shows every rule in it, from the full playbook rather than
+ * the 12 the panel carries - the point of the knowledge base is depth. */
+async function openArea(name) {
+  $("modal-title").textContent = name || "Playbook - everything";
+  const body = $("modal-body");
+  body.className = "structured";
+  body.textContent = "reading...";
+  $("modal").classList.add("open");
+  try {
+    const d = await (await fetch("/api/playbook?section=" + encodeURIComponent(name))).json();
+    const rules = d.rules || [];
+    body.innerHTML = rules.length
+      ? rules.map((r) => `<div class="rule">
+<div class="rtext">${inlineMd(r.text)}</div>
+          <div class="rmeta">${esc(r.date || "undated")}${r.source
+            ? " &middot; " + esc(String(r.source).split("/").pop()) : ""}</div>
+        </div>`).join("")
+      : "nothing in this area yet.";
+  } catch (e) { body.textContent = "could not read the playbook: " + e.message; }
 }
 
 /* primary directive cards cycle every 20s (subs <-> ARR) */
@@ -439,18 +851,154 @@ function vital(label, num, delta, sparkHtml, deltaCls = "", title = "") {
 }
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+/* Which directives the operator has expanded. Kept outside the render so the
+ * 20-second poll does not collapse a paragraph you were halfway through. */
+const OPEN_DIRECTIVES = new Set();
+let PB_FILTER = "ALL";   // playbook section filter
+let BRAIN_LABEL = "LINK";   // re-rendered with the tab bar, so hold the value
+
 /* ---------- agent ring ---------- */
 let AGENTS_LIST = [];
-function layoutAgents() {
-  const cx = innerWidth / 2, cy = innerHeight / 2 - 30;
-  const R = Math.min(innerWidth, innerHeight) * 0.40;
-  const els = document.querySelectorAll(".agent");
-  els.forEach((el, i) => {
-    const a = -Math.PI / 2 + (i / els.length) * Math.PI * 2;
-    el.style.left = cx + Math.cos(a) * R * 1.34 + "px";
-    el.style.top = cy + Math.sin(a) * R * 0.70 + "px";
-  });
+/* The ring is laid out in the gap BETWEEN the two rails, not across the whole
+ * viewport.
+ *
+ * It used to use min(innerWidth, innerHeight) * 0.40 * 1.34 as the horizontal
+ * radius, which on any wide monitor puts the leftmost and rightmost agents
+ * underneath the rails - and the rails are z-index 4 against the ring's 3, so
+ * those agents were painted and then covered. They were not missing, they were
+ * behind the panels, which is why they looked like they "sometimes don't show".
+ *
+ * Measuring the rails rather than hardcoding their widths, so this stays correct
+ * if a panel is resized or a rail is hidden.
+ */
+/* Re-lay the ring on every frame for the length of a panel transition.
+ *
+ * setSidebar and setDock used to call layoutAgents twice - once immediately
+ * and once after 300ms - so the agents jumped to their old place, sat there
+ * through the animation, then snapped to the new one. Following the frames
+ * costs ~18 layouts and makes the ring move with the panel instead of after it.
+ */
+function relayoutDuring(ms = 420) {
+  const end = performance.now() + ms;
+  const step = () => {
+    layoutAgents();
+    if (performance.now() < end) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
+
+function layoutAgents() {
+  const els = [...document.querySelectorAll(".agent")];
+  if (!els.length) return;
+
+  const rect = (sel) => { const e = document.querySelector(sel); return e && e.getBoundingClientRect(); };
+  const railL = rect(".rail.left");
+  const leftEdge = railL ? railL.right : 0;
+  const rightEdge = innerWidth - 20;
+
+  // Fixed furniture the ring must not sit under. Measured, not hardcoded, so
+  // resizing the chat card or hiding a panel is handled without touching this.
+  // #calstrip used to float at top centre; it lives in the Dashboard panel now,
+  // so the ring only has to clear the primary card and the chat.
+  const reserved = [rect("#primary"), rect("#comms")].filter(Boolean);
+
+  /* Centre on the BRAIN, not on the gap between the furniture.
+   *
+   * This used to be the midpoint of the two rails, which was near enough while
+   * they were symmetric. The right rail is now zero-width - the chat card is
+   * fixed on its own - so that midpoint drifted right and the ring visibly
+   * stopped orbiting the thing it orbits. The canvas is full-viewport, so its
+   * centre is the viewport centre; collisions are the relaxation's problem. */
+  const PAD = 22;
+  const cx = innerWidth / 2;
+  const cy = innerHeight / 2 - 30;
+  let halfW = 0, halfH = 0;
+  els.forEach((el) => {
+    halfW = Math.max(halfW, el.offsetWidth / 2);
+    halfH = Math.max(halfH, el.offsetHeight / 2);
+  });
+
+  const place = (rx, ry) => els.map((el, i) => {
+    const a = -Math.PI / 2 + (i / els.length) * Math.PI * 2;
+    return { el, x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry };
+  });
+  const clashes = (pts) => pts.some((p) => {
+    const b = { left: p.x - halfW, right: p.x + halfW, top: p.y - halfH, bottom: p.y + halfH };
+    if (b.left < leftEdge + PAD || b.right > rightEdge - PAD) return true;
+    if (b.top < 8 || b.bottom > innerHeight - 8) return true;
+    return reserved.some((r) => !(b.right < r.left - PAD || b.left > r.right + PAD
+                               || b.bottom < r.top - PAD || b.top > r.bottom + PAD));
+  });
+
+  /* Shrink until nothing collides - but not past the point where the agents
+   * start colliding with EACH OTHER.
+   *
+   * The old loop only tested labels against the furniture, so with the dock
+   * expanded it kept shrinking and stacked six agents on top of one another in
+   * the middle of the ring. A ring that has eaten itself is worse than one
+   * that overlaps a panel.
+   *
+   * The floor is the circumference needed to seat every label without touching:
+   * n labels of width w need at least n*w of perimeter, so r >= n*w / 2pi. */
+  const n = els.length;
+  const minR = (n * (halfW * 2 + 14)) / (2 * Math.PI);
+
+  let rx = Math.min(cx - leftEdge, rightEdge - cx) - halfW - PAD;
+  let ry = Math.min(innerHeight * 0.30, Math.min(innerWidth, innerHeight) * 0.28);
+  let pts = place(rx, ry);
+  for (let i = 0; i < 20 && clashes(pts); i++) {
+    if (rx * 0.96 < minR || ry * 0.96 < minR * 0.55) break;
+    rx *= 0.96; ry *= 0.96;
+    pts = place(rx, ry);
+  }
+
+  /* Anything still sitting on a panel at the floor is dimmed rather than
+   * moved. It reads as "behind the panel", which is true, instead of as a
+   * label that has wandered into the furniture. */
+  /* Set the TARGET; the animator eases toward it.
+   *
+   * Writing left/top here directly is what made the motion rigid: the ring was
+   * locked to the panel's own easing, and the relaxation loop quantises the
+   * radius in 4% steps, so it stepped rather than flowed. Easing per agent
+   * smooths both out and lets the ring settle a beat after the panel does,
+   * which is what reads as organic. */
+  pts.forEach((p) => {
+    p.el._tx = p.x; p.el._ty = p.y;
+    if (p.el._cx == null) { p.el._cx = p.x; p.el._cy = p.y; }   // no slide on first paint
+    const b = { left: p.x - halfW, right: p.x + halfW, top: p.y - halfH, bottom: p.y + halfH };
+    const buried = reserved.some((r) => !(b.right < r.left || b.left > r.right
+                                       || b.bottom < r.top || b.top > r.bottom));
+    p.el.classList.toggle("buried", buried);
+  });
+  startAgentAnim();
+}
+
+/* Critically-damped-ish easing toward the target, one rAF loop for all agents,
+ * running only while something is actually moving. 0.16 per frame settles in
+ * about 350ms at 60fps without the overshoot wobble a spring would add on top
+ * of the panel's own spring. */
+let agentAnim = 0;
+function startAgentAnim() {
+  if (agentAnim) return;
+  const step = () => {
+    let moving = false;
+    document.querySelectorAll(".agent").forEach((el) => {
+      if (el._tx == null) return;
+      const dx = el._tx - el._cx, dy = el._ty - el._cy;
+      if (Math.abs(dx) < 0.4 && Math.abs(dy) < 0.4) {
+        el._cx = el._tx; el._cy = el._ty;
+      } else {
+        el._cx += dx * 0.16; el._cy += dy * 0.16;
+        moving = true;
+      }
+      el.style.left = el._cx.toFixed(1) + "px";
+      el.style.top = el._cy.toFixed(1) + "px";
+    });
+    agentAnim = moving ? requestAnimationFrame(step) : 0;
+  };
+  agentAnim = requestAnimationFrame(step);
+}
+
 async function loadAgents() {
   try {
     const d = await (await fetch("/api/agents")).json();
@@ -469,6 +1017,8 @@ async function loadAgents() {
         if (el) el.onclick = () => explainAgent(AGENTS_LIST.find((x) => x.id === a.id) || a);
       });
     }
+    dispatchFromAgents(AGENTS_LIST);
+    renderCommsTabs();
     for (const a of AGENTS_LIST) {
       const el = $("ag-" + a.id);
       if (!el) continue;
@@ -536,16 +1086,16 @@ function explainAgent(a) {
 
 async function runAgent(a) {
   if ((a.unmet || []).length) {
-    addMsg("sys", `${a.label.toLowerCase()} needs config: ${a.unmet.join(", ")}`);
+    addMsg("sys", `${a.label.toLowerCase()} needs config: ${a.unmet.join(", ")}`, a.id);
     return;
   }
-  addMsg("sys", `running ${a.label.toLowerCase()} agent - output lands in the documents trail`);
+  addMsg("sys", `running ${a.label.toLowerCase()} agent - output lands in the documents trail`, a.id);
   try {
     const r = await (await fetch("/api/agents/run", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: a.id }),
     })).json();
-    if (r.error) addMsg("sys", `${a.label.toLowerCase()}: ${r.error}`);
+    if (r.error) addMsg("sys", `${a.label.toLowerCase()}: ${r.error}`, a.id);
     else setTimeout(loadAgents, 1500);
   } catch (e) { addMsg("sys", "could not start agent: " + e.message); }
 }
@@ -598,15 +1148,285 @@ setInterval(loadData, 5 * 60 * 1000);
 let sessionId = localStorage.getItem("jarvis_session") || null, speakOn = true;
 const ACKS = ["On it.", "Right away.", "Working on it now.", "Checking that now.", "Give me a moment.", "Running it now."];
 const msgs = $("msgs");
-function addMsg(cls, text) {
+/* Every message is stamped with the agent it belongs to.
+ *
+ * Answering "if I talk in Jarvis, does it land on the right tab": yes for
+ * anything an agent produced. Chat you type is stamped `jarvis`, because that
+ * is who answers it - routing your typing to another agent's tab would imply
+ * that agent replied, which it did not. */
+function addMsg(cls, text, agent) {
   const el = document.createElement("div");
   el.className = "msg " + cls; el.textContent = text;
-  msgs.appendChild(el); msgs.scrollTop = msgs.scrollHeight;
+  el.dataset.agent = agent || "jarvis";
+  el.dataset.time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  msgs.appendChild(el);
+  if (COMMS_TAB === el.dataset.agent) pinBottom();
+  applyCommsFilter();
+  countMsgs();
+  if (COMMS_TAB !== el.dataset.agent) markTabUnread(el.dataset.agent);
   return el;
+}
+
+/* Keep the transcript pinned to the bottom - but only if you were already
+ * there, and at most once a frame.
+ *
+ * Every streamed token used to assign msgs.scrollTop directly. That is a
+ * synchronous layout per token, which is the jitter, and it also yanked you
+ * back down if you had scrolled up to read something while a reply was still
+ * arriving.
+ */
+let pinned = true, pinQueued = false;
+function pinBottom() {
+  if (!pinned || pinQueued) return;
+  pinQueued = true;
+  requestAnimationFrame(() => {
+    pinQueued = false;
+    msgs.scrollTop = msgs.scrollHeight;
+  });
+}
+msgs.addEventListener("scroll", () => {
+  pinned = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 48;
+}, { passive: true });
+
+/* Only the active tab's messages are shown. A class on the container, not a
+ * rebuild - the streaming reply writes into a node that has to stay put. */
+function applyCommsFilter() {
+  msgs.querySelectorAll(".msg").forEach((m) => {
+    m.style.display = (m.dataset.agent || "jarvis") === COMMS_TAB ? "" : "none";
+  });
+}
+
+const UNREAD = new Map();   // agent id -> messages arrived while you were elsewhere
+function markTabUnread(id) {
+  UNREAD.set(id, (UNREAD.get(id) || 0) + 1);
+  renderCommsTabs();   // repaints the tile's unread dot
+}
+
+/* wireTabOverflow and wireGrip are gone with the tab row.
+ * The rail fits ten agents down the side with no scrolling, so there is
+ * nothing to page through, and the dock resizes with the expand control
+ * rather than a drag grip. */
+
+/* ---------- dispatch toasts ----------
+ *
+ * The "what is it doing right now" card. Fires when an agent starts or
+ * finishes, and when the brain starts thinking. Deliberately transient: a
+ * permanent status panel becomes wallpaper within a day, and the transcript on
+ * the far right already keeps the durable record.
+ */
+const DISPATCH_MS = 7000;
+function dispatch(who, tag, body) {
+  const box = $("dispatch");
+  if (!box) return;
+  const el = document.createElement("div");
+  el.className = "disp";
+  const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  el.innerHTML = `<span class="badge">J</span><div>
+      <div><span class="who">${esc(who)}</span>${tag ? `<span class="tag">${esc(tag)}</span>` : ""}<span class="when">${now}</span></div>
+      <div class="body">${esc(body)}</div></div>`;
+  box.appendChild(el);
+  // Three is enough to see a burst without the stack covering the ring.
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 400);
+  }, DISPATCH_MS);
+}
+
+/* Agents that were running last poll, so a start and a finish each fire once
+ * rather than every two seconds for as long as the agent runs. */
+const WAS_RUNNING = new Set();
+function dispatchFromAgents(list) {
+  for (const a of list) {
+    if (a.id === "runner") continue;
+    if (a.running && !WAS_RUNNING.has(a.id)) {
+      WAS_RUNNING.add(a.id);
+      dispatch(a.label, "running", a.description || `${a.label.toLowerCase()} agent started`);
+      addMsg("sys", `${a.label.toLowerCase()} started`, a.id);
+    } else if (!a.running && WAS_RUNNING.has(a.id)) {
+      WAS_RUNNING.delete(a.id);
+      dispatch(a.label, "done", `${a.label.toLowerCase()} finished - output in the documents trail`);
+      addMsg("sys", `${a.label.toLowerCase()} finished - output in the documents trail`, a.id);
+    }
+  }
+}
+
+/* Chips under a finished reply. COPY is real; the source chip only appears
+ * when the reply actually came from an agent tab, so it never claims a
+ * provenance that does not exist. */
+function chipRow(el, agent) {
+  if (!el || el.querySelector(".msgfoot")) return;
+  const foot = document.createElement("div");
+  foot.className = "msgfoot";
+  if (agent && agent !== "jarvis") {
+    const src = document.createElement("span");
+    src.className = "chip src";
+    src.textContent = "SOURCE \u00b7 " + String(agent).toUpperCase();
+    foot.appendChild(src);
+  }
+  const copy = document.createElement("button");
+  copy.className = "chip";
+  copy.textContent = "COPY";
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(el.textContent.replace(/COPY$|SOURCE.*$/g, "").trim());
+      copy.textContent = "COPIED"; copy.classList.add("done");
+      setTimeout(() => { copy.textContent = "COPY"; copy.classList.remove("done"); }, 1600);
+    } catch { copy.textContent = "NO CLIPBOARD"; }
+  };
+  foot.appendChild(copy);
+  el.appendChild(foot);
+}
+
+/* ---------- comms tabs ----------
+ *
+ * Filtering is a class on the container, not a rebuild of the list. addMsg
+ * returns the element it created and the streaming reply writes tokens into
+ * that same node for the rest of the response, so re-rendering the transcript
+ * on every tab click would drop the live reply on the floor mid-sentence.
+ */
+function countMsgs() {
+  // The rail shows unread as a dot, not a number - there is no room for a
+  // count on a 34px tile and "something arrived" is the whole message.
+  const n = [...UNREAD.values()].reduce((a, b) => a + b, 0);
+  const el = $("db-running");
+  if (el) {
+    const running = AGENTS_LIST.filter((a) => a.running && a.id !== "runner").length;
+    el.textContent = running ? `${running} RUNNING` : n ? `${n} NEW` : "IDLE";
+  }
+}
+
+/* Tabs are JARVIS plus one per agent.
+ *
+ * Being honest about what these do: JARVIS is the live chat. An agent tab is a
+ * VIEW of that agent - what it is for, when it runs, and a button to run it.
+ * Messages you type always go to the brain, because per-agent conversations do
+ * not exist in Jarvis; pretending the tab re-routed your message would be a
+ * lie that only shows up when the wrong thing answers.
+ */
+let COMMS_TAB = "jarvis";
+
+/* Two letters, from the label. Collisions are broken by taking the first and
+ * last letter instead of the first two - POST-MORTEM and PLAYBOOK would both
+ * be "PO" otherwise, and a rail of identical tiles is worse than no rail. */
+function initials(label, taken) {
+  const s = String(label).replace(/[^A-Za-z]/g, "").toUpperCase();
+  let two = s.slice(0, 2);
+  if (taken.has(two) && s.length > 2) two = s[0] + s[s.length - 1];
+  let i = 1;
+  while (taken.has(two) && i < s.length) two = s[0] + s[i++];
+  taken.add(two);
+  return two;
+}
+
+function renderCommsTabs() {
+  const rail = $("dockrail");
+  if (!rail) return;
+  const agents = AGENTS_LIST.filter((a) => a.id !== "runner");
+  const taken = new Set();
+  const dot = (a) => a.running ? '<span class="live"></span>'
+             : (UNREAD.has(a.id) ? '<span class="unread"></span>' : "");
+  rail.innerHTML =
+    `<button class="dtile j${COMMS_TAB === "jarvis" ? " on" : ""}" data-tab="jarvis"
+       title="Jarvis">J</button>` +
+    `<div class="dscroll">` + agents.map((a) =>
+      `<button class="dtile${COMMS_TAB === a.id ? " on" : ""}" data-tab="${esc(a.id)}"
+         title="${esc(a.label)} - ${esc(a.description || "")}">${esc(initials(a.label, taken))}${dot(a)}</button>`).join("") +
+    `</div>
+     <button class="dtile add" id="dock-add" title="Add an agent - opens settings">+</button>`;
+
+  rail.querySelectorAll(".dtile[data-tab]").forEach((b) => {
+    b.onclick = () => selectCommsTab(b.dataset.tab);
+  });
+  const add = $("dock-add");
+  if (add) add.onclick = () => $("settings-btn")?.click();
+  updateDockHead();
+}
+
+/* The header carries who you are talking to. On an agent it also carries the
+ * schedule and the run control, so nothing has to be appended to the
+ * transcript to tell you what the agent is. */
+function updateDockHead() {
+  const nameEl = $("dock-name"), status = $("dock-status"), run = $("dock-run");
+  if (!nameEl) return;
+  if (COMMS_TAB === "jarvis") {
+    nameEl.textContent = "Jarvis";
+    status.className = "statuspill";
+    status.innerHTML = "<i></i><b>ONLINE</b>";
+    run.hidden = true;
+    return;
+  }
+  const a = AGENTS_LIST.find((x) => x.id === COMMS_TAB);
+  if (!a) return;
+  nameEl.textContent = a.label.charAt(0) + a.label.slice(1).toLowerCase();
+  status.className = "statuspill sched";
+  status.innerHTML = `<i></i><b>${esc(a.schedule ? CRON_WORDS(a.schedule).toUpperCase() : "ON DEMAND")}</b>`;
+  const blocked = (a.unmet || []).length > 0;
+  run.hidden = false;
+  run.disabled = a.running || blocked;
+  run.textContent = a.running ? "RUNNING" : blocked ? "BLOCKED" : "RUN NOW";
+  run.title = blocked ? `missing: ${(a.unmet || []).join(", ")}` : "run this agent now";
+  run.onclick = () => runAgent(a);
+}
+
+function selectCommsTab(id) {
+  COMMS_TAB = id;
+  UNREAD.delete(id);
+  renderCommsTabs();
+  applyCommsFilter();
+  pinBottom();
+}
+
+/* Dock size: compact, expanded, or minimised to a bar. */
+function setDock(mode) {
+  const dock = $("comms"), bar = $("dockbar");
+  if (!dock || !bar) return;
+  dock.classList.toggle("expanded", mode === "expanded");
+  dock.classList.toggle("minimized", mode === "bar");
+  // Inline, for the same reason the sidebar width is inline.
+  const cap = (px) => `min(${px}px, calc(100vw - 460px))`;
+  dock.style.display = mode === "bar" ? "none" : "flex";
+  dock.style.width = cap(mode === "expanded" ? 720 : 480);
+  dock.style.height = (mode === "expanded" ? 520 : 340) + "px";
+  bar.style.display = mode === "bar" ? "flex" : "none";
+  const ex = $("dock-expand");
+  if (ex) { ex.innerHTML = mode === "expanded" ? "&#10529;" : "&#10530;";
+            ex.dataset.tip = mode === "expanded" ? "Shrink" : "Expand"; }
+  try { localStorage.setItem("jarvis_dock", mode); } catch {}
+  relayoutDuring();
+}
+{
+  const ex = $("dock-expand"), mi = $("dock-min"), bar = $("dockbar");
+  if (ex) ex.onclick = () => setDock($("comms").classList.contains("expanded") ? "compact" : "expanded");
+  if (mi) mi.onclick = () => setDock("bar");
+  if (bar) bar.onclick = () => setDock("compact");
+  let saved = null;
+  try { saved = localStorage.getItem("jarvis_dock"); } catch {}
+  setDock(saved || "expanded");   // the size Tyler actually works at
+}
+
+/* cron -> words, shared with the agent explainer */
+const cronWords = (c) => CRON_WORDS(c);
+
+/* The + reveals wake / speak / theme / settings. Collapsed by default so the
+ * composer reads as one input rather than a row of six controls. */
+{
+  const bar = $("bar"), more = $("more");
+  if (bar && more) {
+    more.onclick = () => {
+      const open = bar.classList.toggle("open");
+      more.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) layoutAgents();   // panel width is unchanged, but be safe
+    };
+  }
 }
 function setState(s) {
   state = s;
   window.__hudState = s;
+  const bar = $("bar"), sd = $("statedot");
+  if (bar) bar.classList.toggle("busy", s !== "idle");
+  if (sd) sd.title = s === "thinking" ? "Working" : s === "speaking" ? "Speaking"
+    : s === "listening" ? "Listening" : "Idle";
   const r = document.getElementById("ag-runner");
   if (r) r.classList.toggle("live", s !== "idle");
   $("m-runner").textContent = s === "thinking" ? "WORKING" : s === "speaking" ? "SPEAKING" : s === "listening" ? "LISTENING" : "IDLE";
@@ -643,7 +1463,7 @@ async function send(message) {
         if (!evm || !dm) continue;
         const ev = evm[1], data = JSON.parse(dm[1]);
         if (ev === "session") { sessionId = data.sessionId; localStorage.setItem("jarvis_session", sessionId); }
-        else if (ev === "delta") { acc += data.text; reply.textContent = acc; msgs.scrollTop = msgs.scrollHeight; }
+        else if (ev === "delta") { acc += data.text; reply.textContent = acc; pinBottom(); }
         else if (ev === "tool") {
           const c = document.createElement("span");
           c.className = "toolchip"; c.textContent = data.name;
@@ -657,11 +1477,17 @@ async function send(message) {
       }
     }
   } catch (e) { reply.textContent = acc + "\n[link error: " + e.message + "]"; }
+  // Chips go on only once the reply has finished streaming - appending them
+  // mid-stream would put them above text that is still arriving.
+  if (acc) chipRow(reply, COMMS_TAB);
   loadData();
   if (speakOn && acc) speak(acc); else setState("idle");
 }
 
 $("cmd").addEventListener("keydown", (e) => { if (e.key === "Enter") send($("cmd").value); });
+// The spec draws a send button, so it has to actually send - Enter alone is
+// not discoverable on a composer that looks like it has one.
+{ const s = $("send"); if (s) s.onclick = () => send($("cmd").value); }
 
 /* ---------- voice out (elevenlabs -> browser fallback) ---------- */
 let audioEl = null;
@@ -724,10 +1550,13 @@ fetch("/api/status")
   .then((r) => r.json())
   .then((s) => {
     STT_SERVER = Boolean(s.stt_server_side);
-    // name the brain that is actually answering, rather than assuming one
-    const label = $("brain-label");
+    // name the brain that is actually answering, rather than assuming one.
+    // Held in a variable as well as written to the node: the tab bar re-renders
+    // on every agent poll and would otherwise reset the pill to its default.
     const active = (s.brain || {}).active;
-    if (label) label.textContent = active ? active.replace("-", ".").toUpperCase() : "NO BRAIN";
+    BRAIN_LABEL = active ? active.replace("-", ".").toUpperCase() : "NO BRAIN";
+    const label = $("brain-label");
+    if (label) label.textContent = BRAIN_LABEL;
     if (!active)
       addMsg("sys", "no brain available - install claude code, or set OPENAI_API_KEY, or point brain.openai.base_url at a local model");
   })
