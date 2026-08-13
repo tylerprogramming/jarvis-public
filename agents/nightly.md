@@ -69,7 +69,7 @@ Hard rules, because a journal that flatters is worse than no journal:
 - Never invent activity. If nothing ran, nothing shipped, and nothing moved,
   write a three-line entry saying the day was quiet. Every entry reading
   eventful is how a log becomes something nobody trusts.
-- Never estimate a number you did not read. "Subs unchanged at 23,600" is
+- Never estimate a number you did not read. "Subs unchanged at 12,400" is
   useful; "subs up a bit" is noise.
 - Do not repeat yesterday's entry. Read {{journal_dir}} for the last two days
   first. If today genuinely repeats yesterday, say so in one line - a stretch

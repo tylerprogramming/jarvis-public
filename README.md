@@ -12,14 +12,14 @@ you hand it a key that makes it leave.
 
 ```
 ┌─ SYSTEM VITALS ──────┐                              ┌─ COMMS ─────────────┐
-│  Subscribers  23,600 │         ●  MORNING           │ you: what should I  │
+│  Subscribers  12,400 │         ●  MORNING           │ you: what should I  │
 │  ▲ 240/wk  ╱‾╲╱‾     │      ●        ●  RADAR       │      film today?    │
 │  ┌──────┬──────┐     │   ●    ( brain )   ●         │ jarvis: your last   │
 │  │ IG   │ TT   │     │      ●        ●              │  three showcase     │
 │  └──────┴──────┘     │         ●  SCOUT             │  videos beat the    │
 ├─ DIRECTIVES ─────────┤                              │  tutorials 3 to 1.  │
 │ ☐ Film the agent one │   PRIMARY DIRECTIVE          │  Film the agent one.│
-└──────────────────────┘   23,600 SUBS                └─────────────────────┘
+└──────────────────────┘   12,400 SUBS                └─────────────────────┘
 ```
 
 ## What it actually does
