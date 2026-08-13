@@ -29,6 +29,12 @@ plugins/collectors/*
 !plugins/collectors/README.md
 !plugins/collectors/*.example.py
 
+# scratch research pulls - competitor video ids, view counts, channel names
+.study-lane-*.txt
+
+# scratch design comparisons - they carry whatever data was on screen
+public/_*.html
+
 __pycache__/
 *.pyc
 
