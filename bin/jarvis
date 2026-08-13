@@ -446,6 +446,26 @@ async function main() {
       const voice = await tts.status(cfg);
       const mic = await stt.status(cfg);
       const ok = (b) => (b ? "yes" : "no");
+      const shell = require(path.join(ROOT, "lib", "shell"));
+
+      /* Platform first. Everything below behaves differently per OS, and
+       * "why is scheduling doing nothing" is answered here rather than after
+       * an hour of reading source. */
+      const [shBin] = shell.shellFor("true");
+      const plat = { darwin: "macOS", win32: "Windows", linux: "Linux" }[process.platform]
+        || process.platform;
+      console.log(`\n  PLATFORM`);
+      console.log(`    os                 ${plat} (${process.arch})`);
+      console.log(`    node               ${process.version}`);
+      console.log(`    shell              ${shBin}`);
+      console.log(`    scheduler          ${
+        process.platform === "darwin" ? "launchd"
+        : process.platform === "win32" ? "Task Scheduler (schtasks)"
+        : "crontab"}`);
+      if (process.platform === "win32") {
+        console.log(`    note               .sh installers (yt-dlp, Kokoro voice) need`);
+        console.log(`                       Git Bash or WSL. Everything else is native.`);
+      }
 
       console.log(`\n  CONFIG`);
       console.log(`    config.json        ${ok(cfg.configured)}${cfg.configured ? "" : "   <- run 'jarvis setup'"}`);

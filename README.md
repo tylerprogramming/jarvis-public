@@ -67,7 +67,8 @@ and the agents will write there instead.
 ## Install
 
 **You need:** [Node 18+](https://nodejs.org) and `python3`. That is the whole
-list.
+list. **macOS, Windows and Linux** all work - see
+[Platform support](#platform-support) for the two things that differ.
 
 Jarvis has **no npm dependencies** - `package.json` ships an empty dependency
 list, so there is no `npm install` step and no `node_modules` to go stale. Its
@@ -340,6 +341,29 @@ directory or the Jarvis folder, and `brain.denied_patterns` refuses secrets
 (`.ssh/`, `.env`, `credentials.json`, private keys) even inside it. Worth
 reading [docs/SECURITY.md](docs/SECURITY.md) before pointing it at a hosted
 API, since whatever a tool reads gets sent there.
+
+## Platform support
+
+The server, the dashboard, chat, agents and scheduling run natively on macOS,
+Windows and Linux. `jarvis doctor` prints which shell and which scheduler it
+will use on your machine, so you never have to guess.
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| Server, dashboard, chat | yes | yes | yes |
+| Agents on a schedule | launchd | Task Scheduler | crontab |
+| System voice | `say` | SAPI, built in | `espeak-ng` |
+| Bundled `yt-dlp` installer | yes | needs Git Bash or WSL | yes |
+| Local Kokoro voice | yes | needs Git Bash or WSL | yes |
+
+Two installers are shell scripts, so on Windows they need
+[Git Bash](https://git-scm.com/download/win) (which most developers already
+have) or WSL. Everything else is native Node. Nothing else in Jarvis shells
+out to a `.sh` file.
+
+Jarvis runs commands through your login shell so that tools installed by
+Homebrew, nvm or uv are on `PATH` when an agent fires from a scheduler rather
+than from your terminal. Set `JARVIS_SHELL` to override which shell it uses.
 
 ## Voice
 

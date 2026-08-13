@@ -19,6 +19,13 @@ nothing to pip install. Keep it that way: a dependency here is a dependency
 every person who clones this has to resolve, on an unknown machine, before
 they see anything work.
 
+**Cross-platform rule:** never hardcode a shell, a path separator or a
+scheduler. `lib/shell.js` owns running commands, finding binaries, locating a
+venv's interpreter and opening a URL; use it rather than `execFile("/bin/bash",
+...)`, which is what it was written to replace. `lib/schedule.js` branches to
+launchd, schtasks or crontab. `process.platform` checks belong in those two
+files and in `lib/tts.js`/`lib/stt.js`, not scattered.
+
 The single exception is `scripts/voice.sh`, which installs `kokoro-onnx` for
 the optional local voice. It prefers `uv` and falls back to `python3 -m venv`
 plus pip. If you add anything else that needs a package, put it behind an
