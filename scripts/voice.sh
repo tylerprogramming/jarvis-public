@@ -64,16 +64,39 @@ check_venv() {
 }
 
 install_native() {
-  have python3 || die "python3 not found"
-  check_venv
   mkdir -p "$MODELS" "$ROOT/data"
 
-  say "creating venv at .venv-kokoro"
-  python3 -m venv "$VENV" || die "could not create venv"
+  # uv when it is here, stdlib venv otherwise.
+  #
+  # This is the only part of Jarvis that installs a Python package, and it is
+  # the part most likely to fail: on a Homebrew or system python, pip refuses
+  # with "externally managed environment" (PEP 668) and the usual advice is
+  # --break-system-packages, which does exactly what it says on a python other
+  # things depend on. uv builds an isolated environment in seconds and never
+  # gets near the system one.
+  if have uv; then
+    say "creating venv at .venv-kokoro (uv)"
+    uv venv --quiet "$VENV" || die "uv could not create the venv"
+    say "installing kokoro-onnx (onnxruntime, no PyTorch)"
+    uv pip install --quiet --python "$VENV/bin/python" kokoro-onnx numpy \
+      || die "uv pip install failed"
+  else
+    have python3 || die "python3 not found"
+    check_venv
+    say "creating venv at .venv-kokoro"
+    python3 -m venv "$VENV" || die "could not create venv"
 
-  say "installing kokoro-onnx (onnxruntime, no PyTorch)"
-  "$VENV/bin/pip" install --quiet --upgrade pip >/dev/null 2>&1
-  "$VENV/bin/pip" install --quiet kokoro-onnx numpy || die "pip install failed"
+    say "installing kokoro-onnx (onnxruntime, no PyTorch)"
+    "$VENV/bin/pip" install --quiet --upgrade pip >/dev/null 2>&1
+    if ! "$VENV/bin/pip" install --quiet kokoro-onnx numpy; then
+      printf "\n"
+      say "pip install failed. If it mentioned an externally managed"
+      say "environment, uv avoids that entirely:"
+      say "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+      say "then re-run: jarvis voice install"
+      die "pip install failed"
+    fi
+  fi
 
   # 337MB total, skipped when already present so re-running is cheap
   fetch() {

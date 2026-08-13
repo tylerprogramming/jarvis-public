@@ -12,6 +12,18 @@ default. The "brain" behind chat is pluggable, Claude Code by default.
 
 There is no build step, no bundler, and no test suite. You run it and look at it.
 
+**Dependencies, so you do not go looking for them:** `package.json` has an
+empty dependency list - there is no `npm install` and no `node_modules`. The
+Python helpers in `scripts/` import only the standard library, so there is
+nothing to pip install. Keep it that way: a dependency here is a dependency
+every person who clones this has to resolve, on an unknown machine, before
+they see anything work.
+
+The single exception is `scripts/voice.sh`, which installs `kokoro-onnx` for
+the optional local voice. It prefers `uv` and falls back to `python3 -m venv`
+plus pip. If you add anything else that needs a package, put it behind an
+opt-in command the same way rather than in the startup path.
+
 ## Orientation
 
 | Path | What it is |

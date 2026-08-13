@@ -66,9 +66,27 @@ and the agents will write there instead.
 
 ## Install
 
-**You need:** [Node 18+](https://nodejs.org) and `python3`.
+**You need:** [Node 18+](https://nodejs.org) and `python3`. That is the whole
+list.
 
-Check both first. This is the step people actually get stuck on:
+Jarvis has **no npm dependencies** - `package.json` ships an empty dependency
+list, so there is no `npm install` step and no `node_modules` to go stale. Its
+Python helpers use only the standard library, so there is **nothing to pip
+install** either. The one exception is the optional local voice, and it is
+opt-in: see [Voice](#voice-optional).
+
+Three commands and you are looking at it:
+
+```bash
+git clone https://github.com/tylerprogramming/jarvis-public.git jarvis
+cd jarvis
+node bin/jarvis setup
+```
+
+`setup` writes your config, offers to install its own `yt-dlp`, and prints the
+command to start it. Nothing else is required.
+
+Check both runtimes first. This is the step people actually get stuck on:
 
 ```bash
 node --version      # needs v18 or higher
@@ -348,6 +366,25 @@ Google - `jarvis doctor` tells you which one you are on.
 jarvis voice install     # picks Docker if present, native otherwise
 jarvis voice start
 ```
+
+**This is the only part of Jarvis that installs a Python package.** The native
+path needs somewhere to put `kokoro-onnx`, and it will use
+[uv](https://docs.astral.sh/uv/) if you have it:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+uv is not required - without it the installer falls back to `python3 -m venv`
+and pip. It is recommended because pip into a Homebrew or system Python fails
+with *"externally managed environment"* (PEP 668), and the advice you will find
+online is `--break-system-packages`, which does exactly what it says on a
+Python other tools depend on. uv builds an isolated environment in seconds and
+never touches the system one. If the pip path does hit that error, the
+installer tells you this rather than leaving you to search for it.
+
+Either way the environment lives in `.venv-kokoro/` inside the repo and is
+gitignored. Deleting that folder undoes the whole thing.
 
 Upstream Kokoro runs via Docker, which is one command if you already have it and
 a large detour if you don't. The native path avoids it: `kokoro-onnx` uses
