@@ -1,0 +1,20 @@
+/* Vendored from Google Fonts, latin subset, variable weight.
+ *
+ * NOT linked from fonts.googleapis.com. This HUD is a local-first tool people
+ * run on their own machines - a stylesheet link would make every page load
+ * phone home to Google, and would leave the UI unstyled with no network.
+ *
+ * One file per family, not one per weight: Google serves both of these as
+ * variable fonts, so the seven files the weight list produced were the same
+ * two files under seven names. `font-weight: 400 700` is what tells the
+ * browser this single file covers the range.
+ */
+
+@font-face {
+  font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 700;
+  font-display: swap; src: url('fonts/PlusJakartaSans.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400 600;
+  font-display: swap; src: url('fonts/JetBrainsMono.woff2') format('woff2');
+}
