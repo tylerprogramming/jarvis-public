@@ -1,0 +1,1375 @@
+/* ============================================================================
+ * ui-v2.css - drop-in UI update. Load AFTER style.css.
+ *
+ * Everything here is written against the tokens already in style.css's :root
+ * (--accent, --accent-rgb, --panel-deep, --line, --surface, --mono, --sans...)
+ * so all eight themes keep working. No literal hex except where style.css
+ * itself uses one. Nothing here touches #brain, #stars, or the agent ring.
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 0. MOTION TOKENS + THE VERTICAL GRID
+ *
+ * One curve and three durations, so every surface accelerates the same way.
+ * --v2-ez matches the expo-out style.css already uses for the sidebar and the
+ * dock. --v2-slow is 420ms because relayoutDuring() follows the ring for 420ms,
+ * so the rail and the sphere settle on the same frame.
+ *
+ * --v2-top is the one number the whole layout hangs off: the header band plus
+ * the NOW band. Change it here and the rails, the deck and the right column
+ * all move together.
+ * ------------------------------------------------------------------------- */
+:root {
+  --v2-ez: cubic-bezier(0.22, 1, 0.36, 1);
+  --v2-ez-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --v2-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --v2-fast: 160ms;
+  --v2-mid: 260ms;
+  --v2-slow: 420ms;
+
+  --v2-head: 64px;    /* header band */
+  --v2-now: 38px;     /* NOW band */
+  --v2-top: 118px;    /* where content starts: head + now + 16 */
+  --v2-right: 300px;  /* the right-hand column */
+  --railw: 560px;     /* published by ui-v2.js as the rail changes width */
+}
+
+/* ---------------------------------------------------------------------------
+ * 1. THE TOOLTIP BUG
+ *
+ * #nav has backdrop-filter, which makes it a stacking context - so the
+ * z-index: 60 on #nav [data-tip]::after could only ever compete INSIDE the
+ * rail. #railbody .panel is a later sibling with its own backdrop-filter
+ * context, so it painted over the whole nav subtree, tooltip included.
+ * Ordering the two contexts is the entire fix.
+ * ------------------------------------------------------------------------- */
+#nav { position: relative; z-index: 2; }
+#railbody { position: relative; z-index: 1; }
+
+/* The rail's tooltips open to the RIGHT (style.css repositions ::after), but
+   the pointer ::before was left centred ABOVE the button, floating detached
+   over the icon. Point it left, at the bubble it belongs to. */
+#nav [data-tip]::before {
+  bottom: auto; top: 50%; left: calc(100% + 1px);
+  transform: translateY(-50%) translateX(-4px);
+  border-top-color: transparent; border-right-color: var(--line);
+  z-index: 60;
+}
+#nav [data-tip]:hover::before,
+#nav [data-tip]:focus-visible::before { transform: translateY(-50%) translateX(0); }
+
+/* ---------------------------------------------------------------------------
+ * 2. HEADER BAND + NOW BAND
+ *
+ * The header was a transparent overlay with the mode dots floating at the top
+ * right, and the NOW strip hung underneath them in the same corner - which put
+ * the single most time-sensitive row on the screen in its least-read corner,
+ * wrapped to three lines at 46vw.
+ *
+ * It becomes two full-width bands: identity and link state on top, the run
+ * state underneath, reading left to right like a status line.
+ * ------------------------------------------------------------------------- */
+header {
+  height: var(--v2-head); padding: 0 24px;
+  align-items: center;
+  background: linear-gradient(rgba(8, 15, 27, 0.92), rgba(6, 11, 21, 0.88));
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.10);
+  backdrop-filter: blur(var(--blur));
+}
+header .logo h1 { font-size: 18px; letter-spacing: 5px; }
+header #tagline { display: none; }     /* the band has no room for a subtitle */
+header .modes {
+  padding-top: 0; gap: 18px; font-size: 10.5px; letter-spacing: 0.12em;
+  pointer-events: auto;
+}
+header .modes span {
+  display: flex; align-items: center; gap: 6px;
+  transition: color var(--v2-mid) var(--v2-ez);
+}
+header .modes .dot {
+  margin: 0;
+  transition: background var(--v2-mid) var(--v2-ez), box-shadow var(--v2-mid) var(--v2-ez);
+}
+/* the dot already says online; the word only earns its place when the state
+   is not the good one (ui-v2.js sets .quiet from the live state) */
+header .modes span.quiet b { display: none; }
+
+/* Green is health, and it is the same green the RUNNING pill and the live
+   agent markers already use - so one colour means "this is working" across
+   the whole HUD, instead of the accent standing in for it and every light
+   reading the same whether or not anything was actually up. */
+header .modes span.ok { color: #9FE8C8; }
+header .modes span.ok b { color: #9FE8C8; }
+header .modes span.ok .dot { background: #5BE6A8; box-shadow: 0 0 8px rgba(91, 230, 168, 0.55); }
+header .modes span.idle { color: var(--dim); }
+header .modes span.idle b { color: var(--dim); }
+header .modes span.idle .dot { background: #3F5878; box-shadow: none; }
+header .modes span.bad { color: var(--red); }
+header .modes span.bad b { color: var(--red); }
+header .modes span.bad .dot {
+  background: var(--red); box-shadow: 0 0 8px rgba(var(--red-rgb), 0.55);
+  animation: pulse 2.6s ease-in-out infinite;
+}
+
+#nowbar {
+  position: fixed; top: var(--v2-head); left: 0; right: 0; z-index: 5;
+  height: var(--v2-now); padding: 0 24px;
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(5, 9, 17, 0.72);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.07);
+  backdrop-filter: blur(var(--blur));
+  font-family: var(--mono);
+}
+#nowbar .nowlab {
+  font-size: 9.5px; letter-spacing: 0.18em; color: var(--dim); flex: none;
+  margin-right: 6px;
+}
+#nowbar .nowfill { flex: 1; }
+#nowpills { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+#nowbar .nowpill {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--surface);
+  font-size: 10px; letter-spacing: 0.08em;
+  color: var(--dim); white-space: nowrap;
+  /* ui-v2.js only rewrites the bar when the words change, so this fires on a
+     real state change and never on the 20s poll */
+  animation: v2pillIn 340ms var(--v2-ez) both;
+}
+#nowbar .nowpill:nth-child(2) { animation-delay: 30ms; }
+#nowbar .nowpill:nth-child(3) { animation-delay: 60ms; }
+#nowbar .nowpill:nth-child(n+4) { animation-delay: 90ms; }
+@keyframes v2pillIn { from { opacity: 0; transform: translateY(-5px) scale(.95); } }
+#nowbar .nowpill i {
+  width: 5px; height: 5px; border-radius: 999px; background: currentColor; flex: none;
+}
+#nowbar .nowpill.live {
+  background: rgba(91, 230, 168, 0.10);
+  border: 1px solid rgba(91, 230, 168, 0.28);
+  color: #9FE8C8;
+}
+#nowbar .nowpill.live i { background: #5BE6A8; animation: pulse 2.6s ease-in-out infinite; }
+/* what already ran keeps the pill shape but drops the accent: it is history
+   sitting next to the one pill that is telling you something is happening now */
+#nowbar .nowpill.done {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(var(--accent-rgb), 0.07);
+  color: var(--dim);
+}
+#nowbar .nowpill.warn { background: rgba(var(--red-rgb), 0.12); color: var(--red); }
+#nownext .nownextlab {
+  font-size: 10px; letter-spacing: 0.1em; color: var(--dim); white-space: nowrap;
+}
+
+.rail { top: var(--v2-top); }
+
+/* ---------------------------------------------------------------------------
+ * 3. LABELLED RAIL
+ *
+ * Three widths, driven by data-mode on .rail.left (set by ui-v2.js):
+ *   full  - labelled nav + panel
+ *   nav   - labelled nav, panel hidden (click the active item again)
+ *   icons - icon rail only (the chevron)
+ *
+ * The rail's own width is set inline by JS and had NO transition in style.css,
+ * so every collapse was a hard jump while the ring eased.
+ * ------------------------------------------------------------------------- */
+.rail.left { transition: width var(--v2-slow) var(--v2-ez); }
+.rail.left #nav {
+  flex: 0 0 194px;
+  align-items: stretch;
+  padding: 14px 10px;
+  gap: 3px;
+  transition: flex-basis var(--v2-slow) var(--v2-ez),
+              padding var(--v2-slow) var(--v2-ez);
+}
+
+#nav .navhead {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 4px 12px; margin-bottom: 6px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.10);
+  transition: padding var(--v2-mid) var(--v2-ez), border-color var(--v2-fast) linear;
+}
+#nav .navhead .navword {
+  flex: 1; min-width: 0;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--dim); white-space: nowrap; overflow: hidden;
+  transition: opacity var(--v2-fast) var(--v2-ez) 90ms, flex-basis var(--v2-mid) var(--v2-ez);
+}
+/* The chevron used to be rewritten between « and », which is a glyph swap and
+   cannot animate. The turn is on an inner span, NOT the button: the button
+   carries the tooltip as a ::after, and a pseudo-element inherits its host's
+   transform - rotating the button rendered the tip upside down and mirrored. */
+#nav .navhead .navcollapse { margin-left: auto; }
+#nav .navcollapse .chevglyph {
+  display: block; line-height: 1;
+  transition: transform var(--v2-mid) var(--v2-ez);
+}
+#nav .navcollapse.flip .chevglyph { transform: rotate(180deg); }
+#nav .navcollapse:active .chevglyph { transform: scale(.85); }
+#nav .navcollapse.flip:active .chevglyph { transform: rotate(180deg) scale(.85); }
+#nav .navrule { display: none; }
+
+/* First paint only. app.js's setSidebar has already written a width by the
+   time ui-v2.js restores the saved mode, so without this the rail would play
+   a 400px -> 560px slide on every reload. */
+.rail.left.nomotion, .rail.left.nomotion * {
+  transition: none !important;
+  animation: none !important;
+}
+
+.rail.left .navb {
+  width: auto; height: auto;
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 11px; border-radius: 13px;
+  text-align: left;
+  transition: color .22s var(--v2-ez), background .22s var(--v2-ez),
+              border-color .22s var(--v2-ez), transform .18s var(--v2-ez),
+              gap var(--v2-mid) var(--v2-ez), padding var(--v2-mid) var(--v2-ez),
+              width var(--v2-mid) var(--v2-ez);
+}
+/* scale(.94) was tuned for a 38px square; on a 172px row it reads as a wobble */
+.rail.left .navb:active { transform: scale(.985); }
+.rail.left .navb svg { flex: none; }
+.navb .navlabel {
+  flex: 1 1 auto; min-width: 0;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  opacity: 1; transform: none;
+  transition: opacity var(--v2-fast) var(--v2-ez) 110ms,
+              transform var(--v2-mid) var(--v2-ez) 110ms,
+              flex-basis var(--v2-mid) var(--v2-ez);
+}
+#nav .navkbd {
+  font-family: var(--mono); font-size: 10px; color: var(--dim); opacity: .7;
+  flex: none;
+}
+/* The active marker bar hung 13px outside the icon square. A filled row says
+   the same thing without reaching outside its own box. */
+.rail.left .navb.on::before { display: none; }
+
+/* Directives carries a COUNT, not a dot: "6 waiting" and "something changed"
+   are different facts and the queue length is the one you act on.
+
+   A REAL element, not ::after. The tooltip suppression below is
+   `#nav [data-tip]::after { content: none }` - an ID selector, so it outranks
+   any class-only badge rule and was silently killing every ::after in the
+   rail. The Radar dot had stopped rendering in the labelled widths for the
+   same reason. Two different things cannot share one pseudo-element. */
+.rail.left .navcount {
+  margin-left: auto; flex: none;
+  display: none; align-items: center; justify-content: center;
+  min-width: 18px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.16);
+  font-family: var(--mono); font-size: 10px; line-height: 1.5;
+  color: var(--accent-hi);
+  animation: v2badgeIn 320ms var(--v2-pop) both;
+}
+.rail.left .navcount.num, .rail.left .navcount.dot { display: flex; }
+.rail.left .navcount.dot {
+  min-width: 0; width: 6px; height: 6px; padding: 0;
+  background: var(--accent); box-shadow: 0 0 6px var(--accent);
+}
+.rail.left .navb.on .navcount.num { background: rgba(var(--accent-rgb), 0.26); }
+@keyframes v2badgeIn { from { transform: scale(0); opacity: 0; } }
+.rail.left .navfill { flex: 1; }
+
+/* Labelled rail carries its own names, so the tooltip is noise here. Kept for
+   the icons-only width, where it is the only label there is. */
+.rail.left[data-mode="full"] #nav [data-tip]::after,
+.rail.left[data-mode="full"] #nav [data-tip]::before,
+.rail.left[data-mode="nav"]  #nav [data-tip]::after,
+.rail.left[data-mode="nav"]  #nav [data-tip]::before { content: none; display: none; }
+
+/* The panel collapses by squeeze, not by display:none - which cannot be
+   animated and made the panel vanish a frame before the rail had finished
+   narrowing. #railbody is flex:1 in a rail whose width JS is already easing,
+   so letting it be squeezed to zero animates the collapse for free. */
+#railbody {
+  transition: opacity var(--v2-fast) var(--v2-ez) 60ms,
+              transform var(--v2-mid) var(--v2-ez) 60ms;
+}
+.rail.left[data-mode="nav"] #railbody,
+.rail.left[data-mode="icons"] #railbody {
+  opacity: 0; transform: translateX(-12px); pointer-events: none;
+  transition-delay: 0ms, 0ms; transition-duration: 130ms, 200ms;
+}
+
+.rail.left[data-mode="icons"] #nav {
+  flex-basis: 60px; align-items: center; padding: 12px 0;
+}
+.rail.left[data-mode="icons"] .navb {
+  width: 38px; height: 38px; justify-content: center; padding: 0; gap: 0;
+}
+.rail.left[data-mode="icons"] .navb .navlabel,
+.rail.left[data-mode="icons"] #nav .navkbd {
+  flex: 0 0 0; opacity: 0; overflow: hidden;
+  transform: translateX(-8px); transition-delay: 0ms, 0ms, 0ms;
+}
+.rail.left[data-mode="icons"] .navb.on::before { display: block; }
+.rail.left[data-mode="icons"] .navhead {
+  flex-direction: column; border-color: transparent; padding-bottom: 8px;
+}
+.rail.left[data-mode="icons"] .navhead .navword { flex: 0 0 0; opacity: 0; transition-delay: 0ms; }
+/* on the icon rail there is no room for a number, so both states are a dot */
+.rail.left[data-mode="icons"] .navcount.num,
+.rail.left[data-mode="icons"] .navcount.dot {
+  position: absolute; top: 4px; right: 4px; margin: 0;
+  min-width: 0; width: 6px; height: 6px; padding: 0;
+  font-size: 0; background: var(--accent); border-radius: 999px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. THE PANEL
+ *
+ * The done/total moves into the panel's own header caption, so the list starts
+ * with the work rather than with a progress bar about the work. The audience
+ * total pins to the foot of the panel, where it is a standing figure rather
+ * than something you scroll past.
+ * ------------------------------------------------------------------------- */
+#railbody .panel h2 small { font-variant-numeric: tabular-nums; }
+
+#directives .dprogress { display: none; }
+#directives::before {
+  content: "TODAY";
+  display: block; padding: 0 2px 10px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+  color: var(--dim);
+}
+#directives .directive {
+  position: relative; padding: 13px 13px 13px 15px; margin-bottom: 8px;
+  border-radius: 14px; overflow: hidden;
+}
+/* Two lines, as the mock has them. style.css declares the clamp twice and the
+   later block wins with 1, which turns every directive into a hard ellipsis
+   three words in. */
+#directives .directive .txt { -webkit-line-clamp: 2; }
+#directives .directive.open .txt { -webkit-line-clamp: unset; }
+
+/* The top of the queue is the next action - that is what a queue means - so it
+   gets the edge. Nothing else here is colour-coded, because nothing else in
+   the payload says anything a colour could stand for.
+   Matched off .dprogress too: it is display:none but still an element, so the
+   first directive is never :first-of-type. */
+#directives .directive:first-child::before,
+#directives .dprogress + .directive::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; background: var(--accent);
+}
+#directives .directive.done::before { display: none; }
+#directives .directive .tags { display: none; }
+#directives .directive.open .tags { display: flex; }
+#directives .directive .chev { opacity: 0; transition: opacity var(--v2-fast) linear; }
+#directives .directive:hover .chev, #directives .directive.open .chev { opacity: 1; }
+
+/* ---- Radar ----
+   style.css declares .brk twice: a card at line 378 (12px 13px, rounded, its
+   own background) and a leftover list row at line 1288 (`padding: 7px 0`,
+   bottom rule). The second one wins, so the cards kept their background and
+   lost their horizontal padding - which is why every title ran into both
+   edges. Restores the card the first block describes. The ID here already
+   outranks style.css's `.brk:last-child { border-bottom: 0 }`, so the rule
+   below carries the border for the last card too. */
+#radar .brk {
+  padding: 12px 14px; margin-bottom: 8px; border-radius: 16px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.08);
+  display: flex; flex-direction: column; gap: 9px;
+  transition: border-color var(--v2-fast) var(--v2-ez),
+              background var(--v2-fast) var(--v2-ez),
+              transform var(--v2-mid) var(--v2-ez);
+}
+#radar .brk:hover { transform: translateY(-1px); }
+#radar .brk .brk-title {
+  font-size: 13.5px; line-height: 1.45; font-weight: 500; text-wrap: pretty;
+}
+#radar .brk .brk-meta { font-size: 11.5px; row-gap: 2px; }
+#radar .brk .brkhead { gap: 10px; }
+#radar .grouphead { padding-bottom: 8px; }
+
+.paneltotal {
+  flex: none; margin: 0 20px 18px; padding: 13px 15px;
+  border-radius: 15px;
+  background: rgba(var(--accent-rgb), 0.05);
+  border: 1px solid rgba(var(--accent-rgb), 0.13);
+  display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px;
+}
+.paneltotal .tl {
+  grid-column: 1 / -1;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em; color: var(--dim);
+}
+.paneltotal .tn {
+  font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--strong);
+  font-variant-numeric: tabular-nums;
+}
+.paneltotal .td { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.paneltotal .td.up { color: #5BE6A8; }
+.paneltotal .td.down { color: var(--red); }
+
+/* ---------------------------------------------------------------------------
+ * 5. THE RIGHT COLUMN
+ *
+ * The audience card carried the total, the target, the week delta, the platform
+ * count and all four platform numbers in one 292px box - the last of those as a
+ * single ellipsised line you could not read. Primary card with a bar, then the
+ * platforms as their own tiles.
+ * ------------------------------------------------------------------------- */
+#primary {
+  left: auto; right: 24px; top: var(--v2-top); bottom: auto;
+  transform: none;
+  width: var(--v2-right);
+  text-align: left;
+  padding: 16px 18px 18px;
+  border-radius: 20px;
+  background: linear-gradient(rgba(12, 21, 36, 0.92), rgba(7, 13, 24, 0.96));
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+  animation: v2cardIn 520ms var(--v2-ez) both;
+}
+@keyframes v2cardIn { from { opacity: 0; transform: translateY(-10px); } }
+#primary .label {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 400;
+  letter-spacing: 0.16em; color: var(--dim); opacity: 1;
+}
+#primary .big {
+  font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1;
+  margin-top: 6px; font-variant-numeric: tabular-nums;
+}
+#primary .big small {
+  display: block; margin-top: 4px;
+  font-size: 11.5px; font-family: var(--sans); letter-spacing: 0;
+  text-transform: lowercase; color: var(--dim);
+}
+/* The unit and the target read as one sentence under the number. THIS WEEK and
+   PLATFORMS are dropped here, not lost: the delta is on the panel's audience
+   card and the platform count is the tile grid below being four tiles. */
+#primary .meta {
+  display: block; border: 0; margin: 4px 0 0; padding: 0;
+  font-family: var(--sans); font-size: 11.5px; letter-spacing: 0; color: var(--dim);
+}
+#primary .meta span { display: none; }
+#primary .meta span:first-child { display: inline; }
+#primary .meta span:first-child::before { content: "· "; }
+#primary .meta b { color: var(--text); font-weight: 500; }
+#primary .deploy { display: none; }
+
+#primary .pdbar {
+  height: 6px; border-radius: 999px; margin-top: 14px;
+  background: rgba(255, 255, 255, 0.06); overflow: hidden;
+}
+#primary .pdbar i {
+  display: block; height: 100%; width: 0; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  transition: width 700ms var(--v2-ez);
+}
+#primary .pdbar i.over { background: linear-gradient(90deg, var(--accent), #5BE6A8); }
+
+#platgrid {
+  position: fixed; z-index: 4;
+  right: 24px; top: calc(var(--v2-top) + 178px);
+  width: var(--v2-right);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+#platgrid .plat {
+  padding: 12px 14px 13px; border-radius: 16px;
+  background: linear-gradient(rgba(12, 21, 36, 0.9), rgba(7, 13, 24, 0.94));
+  border: 1px solid rgba(var(--accent-rgb), 0.10);
+  transition: border-color var(--v2-fast) var(--v2-ez), transform var(--v2-mid) var(--v2-ez);
+  animation: v2cardIn 520ms var(--v2-ez) both;
+}
+#platgrid .plat:nth-child(2) { animation-delay: 40ms; }
+#platgrid .plat:nth-child(3) { animation-delay: 80ms; }
+#platgrid .plat:nth-child(4) { animation-delay: 120ms; }
+#platgrid .plat:hover { border-color: rgba(var(--accent-rgb), 0.26); transform: translateY(-1px); }
+#platgrid .pl {
+  display: block; font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0.16em; color: var(--dim);
+}
+#platgrid .plat b {
+  display: block; margin-top: 5px;
+  font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. THE CHAT DECK
+ *
+ * Centred in what is left BETWEEN the rail and the right column, not in the
+ * viewport - otherwise opening the rail slides the deck under the primary card.
+ * --railw is published by ui-v2.js, so this follows the rail as it changes.
+ * The width stays inline (setDock owns compact/expanded); only the centre moves.
+ * ------------------------------------------------------------------------- */
+#comms, #dockbar {
+  left: calc((var(--railw) + 20px + 100vw - var(--v2-right) - 24px) / 2);
+  right: auto; transform: translateX(-50%);
+  bottom: 26px;
+  transition: width 420ms var(--v2-ez), height 420ms var(--v2-ez),
+              left var(--v2-slow) var(--v2-ez);
+}
+#dockbar:hover { transform: translateX(-50%) translateY(-2px); }
+
+/* ---- the head: a mark, the name, then the agents as words ----
+   The picker was a 60px column of two-letter initials down the left of the
+   panel. "CA MO NI PO RA SC SO ST WE" is a puzzle, not a tab strip, and it
+   cost the transcript a sixth of its width. */
+#comms .dockhead { gap: 10px; padding-right: 14px; }
+#comms .dockmark {
+  width: 26px; height: 26px; flex: none; border-radius: 9px;
+  display: grid; place-items: center;
+  background: linear-gradient(140deg, var(--accent), var(--accent-deep));
+  font-family: var(--mono); font-size: 11px; font-weight: 600; color: #05080F;
+}
+#comms #dock-status { display: none; }   /* the header band already says ONLINE */
+
+/* flex-basis 0, not auto: with `auto` the strip sizes to its content, so the
+   tabs pushed straight through the header and under CLAUDE.CODE instead of
+   being bounded by the space left over. Basis 0 makes the leftover space the
+   input to how many tabs fit, which is what ui-v2.js then measures against. */
+#comms #dockrail {
+  width: auto; flex: 1 1 0; min-width: 0;
+  flex-direction: row; align-items: center; gap: 6px;
+  padding: 0 0 0 10px;
+  background: none; border-right: 0;
+  border-left: 1px solid rgba(var(--accent-rgb), 0.12);
+  overflow: hidden;
+}
+/* the fixed furniture on either side never gives up width to the tabs */
+#comms .dockhead #dock-name { flex: none; }
+#comms .dockhead .brainpill,
+#comms .dockhead .dockbtn,
+#comms .dockhead .runnow { flex: none; }
+/* The mock rests on one control at the right. Minimize is still here - it just
+   does not spend header width until you reach for it, and that is width the
+   agent tabs get to use instead. */
+#comms .dockhead #dock-min {
+  max-width: 0; padding: 0; margin: 0; opacity: 0; overflow: hidden;
+  transition: max-width var(--v2-mid) var(--v2-ez),
+              opacity var(--v2-fast) linear,
+              margin var(--v2-mid) var(--v2-ez);
+}
+#comms .dockhead:hover #dock-min,
+#comms .dockhead #dock-min:focus-visible { max-width: 26px; opacity: 1; margin-left: 2px; }
+/* asked to see them all: let the strip wrap rather than clip */
+#comms #dockrail.all { overflow: visible; }
+#comms #dockrail.all .dscroll { flex-wrap: wrap; row-gap: 6px; }
+/* nowrap, or the tabs fold into a 140px column and take the dock header to
+   148px tall - .dscroll wrapping and #dockrail sizing to its content is a
+   circular squeeze that settles at the narrowest layout, not the widest */
+#comms #dockrail .dscroll {
+  display: flex; flex-direction: row; align-items: center;
+  gap: 6px; flex-wrap: nowrap; min-width: 0;
+}
+#comms #dockrail .dtile {
+  width: auto; height: 26px; padding: 0 11px; border-radius: 999px;
+  font-family: var(--sans); font-size: 12px; font-weight: 500;
+  letter-spacing: 0; white-space: nowrap;
+}
+#comms #dockrail .dtile.hidden { display: none; }
+#comms #dockrail .dtile.j { display: none; }   /* the mark IS the Jarvis tab */
+#comms #dockrail .dtile.add { display: none; } /* + lives in the composer */
+#comms #dockrail .dmore {
+  appearance: none; border: 0; cursor: pointer; flex: none;
+  height: 26px; padding: 0 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05); color: var(--dim);
+  font-family: var(--sans); font-size: 12px;
+  transition: background var(--v2-fast) var(--v2-ez), color var(--v2-fast) var(--v2-ez);
+}
+#comms #dockrail .dmore:hover { background: rgba(var(--accent-rgb), 0.12); color: var(--accent-hi); }
+#comms #dockrail .dtile .live, #comms #dockrail .dtile .unread {
+  position: static; margin-left: 6px; width: 6px; height: 6px; border: 0;
+  display: inline-block; vertical-align: 1px;
+}
+#comms .brainpill { font-size: 9.5px; letter-spacing: 0.1em; }
+
+/* ---- the transcript ---- */
+#comms .msgs { gap: 16px; padding: 10px 20px 2px; }
+#comms .msg.you {
+  max-width: 74%; padding: 11px 15px; font-size: 13.5px; line-height: 1.55;
+  border-radius: 16px; background: var(--accent-deep);
+  box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.9);
+  animation: v2msgYou 320ms var(--v2-ez) both;
+}
+#comms .msg.jarvis {
+  font-size: 13.5px; line-height: 1.65; gap: 6px 11px;
+  animation: v2msgJarvis 320ms var(--v2-ez) both;
+}
+#comms .msg.sys { font-size: 11.5px; }
+@keyframes v2msgYou    { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes v2msgJarvis { from { opacity: 0; transform: translateY(8px); } }
+
+/* No capture device on the machine. Still clickable - pressing it explains
+   why, and the check re-runs on every press so plugging one in recovers. */
+#comms #bar #mic.noinput {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(var(--accent-rgb), 0.12);
+  color: #4E6688;
+}
+#comms #bar #mic.noinput:hover {
+  transform: none; box-shadow: none;
+  background: rgba(255, 255, 255, 0.07); border-color: rgba(var(--accent-rgb), 0.2);
+}
+#comms #bar #mic.noinput::after {
+  content: ""; position: absolute; left: 9px; right: 9px; top: 50%;
+  height: 1.5px; margin-top: -1px; border-radius: 2px;
+  background: currentColor; transform: rotate(-45deg); pointer-events: none;
+}
+
+/* ---- the composer: one row ----
+   [+]  the field  ⌘K  [mic]  [send]  */
+/* wrap, NOT nowrap: .extras is flex-basis:100% and on a nowrap line it eats
+   the whole row, shrinking #cmd (flex:1, min-width:0) to exactly 0px. Wrapping
+   gives .extras its own zero-height line and leaves the controls one clean row. */
+#comms .dockcomposer {
+  flex-wrap: wrap; gap: 10px;
+  padding: 9px 10px 9px 12px; border-radius: 16px;
+  background: rgba(0, 0, 0, 0.42);
+  transition: border-color var(--v2-mid) var(--v2-ez), box-shadow var(--v2-mid) var(--v2-ez);
+}
+#bar:focus-within .dockcomposer { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.07); }
+#comms #cmd { font-size: 13.5px; }
+#comms .cmdk {
+  flex: none; font-family: var(--mono); font-size: 10px; color: var(--dim);
+  border: 1px solid var(--line); padding: 2px 6px; border-radius: 6px;
+  transition: opacity var(--v2-fast) linear;
+}
+#bar:focus-within .cmdk { opacity: 0; }
+/* .extras is flex-basis:100% with max-height:0 - a full-width flex LINE whether
+   open or not. It has to stay ordered first or it inserts an empty row. */
+#comms #bar .extras { order: -1; }
+#comms #bar.open .extras { max-height: 46px; }
+
+/* ---- the mic ----
+   38px against send's 32px, accent-filled rather than the same grey wash as
+   the icon buttons. It is the one control here that starts something. */
+#comms #bar #mic {
+  width: 38px; height: 38px; flex: none;
+  background: rgba(var(--accent-rgb), 0.13);
+  border: 1px solid rgba(var(--accent-rgb), 0.30);
+  color: var(--accent-hi);
+  transition: background var(--v2-fast) var(--v2-ez),
+              border-color var(--v2-fast) var(--v2-ez),
+              color var(--v2-fast) var(--v2-ez),
+              transform var(--v2-mid) var(--v2-ez),
+              box-shadow var(--v2-mid) var(--v2-ez);
+}
+#comms #bar #mic svg { width: 18px; height: 18px; }
+#comms #bar #mic:hover {
+  background: rgba(var(--accent-rgb), 0.22);
+  border-color: rgba(var(--accent-rgb), 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -12px var(--accent);
+}
+#comms #bar #mic:active { transform: scale(.94); }
+#comms .sendbtn {
+  width: 32px; height: 32px; font-size: 14px; flex: none;
+  transition: background var(--v2-fast) var(--v2-ez), transform .16s var(--v2-ez);
+}
+#comms .sendbtn:active { transform: scale(.92); }
+#comms #bar .ico { width: 28px; height: 28px; }
+
+/* ---- tooltips on the composer ----
+ * #comms is overflow:hidden, so anything a control hangs outside the panel is
+ * cut off rather than drawn over it. style.css meant to anchor the edge button
+ * inward but did it with `#bar > button:last-child`, and these buttons are
+ * children of .dockcomposer, not of #bar - so the selector matches nothing and
+ * every composer tooltip is left-anchored. The two right-hand controls are the
+ * ones that run out of the panel, so they hang from their right edge instead.
+ * The pointer stays centred on the button it belongs to. */
+#comms .dockcomposer #mic[data-tip]::after,
+#comms .dockcomposer .sendbtn[data-tip]::after {
+  left: auto; right: 0;
+  transform: translateX(0) translateY(3px);
+}
+#comms .dockcomposer #mic[data-tip]:hover::after,
+#comms .dockcomposer #mic[data-tip]:focus-visible::after,
+#comms .dockcomposer .sendbtn[data-tip]:hover::after,
+#comms .dockcomposer .sendbtn[data-tip]:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+/* the mic is 38px and its bubble can be two lines - keep it clear of the
+   field rather than sitting on the composer's own border */
+#comms .dockcomposer #mic[data-tip]::after { bottom: calc(100% + 14px); max-width: 200px; }
+#comms .dockcomposer #mic[data-tip]::before { bottom: calc(100% + 9px); }
+
+/* The dock header sits at the TOP of the panel, so a bubble that opens upward
+   leaves through the roof - same overflow:hidden, other axis. These open
+   downward, into the transcript, and the last one hangs from its right edge
+   so it does not leave through the side either. */
+#comms .dockhead [data-tip]::after {
+  bottom: auto; top: calc(100% + 10px);
+  transform: translateX(-50%) translateY(-3px);
+}
+#comms .dockhead [data-tip]::before {
+  bottom: auto; top: calc(100% + 5px);
+  border-top-color: transparent; border-bottom-color: var(--line);
+  transform: translateX(-50%) translateY(-3px);
+}
+#comms .dockhead [data-tip]:hover::after,
+#comms .dockhead [data-tip]:hover::before,
+#comms .dockhead [data-tip]:focus-visible::after,
+#comms .dockhead [data-tip]:focus-visible::before {
+  transform: translateX(-50%) translateY(0);
+}
+#comms .dockhead .dockbtn:last-child[data-tip]::after {
+  left: auto; right: 0; transform: translateX(0) translateY(-3px);
+}
+#comms .dockhead .dockbtn:last-child[data-tip]:hover::after,
+#comms .dockhead .dockbtn:last-child[data-tip]:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+/* listening: filled, and ringed by two halos */
+#comms #bar #mic.listening {
+  background: linear-gradient(140deg, var(--accent), var(--accent-deep));
+  border-color: transparent; color: var(--bg);
+}
+#comms #bar #mic.listening::after,
+#comms #bar #mic.listening::before {
+  content: ""; position: absolute; inset: -1px; border-radius: 999px;
+  border: 1.5px solid rgba(var(--accent-rgb), 0.55);
+  animation: v2halo 2s var(--v2-ez) infinite; pointer-events: none;
+}
+#comms #bar #mic.listening::before { animation-delay: 1s; }
+@keyframes v2halo {
+  0%   { transform: scale(1);    opacity: .75; }
+  100% { transform: scale(1.85); opacity: 0; }
+}
+/* transcribing: the ring turns instead of pulsing - it is waiting on the
+   machine now rather than on you */
+#comms #bar #mic.working {
+  background: rgba(var(--accent-rgb), 0.13);
+  border-color: rgba(var(--accent-rgb), 0.22); color: var(--accent);
+}
+#comms #bar #mic.working::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 999px;
+  border: 2px solid transparent; border-top-color: var(--accent);
+  animation: v2spin 780ms linear infinite; pointer-events: none;
+}
+@keyframes v2spin { to { transform: rotate(360deg); } }
+
+/* ---- the listening strip ----
+   flex-basis:100% alone does not stop a flex item being widened by its own
+   content - it grew to 456px inside a 385px composer and pushed Send off the
+   edge. max-width clamps it to the line for real. */
+#voicebar {
+  order: -2; flex: 0 1 100%; width: 100%; max-width: 100%; min-width: 0;
+  display: none; align-items: center; gap: 12px;
+  padding: 9px 12px; margin-bottom: 2px; border-radius: 14px;
+  background: rgba(var(--accent-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-rgb), 0.20);
+}
+#voicebar.on { display: flex; animation: v2paneIn 280ms var(--v2-ez) both; }
+/* the meter gives up width before the buttons do */
+#voicebar .vmeter {
+  display: flex; align-items: center; gap: 2px; height: 22px;
+  flex: 0 1 auto; min-width: 44px; max-width: 38%; overflow: hidden;
+}
+#voicebar .vmeter i {
+  width: 2.5px; height: 22px; border-radius: 999px; flex: none;
+  background: linear-gradient(var(--accent-hi), var(--accent));
+  transform: scaleY(.07); transform-origin: center;
+  transition: transform 70ms linear;
+}
+#voicebar.working .vmeter i {
+  background: rgba(var(--accent-rgb), 0.35);
+  transform: scaleY(.07) !important;
+}
+#voicebar .vcap {
+  flex: 1; min-width: 0;
+  font-family: var(--sans); font-size: 12.5px; color: var(--accent-hi);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#voicebar .vstop, #voicebar .vcancel {
+  appearance: none; border: 0; cursor: pointer; flex: none;
+  padding: 5px 11px; border-radius: 999px;
+  font-family: var(--sans); font-size: 12px;
+  transition: background var(--v2-fast) var(--v2-ez),
+              color var(--v2-fast) var(--v2-ez), transform .16s var(--v2-ez);
+}
+#voicebar .vstop { background: rgba(var(--accent-rgb), 0.18); color: var(--accent-hi); }
+#voicebar .vstop:hover { background: rgba(var(--accent-rgb), 0.3); }
+#voicebar .vcancel {
+  background: none; color: var(--dim);
+  width: 26px; height: 26px; padding: 0; display: grid; place-items: center; font-size: 13px;
+}
+#voicebar .vcancel:hover { color: var(--red); background: var(--surface-hi); }
+#voicebar .vstop:active, #voicebar .vcancel:active { transform: scale(.94); }
+#voicebar.working .vstop, #voicebar.working .vcancel { display: none; }
+
+/* ---------------------------------------------------------------------------
+ * 7. DIALOGS  (Settings / Agents / Connections)
+ *
+ * .open mounts and plays in, .closing plays out; settings.js drops both once
+ * the exit has run.
+ *
+ * Both edges are ANIMATIONS, not transitions to a second class. A transition
+ * needs the element laid out un-played-in for at least one frame, which means
+ * a requestAnimationFrame hop between display:flex and the played-in state -
+ * and rAF does not fire on a backgrounded tab. Miss that frame and the dialog
+ * stays mounted at opacity 0: invisible, and eating every click on the page
+ * behind it. Animations start when the element is rendered.
+ * ------------------------------------------------------------------------- */
+.v2dlg {
+  position: fixed; inset: 0; z-index: 30;
+  display: none; align-items: center; justify-content: center;
+  background: var(--scrim);
+}
+.v2dlg.open { display: flex; animation: v2scrimIn 220ms var(--v2-ez) both; }
+.v2dlg.open .v2card { animation: v2cardUp 380ms var(--v2-ez) both; }
+/* after .open in source order on purpose - same specificity, so these win
+   while both classes are on the element */
+.v2dlg.closing { animation: v2scrimOut 170ms var(--v2-ez) both; }
+.v2dlg.closing .v2card { animation: v2cardDown 190ms var(--v2-ez) both; }
+
+@keyframes v2scrimIn  { from { opacity: 0; backdrop-filter: blur(0px); }
+                        to   { opacity: 1; backdrop-filter: blur(3px); } }
+@keyframes v2scrimOut { from { opacity: 1; backdrop-filter: blur(3px); }
+                        to   { opacity: 0; backdrop-filter: blur(0px); } }
+@keyframes v2cardUp   { from { opacity: 0; transform: translateY(16px) scale(.975); }
+                        to   { opacity: 1; transform: none; } }
+@keyframes v2cardDown { from { opacity: 1; transform: none; }
+                        to   { opacity: 0; transform: translateY(10px) scale(.985); } }
+
+.v2card {
+  display: flex; flex-direction: column;
+  width: min(1000px, calc(100vw - 80px));
+  max-height: min(720px, calc(100vh - 80px));
+  border-radius: 24px;
+  background: linear-gradient(var(--panel), var(--panel-deep));
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  box-shadow: 0 50px 120px -40px rgba(0, 0, 0, 0.95);
+  overflow: hidden;
+  transform-origin: 50% 60%;
+}
+.v2card.split { flex-direction: row; }
+
+.v2side {
+  width: 212px; flex: none;
+  display: flex; flex-direction: column;
+  padding: 20px 12px 16px;
+  background: rgba(0, 0, 0, 0.28);
+  border-right: 1px solid rgba(var(--accent-rgb), 0.10);
+}
+.v2side h3 {
+  display: flex; align-items: center; gap: 9px;
+  padding: 0 10px 16px; margin: 0;
+  font-family: var(--sans); font-size: 16px; font-weight: 700;
+  letter-spacing: -0.01em; color: var(--strong);
+}
+.v2side h3 kbd {
+  font-family: var(--mono); font-size: 10px; font-weight: 400; color: var(--dim);
+  border: 1px solid var(--line); padding: 2px 5px; border-radius: 5px;
+}
+.v2tab {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 11px; border-radius: 12px;
+  font-family: var(--sans); font-size: 13.5px; text-align: left;
+  color: var(--dim); position: relative;
+  transition: background var(--v2-fast) var(--v2-ez),
+              color var(--v2-fast) var(--v2-ez), transform .16s var(--v2-ez);
+}
+.v2tab:hover { color: var(--text); }
+.v2tab:active { transform: scale(.98); }
+.v2tab.on { background: rgba(var(--accent-rgb), 0.14); color: var(--accent-hi); }
+/* the selected tab grows a marker rather than having one appear on it */
+.v2tab::before {
+  content: ""; position: absolute; left: 3px; top: 50%;
+  width: 3px; height: 16px; margin-top: -8px; border-radius: 9px;
+  background: var(--accent);
+  transform: scaleY(0); opacity: 0;
+  transition: transform var(--v2-mid) var(--v2-pop), opacity var(--v2-fast) linear;
+}
+.v2tab.on::before { transform: scaleY(1); opacity: 1; }
+.v2tab .ct {
+  margin-left: auto; font-family: var(--mono); font-size: 10px; opacity: .7;
+  transition: transform var(--v2-fast) var(--v2-ez);
+}
+.v2tab[data-goto]:hover .ct { transform: translateX(3px); }
+.v2side .fill { flex: 1; }
+.v2side .rule { height: 1px; background: rgba(var(--accent-rgb), 0.10); margin: 0 2px 8px; }
+.v2side .cap {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em;
+  color: var(--dim); padding: 0 11px 7px;
+}
+
+.v2main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.v2head { display: flex; align-items: center; gap: 12px; padding: 20px 24px 0; flex: none; }
+.v2head h4 {
+  margin: 0; font-family: var(--sans); font-size: 15px; font-weight: 600;
+  color: var(--text); letter-spacing: 0;
+}
+.v2head .fill { flex: 1; }
+.v2x {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center;
+  color: var(--dim); font-size: 13px; font-family: var(--sans);
+  transition: background var(--v2-fast) var(--v2-ez),
+              color var(--v2-fast) var(--v2-ez), transform var(--v2-mid) var(--v2-ez);
+}
+.v2x:hover { background: var(--surface-hi); color: var(--text); transform: rotate(90deg); }
+.v2x:active { transform: rotate(90deg) scale(.9); }
+
+.v2body {
+  flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none;
+  padding: 18px 24px 24px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+.v2body::-webkit-scrollbar { display: none; width: 0; }
+
+/* Every draw replaces the body's children, so a plain CSS animation on the
+   children re-fires on its own - a pane swap, a filter change and a chain
+   reorder all read the same. Capped at six so a long list is not a cascade. */
+.v2body > * { animation: v2paneIn 300ms var(--v2-ez) both; }
+.v2body > *:nth-child(2) { animation-delay: 34ms; }
+.v2body > *:nth-child(3) { animation-delay: 68ms; }
+.v2body > *:nth-child(4) { animation-delay: 102ms; }
+.v2body > *:nth-child(5) { animation-delay: 136ms; }
+.v2body > *:nth-child(n+6) { animation-delay: 170ms; }
+@keyframes v2paneIn { from { opacity: 0; transform: translateY(8px); } }
+
+.v2foot {
+  display: flex; align-items: center; gap: 14px; flex: none;
+  padding: 14px 24px;
+  border-top: 1px solid rgba(var(--accent-rgb), 0.10);
+  background: rgba(0, 0, 0, 0.22);
+}
+.v2foot .fill { flex: 1; }
+.v2dirty {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--sans); font-size: 12.5px; color: var(--dim);
+  transition: color var(--v2-fast) linear;
+}
+.v2dirty i {
+  width: 6px; height: 6px; border-radius: 999px; background: var(--amber);
+  transition: background var(--v2-mid) var(--v2-ez), box-shadow var(--v2-mid) var(--v2-ez);
+}
+.v2dirty.clean i { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.v2dirty.saving i { animation: pulse 1.1s ease-in-out infinite; }
+.v2btn {
+  appearance: none; cursor: pointer; border: 0;
+  padding: 9px 18px; border-radius: 12px;
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  color: var(--bg); background: linear-gradient(140deg, var(--accent), var(--accent-deep));
+  transition: filter var(--v2-fast) var(--v2-ez), transform .16s var(--v2-ez),
+              box-shadow var(--v2-mid) var(--v2-ez), opacity var(--v2-fast) linear;
+}
+.v2btn:hover { filter: brightness(1.08); box-shadow: 0 8px 22px -10px var(--accent); }
+.v2btn:active { transform: scale(.965); }
+.v2btn.ghost { background: none; color: var(--dim); font-weight: 500; padding: 9px 14px; }
+.v2btn.ghost:hover { color: var(--text); box-shadow: none; }
+.v2btn.small { padding: 6px 12px; font-size: 12px; font-weight: 500; }
+.v2btn[disabled] { opacity: .45; cursor: default; transform: none; }
+.v2btn[disabled]:hover { filter: none; box-shadow: none; }
+
+/* fields */
+.v2row { display: flex; gap: 18px; flex-wrap: wrap; }
+.v2f { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 200px; }
+.v2f > span {
+  display: flex; align-items: baseline; gap: 9px;
+  font-family: var(--sans); font-size: 12.5px; color: var(--dim);
+  transition: color var(--v2-fast) linear;
+}
+.v2f:focus-within > span { color: var(--accent-hi); }
+.v2f > span small { font-size: 12px; color: var(--dim); opacity: .8; }
+.v2f > span em {
+  font-style: normal; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; color: var(--red);
+}
+.v2f input, .v2f textarea, .v2f select {
+  padding: 11px 14px; border-radius: 13px;
+  background: var(--surface);
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+  color: var(--text); font-family: var(--sans); font-size: 13.5px;
+  outline: none; width: 100%;
+  transition: border-color var(--v2-fast) var(--v2-ez),
+              background var(--v2-fast) var(--v2-ez),
+              box-shadow var(--v2-mid) var(--v2-ez);
+}
+.v2f textarea { min-height: 76px; line-height: 1.6; resize: vertical; }
+.v2f input:hover, .v2f textarea:hover, .v2f select:hover { background: var(--surface-hi); }
+.v2f input:focus, .v2f textarea:focus, .v2f select:focus {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.10);
+}
+.v2f.narrow { flex: 0 0 220px; min-width: 0; }
+.v2f.num input { font-family: var(--mono); text-align: right; }
+.v2hint { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: var(--dim); }
+.v2f.flag input, .v2f.flag textarea { border-color: rgba(var(--red-rgb), 0.3); }
+.v2f.flag:focus-within input, .v2f.flag:focus-within textarea {
+  box-shadow: 0 0 0 3px rgba(var(--red-rgb), 0.10);
+}
+
+/* group heading inside a pane */
+.v2group { display: flex; flex-direction: column; gap: 10px; }
+.v2grouphead { display: flex; align-items: baseline; gap: 9px; }
+.v2grouphead b { font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--text); }
+.v2grouphead small { font-family: var(--sans); font-size: 12px; color: var(--dim); }
+.v2grouphead .ct { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.v2sep {
+  display: flex; align-items: center; gap: 9px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; color: var(--dim);
+}
+.v2sep::after {
+  content: ""; flex: 1; height: 1px; background: rgba(var(--accent-rgb), 0.09);
+  transform-origin: left center;
+  animation: v2ruleIn 520ms var(--v2-ez) both;
+}
+@keyframes v2ruleIn { from { transform: scaleX(0); } }
+
+.v2chips { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.v2chip {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px; border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+  font-family: var(--sans); font-size: 13px; color: var(--text);
+  max-width: 320px;
+  transition: background var(--v2-fast) var(--v2-ez),
+              border-color var(--v2-fast) var(--v2-ez), transform var(--v2-fast) var(--v2-ez);
+}
+.v2chip:hover { border-color: rgba(var(--accent-rgb), 0.3); }
+/* only the chips you just added play in - a redraw does not re-animate the ten
+   that were already sitting there */
+.v2chip.fresh { animation: v2chipIn 320ms var(--v2-pop) both; }
+.v2chip.gone { animation: v2chipOut 170ms var(--v2-ez-io) both; pointer-events: none; }
+@keyframes v2chipIn  { from { opacity: 0; transform: scale(.78) translateY(4px); } }
+@keyframes v2chipOut { to   { opacity: 0; transform: scale(.8); } }
+.v2chip.mono { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.v2chip .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2chip i {
+  font-style: normal; cursor: pointer; color: var(--dim); flex: none;
+  transition: color var(--v2-fast) linear, transform var(--v2-fast) var(--v2-ez);
+}
+.v2chip i:hover { color: var(--red); transform: scale(1.2) rotate(90deg); }
+.v2chipadd {
+  padding: 8px 12px; border-radius: 11px;
+  background: none; border: 1px dashed rgba(var(--accent-rgb), 0.25);
+  color: var(--accent); font-family: var(--sans); font-size: 13px;
+  outline: none; min-width: 150px;
+  transition: border-color var(--v2-fast) var(--v2-ez),
+              background var(--v2-fast) var(--v2-ez), box-shadow var(--v2-mid) var(--v2-ez);
+}
+.v2chipadd:hover { border-color: rgba(var(--accent-rgb), 0.45); }
+.v2chipadd:focus {
+  border-style: solid; border-color: rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.05);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.09);
+}
+.v2chipadd::placeholder { color: var(--accent); opacity: .75; }
+
+/* rows: channels, agents, providers, mcp */
+.v2list { display: flex; flex-direction: column; gap: 6px; }
+.v2item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: 15px;
+  background: var(--surface);
+  border: 1px solid rgba(var(--accent-rgb), 0.10);
+  transition: background var(--v2-fast) var(--v2-ez),
+              border-color var(--v2-fast) var(--v2-ez), transform var(--v2-mid) var(--v2-ez);
+}
+.v2item:hover { border-color: rgba(var(--accent-rgb), 0.22); }
+.v2item.dim { background: rgba(255, 255, 255, 0.02); border-color: rgba(var(--accent-rgb), 0.07); }
+.v2item.good { background: rgba(var(--accent-rgb), 0.07); border-color: rgba(var(--accent-rgb), 0.24); }
+.v2item.bad { background: rgba(var(--red-rgb), 0.06); border-color: rgba(var(--red-rgb), 0.22); }
+.v2item .nm {
+  font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--text); flex: none;
+}
+.v2item .nm.w { width: 150px; }
+.v2item .nm.w2 { width: 210px; }
+.v2item .sched {
+  width: 100px; flex: none;
+  font-family: var(--mono); font-size: 12px; color: var(--accent-hi);
+}
+.v2item .desc {
+  flex: 1; min-width: 0;
+  font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--dim);
+  text-wrap: pretty;
+}
+.v2item .key {
+  flex: 1; min-width: 0;
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.v2item .fill { flex: 1; }
+.v2item .ord {
+  width: 18px; flex: none;
+  font-family: var(--mono); font-size: 11px; color: var(--dim);
+  transition: color var(--v2-mid) var(--v2-ez);
+}
+.v2item.good .ord { color: var(--accent); }
+/* a row that just moved to the front of its chain says so */
+.v2item.moved { animation: v2moved 480ms var(--v2-ez) both; }
+@keyframes v2moved {
+  0%   { transform: translateY(6px) scale(.99); box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.35); }
+  55%  { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.12); }
+  100% { transform: none; box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+}
+
+/* flex:none plus a sentence-length hint is what pushed "NEEDS WHISPER-CLI PLUS
+   A MODEL (BREW INSTALL WHISPER-CPP)" through the right edge of the Voice-in
+   column and over the card. The tag may shrink now, and its text wraps inside
+   the pill rather than the pill growing past its row. */
+.v2tag {
+  display: flex; align-items: center; gap: 7px;
+  flex: 0 1 auto; min-width: 0;
+  padding: 4px 10px; border-radius: 11px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+  line-height: 1.5; text-align: left;
+  background: var(--surface); color: var(--dim);
+  transition: background var(--v2-mid) var(--v2-ez), color var(--v2-mid) var(--v2-ez);
+}
+.v2tag i { width: 5px; height: 5px; border-radius: 999px; background: currentColor; flex: none; }
+.v2tag.ok { background: rgba(91, 230, 168, 0.12); color: #9FE8C8; }
+.v2tag.ok i { background: #5BE6A8; }
+.v2tag.live { background: rgba(91, 230, 168, 0.12); color: #9FE8C8; }
+.v2tag.live i { background: #5BE6A8; animation: pulse 2.6s ease-in-out infinite; }
+.v2tag.no { background: rgba(var(--red-rgb), 0.12); color: var(--red); }
+.v2tag.no i { display: none; }
+
+/* toggle */
+.v2sw {
+  appearance: none; -webkit-appearance: none; margin: 0;
+  width: 34px; height: 20px; flex: none; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08); border: 0; cursor: pointer; position: relative;
+  transition: background var(--v2-mid) var(--v2-ez), box-shadow var(--v2-mid) var(--v2-ez);
+}
+.v2sw::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 999px; background: var(--dim);
+  transition: transform 300ms var(--v2-pop), background var(--v2-mid) var(--v2-ez),
+              width var(--v2-fast) var(--v2-ez);
+}
+.v2sw:hover { background: rgba(255, 255, 255, 0.13); }
+/* the knob stretches while you hold it, the way a physical switch would */
+.v2sw:active::after { width: 18px; }
+.v2sw:checked:active::after { width: 18px; transform: translateX(10px); }
+.v2sw:checked { background: var(--accent-deep); }
+.v2sw:checked:hover { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12); }
+.v2sw:checked::after { transform: translateX(14px); background: var(--strong); }
+.v2sw[disabled] { opacity: .4; cursor: default; }
+.v2sw[disabled]:hover { background: rgba(255, 255, 255, 0.08); box-shadow: none; }
+
+.v2banner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border-radius: 16px;
+  background: rgba(249, 226, 175, 0.07);
+  border: 1px solid rgba(249, 226, 175, 0.18);
+}
+.v2banner .lab {
+  flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--amber);
+}
+.v2banner .txt {
+  flex: 1; font-family: var(--sans); font-size: 12.5px; line-height: 1.55;
+  color: var(--text); text-wrap: pretty;
+}
+.v2banner code {
+  font-family: var(--mono); font-size: 11.5px; color: var(--amber);
+  background: rgba(0, 0, 0, 0.3); padding: 6px 10px; border-radius: 8px;
+  border: 1px solid rgba(249, 226, 175, 0.22); cursor: pointer;
+  transition: background var(--v2-fast) var(--v2-ez), transform var(--v2-fast) var(--v2-ez),
+              border-color var(--v2-fast) var(--v2-ez);
+}
+.v2banner code:hover { background: rgba(0, 0, 0, 0.45); border-color: rgba(249, 226, 175, 0.45); }
+.v2banner code:active { transform: scale(.96); }
+.v2banner code.copied { animation: v2copied 900ms var(--v2-ez) both; }
+@keyframes v2copied { 0% { transform: scale(1); } 22% { transform: scale(1.06); } 100% { transform: scale(1); } }
+.v2banner.info { background: rgba(var(--accent-rgb), 0.06); border-color: rgba(var(--accent-rgb), 0.14); }
+.v2banner.info .lab { color: var(--accent); }
+.v2banner.bad { background: rgba(var(--red-rgb), 0.07); border-color: rgba(var(--red-rgb), 0.24); }
+.v2banner.bad .lab { color: var(--red); }
+
+.v2filters { display: flex; gap: 6px; align-items: center; }
+.v2filter {
+  appearance: none; border: 0; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px; background: none;
+  font-family: var(--sans); font-size: 12px; color: var(--dim);
+  transition: background var(--v2-fast) var(--v2-ez),
+              color var(--v2-fast) var(--v2-ez), transform .16s var(--v2-ez);
+}
+.v2filter:hover { color: var(--text); }
+.v2filter:active { transform: scale(.94); }
+.v2filter.on { background: var(--surface-hi); color: var(--text); }
+
+.v2grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.v2grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.v2cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+/* A grid item's min-width is auto, so a row wider than its track grows the
+   track instead of being contained by it - the other half of why the provider
+   chains bled into each other. */
+.v2grid2 > *, .v2grid3 > *, .v2cols > * { min-width: 0; }
+
+/* Half-width columns cannot seat [ord][150px name][pill][move up] on one line.
+   Let the row wrap and give the name its natural width back, so a long hint
+   drops to a second line inside its own column instead of over the next one. */
+.v2cols .v2item { flex-wrap: wrap; row-gap: 9px; column-gap: 12px; }
+.v2cols .v2item .nm.w { width: auto; min-width: 0; flex: 0 1 auto; }
+.v2cols .v2item .v2tag { flex: 1 1 auto; }
+/* when the row wraps, "move up" carries .fill onto the second line with it and
+   would otherwise sit flush left under the name */
+.v2cols .v2item .v2btn.small { margin-left: auto; }
+.v2grid2 .v2item, .v2grid3 .v2item { flex-wrap: wrap; row-gap: 8px; }
+.v2grid2 .v2item .nm, .v2grid3 .v2item .nm {
+  min-width: 0; flex: 1 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Light themes: the dialog inherits --panel, but the sunken side needs to go
+   lighter rather than darker or it reads as a hole. */
+body.light .v2side, body.light .v2foot { background: rgba(0, 0, 0, 0.04); }
+body.light .v2sw { background: rgba(0, 0, 0, 0.10); }
+body.light .v2sw:hover { background: rgba(0, 0, 0, 0.16); }
+body.light .v2item.dim { background: rgba(0, 0, 0, 0.02); }
+body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
+
+/* ---------------------------------------------------------------------------
+ * 8. THE DOCUMENT MODAL
+ *
+ * ui-v2.js renders the .md into HTML; this is what it reads as. Measure over
+ * decoration: these are documents you read top to bottom, so the column is
+ * capped, the headings carry the structure, and the type is a size up from
+ * the HUD chrome around it.
+ * ------------------------------------------------------------------------- */
+#modal .inner {
+  width: min(820px, 92vw); max-height: 84vh;
+  padding: 24px 28px 28px;
+  border-radius: 22px;
+  background: linear-gradient(var(--panel), var(--panel-deep));
+  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  box-shadow: 0 50px 120px -40px rgba(0, 0, 0, 0.95);
+  scrollbar-width: thin;
+}
+#modal.open { animation: v2scrimIn 200ms var(--v2-ez) both; }
+#modal.open .inner { animation: v2cardUp 340ms var(--v2-ez) both; }
+#modal .inner h3 {
+  position: sticky; top: -24px; z-index: 1;
+  margin: -24px -28px 18px; padding: 22px 28px 14px;
+  background: linear-gradient(var(--panel), var(--panel));
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.10);
+  font-family: var(--mono); font-size: 12px; font-weight: 400;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-hi);
+}
+
+#modal-body.md {
+  font-family: var(--sans); font-size: 14.5px; line-height: 1.7;
+  color: #C7D7EC; white-space: normal; text-wrap: pretty;
+}
+#modal-body.md > *:first-child { margin-top: 0; }
+#modal-body.md h1, #modal-body.md h2, #modal-body.md h3,
+#modal-body.md h4, #modal-body.md h5, #modal-body.md h6 {
+  font-family: var(--sans); color: var(--strong);
+  letter-spacing: -0.01em; line-height: 1.3;
+  margin: 26px 0 10px;
+}
+#modal-body.md h1 { font-size: 23px; font-weight: 700; }
+#modal-body.md h2 {
+  font-size: 18px; font-weight: 650;
+  padding-bottom: 8px; border-bottom: 1px solid rgba(var(--accent-rgb), 0.12);
+}
+#modal-body.md h3 { font-size: 15.5px; font-weight: 600; }
+#modal-body.md h4, #modal-body.md h5, #modal-body.md h6 {
+  font-size: 13px; font-weight: 600; color: var(--accent-hi);
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+#modal-body.md p { margin: 0 0 13px; }
+#modal-body.md b, #modal-body.md strong { color: var(--strong); font-weight: 650; }
+#modal-body.md em { color: #B9CDE6; }
+#modal-body.md a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(var(--accent-rgb), 0.35); }
+#modal-body.md a:hover { color: var(--accent-hi); border-bottom-color: var(--accent-hi); }
+#modal-body.md ul, #modal-body.md ol { margin: 0 0 13px; padding-left: 22px; }
+#modal-body.md li { margin: 0 0 7px; }
+#modal-body.md li::marker { color: var(--accent); }
+#modal-body.md ul ul, #modal-body.md ol ol,
+#modal-body.md ul ol, #modal-body.md ol ul { margin: 7px 0 0; }
+#modal-body.md hr {
+  border: 0; height: 1px; margin: 22px 0;
+  background: rgba(var(--accent-rgb), 0.12);
+}
+#modal-body.md blockquote {
+  margin: 0 0 13px; padding: 2px 0 2px 16px;
+  border-left: 2px solid rgba(var(--accent-rgb), 0.3);
+  color: var(--dim);
+}
+#modal-body.md code {
+  font-family: var(--mono); font-size: 12.5px;
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  padding: 1px 5px; border-radius: 6px; color: var(--accent-hi);
+}
+#modal-body.md .mdpre {
+  margin: 0 0 15px; padding: 13px 15px; border-radius: 13px;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(var(--accent-rgb), 0.10);
+  overflow-x: auto;
+}
+#modal-body.md .mdpre code {
+  background: none; border: 0; padding: 0; color: #C7D7EC;
+  font-size: 12.5px; line-height: 1.6; white-space: pre;
+}
+/* the BRAIN files stamp every rule with [confirmed YYYY-MM-DD] - it is
+   provenance, so it reads as a marker rather than as part of the sentence */
+#modal-body.md .mdstamp {
+  display: inline-block; vertical-align: 1px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
+  color: var(--dim); background: var(--surface);
+  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  padding: 2px 7px; border-radius: 999px; margin: 0 2px;
+}
+#modal-body.md .mdtable {
+  width: 100%; border-collapse: collapse; margin: 0 0 15px; font-size: 13.5px;
+  display: block; overflow-x: auto;
+}
+#modal-body.md .mdtable th, #modal-body.md .mdtable td {
+  text-align: left; padding: 9px 12px;
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.10);
+}
+#modal-body.md .mdtable th {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--dim); font-weight: 400;
+}
+
+/* ---------------------------------------------------------------------------
+ * 9. NARROW WINDOWS
+ *
+ * The right column is fixed-width furniture. Under ~1180px it and an open rail
+ * leave the deck nothing, so the platform tiles fold into one column and then
+ * the whole column stands down rather than overlapping the sphere.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 1180px) {
+  :root { --v2-right: 236px; }
+  #platgrid { grid-template-columns: 1fr; top: calc(var(--v2-top) + 172px); }
+  #platgrid .plat { display: flex; align-items: baseline; justify-content: space-between; }
+  #platgrid .plat b { margin-top: 0; font-size: 18px; }
+}
+@media (max-width: 900px) {
+  #primary, #platgrid { display: none; }
+  #comms, #dockbar { left: 50%; }
+}
+
+/* ---------------------------------------------------------------------------
+ * 10. REDUCED MOTION
+ *
+ * Everything degrades to a cross-fade rather than to nothing: the state changes
+ * still need to be legible, they just stop travelling. The dialogs in particular
+ * must keep a non-zero duration, because settings.js unmounts them on a timer.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .rail.left, .rail.left #nav, #railbody, .navb, .navb .navlabel,
+  #nav .navhead .navword, #primary, #dockbar, #comms {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+  .v2dlg.open, .v2dlg.closing,
+  .v2dlg.open .v2card, .v2dlg.closing .v2card { animation-duration: 90ms !important; }
+  /* NOTE: the rail badge (.navcount, keyframes v2badgeIn) is deliberately NOT
+     listed - adding it here would change what reduced motion currently does. */
+  .v2body > *, .v2chip.fresh, .v2chip.gone, #nowbar .nowpill,
+  .v2sep::after, .v2item.moved,
+  #platgrid .plat { animation-duration: 90ms !important; animation-delay: 0ms !important; }
+  .v2x:hover, .v2x:active { transform: none; }
+  .v2chip i:hover { transform: none; }
+  /* the mic halo and the transcribing ring are status, not decoration */
+  #comms #bar #mic.listening::after,
+  #comms #bar #mic.listening::before { animation-duration: 3.4s; }
+  #comms .msg.you, #comms .msg.jarvis { animation-duration: 90ms !important; }
+  #voicebar .vmeter i { transition-duration: 1ms; }
+}
