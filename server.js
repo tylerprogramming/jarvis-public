@@ -1,4 +1,15 @@
 #!/usr/bin/env node
+
+/* ES5 only, and before anything is required - an old Node has to reach this
+ * message rather than a SyntaxError from a module it could not parse. Same
+ * check as bin/jarvis, for people who run `node server.js` directly. */
+var MIN_NODE = parseInt(String((require("./package.json").engines || {}).node || "18").replace(/[^0-9]/g, ""), 10) || 18;
+if (parseInt(process.versions.node.split(".")[0], 10) < MIN_NODE) {
+  console.error("\n  Jarvis needs Node " + MIN_NODE + " or newer. This is Node " + process.versions.node +
+    ".\n  Run `node bin/jarvis doctor` for the fix.\n");
+  process.exit(1);
+}
+
 /* Jarvis server - zero npm dependencies.
  *
  * Serves the HUD, exposes vitals and agents, and routes chat to headless

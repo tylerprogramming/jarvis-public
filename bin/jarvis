@@ -1,4 +1,21 @@
 #!/usr/bin/env node
+
+/* Runs before anything is required, and in ES5 only, so an old Node reaches
+ * this message instead of dying on a SyntaxError inside a module it could not
+ * parse. Ubuntu 22.04 and Debian 11 still ship Node 12 as `nodejs`, which is
+ * how most people arrive here. */
+var MIN_NODE = parseInt(String((require("../package.json").engines || {}).node || "18").replace(/[^0-9]/g, ""), 10) || 18;
+if (parseInt(process.versions.node.split(".")[0], 10) < MIN_NODE) {
+  console.error(
+    "\n  Jarvis needs Node " + MIN_NODE + " or newer. This is Node " + process.versions.node + ".\n" +
+    "\n  If you installed it with `apt install nodejs` on Ubuntu 22.04 or Debian 11," +
+    "\n  that is Node 12. Install a current one instead:\n" +
+    "\n    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -" +
+    "\n    sudo apt install -y nodejs\n" +
+    "\n  or, without sudo:  nvm install --lts\n"
+  );
+  process.exit(1);
+}
 /* Jarvis CLI.
  *
  *   jarvis                  start the HUD
@@ -456,7 +473,8 @@ async function main() {
         || process.platform;
       console.log(`\n  PLATFORM`);
       console.log(`    os                 ${plat} (${process.arch})`);
-      console.log(`    node               ${process.version}`);
+      const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+      console.log(`    node               ${process.version}${nodeMajor < MIN_NODE ? `   <- too old, needs ${MIN_NODE}+` : ""}`);
       console.log(`    shell              ${shBin}`);
       console.log(`    scheduler          ${
         process.platform === "darwin" ? "launchd"
@@ -479,6 +497,20 @@ async function main() {
       console.log(`    claude code        ${ok(brainStatus.providers["claude-code"])}`);
       console.log(`    openai-compatible  ${ok(brainStatus.providers.openai)}   ${cfg.brain.openai.base_url}`);
       console.log(`    active             ${brainStatus.active || "NONE - chat will not work"}`);
+
+      /* A path that does not exist is not the same as no path configured. The
+       * first is a typo the operator can fix; the second is a supported state.
+       * Agents were told to read the missing file either way. */
+      const pbLib = require(path.join(ROOT, "lib", "playbook"));
+      const pbFiles = pbLib.playbookFiles(cfg);
+      const configured = ((cfg.knowledge || {}).brain_files || []).length > 0;
+      console.log(`\n  PLAYBOOK (${configured ? "knowledge.brain_files" : "local playbook/"})`);
+      for (const f of pbFiles) {
+        const there = fs.existsSync(f);
+        const shown = f.replace(process.env.HOME || "~", "~");
+        console.log(`    ${there ? "ok  " : "MISSING"}           ${shown}${
+          there ? "" : configured ? "   <- configured but not on disk" : "   (will be created on the first rule)"}`);
+      }
 
       console.log(`\n  TOOLS`);
       console.log(`    yt-dlp             ${ytdlpStatus()}`);
