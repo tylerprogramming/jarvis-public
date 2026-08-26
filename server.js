@@ -95,7 +95,17 @@ function documents() {
       if (st.isDirectory()) {
         // research runs are folders with a report.md inside
         const rep = path.join(full, "report.md");
-        if (fs.existsSync(rep)) out.push({ name, file: rep, mtime: fs.statSync(rep).mtimeMs });
+        if (fs.existsSync(rep)) { out.push({ name, file: rep, mtime: fs.statSync(rep).mtimeMs }); continue; }
+        // month folders (2026-08/) - reports are filed by month once the month
+        // is closed, so the trail has to look one level down or it goes empty
+        if (!/^\d{4}-\d{2}$/.test(name)) continue;
+        let inner = [];
+        try { inner = fs.readdirSync(full); } catch { continue; }
+        for (const f of inner) {
+          if (f.startsWith(".") || isFolderMeta(f) || !/\.(md|txt)$/i.test(f)) continue;
+          const fp = path.join(full, f);
+          try { out.push({ name: f.replace(/\.(md|txt)$/i, ""), file: fp, mtime: fs.statSync(fp).mtimeMs }); } catch {}
+        }
         continue;
       }
       if (!/\.(md|txt)$/i.test(name)) continue;

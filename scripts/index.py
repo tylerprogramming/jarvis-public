@@ -176,6 +176,18 @@ def main():
             *[expand(d) for d in cfg.get("knowledge", {}).get("context_dirs", [])],
         ]
 
+    # reports/ and journal/ file by month, so each YYYY-MM folder is indexed
+    # too - otherwise the parent index lists directories and no documents.
+    months = []
+    for t in targets:
+        real = os.path.realpath(expand(t))
+        if not os.path.isdir(real):
+            continue
+        for name in os.listdir(real):
+            if re.fullmatch(r"\d{4}-\d{2}", name) and os.path.isdir(os.path.join(real, name)):
+                months.append(os.path.join(real, name))
+    targets = targets + months
+
     seen, total, touched = set(), 0, 0
     for t in targets:
         real = os.path.realpath(expand(t))
