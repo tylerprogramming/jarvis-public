@@ -80,6 +80,22 @@ it stays that way. Node 18 or newer, standard library only. If something seems
 to need a package, it needs less ambition instead. This is what makes the
 install `git clone` and nothing else.
 
+**The v2 HUD is a drop-in, not a rewrite.** `public/ui-v2.css`, `ui-v2.js` and
+`voice-v2.js` load AFTER the originals and override them by rebinding app.js's
+top-level declarations (`speak`, `stopSpeaking`, `applyCommsFilter`) — which
+works because these are classic scripts sharing one global scope. `app.js`,
+`brain.js`, `style.css`, `server.js` and `lib/` are NOT touched by it. Do not
+"tidy" the v2 files into them: deleting three files and reverting two is what
+makes the whole interface backable-out. Note that `style.css` declares several
+classes twice (`.brk`, `.directive .txt`) and the later block wins — override
+in `ui-v2.css` rather than editing `style.css`.
+
+**This repo has a public twin.** `~/jarvis` is private (branch `public-prep`)
+and is the one that runs on :4747; `~/jarvis-public` is the public mirror on
+`main`. `public/`, `agents/` and the docs are byte-identical across both. Edit
+one, copy to the other, verify with `shasum` before committing. Testing :4747
+after editing the wrong clone will convince you a correct fix did not work.
+
 **Never edit `config.default.json` to change behaviour for one person.** It is
 the shipped baseline. User settings live in `config.json`, which is gitignored
 and deep-merged over the defaults, with env vars on top. Arrays replace
