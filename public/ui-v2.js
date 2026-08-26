@@ -24,6 +24,9 @@
   const num = (n) => (typeof fmt === "function" ? fmt(n) : String(n ?? "—"));
   const relayout = () =>
     (typeof relayoutDuring === "function" ? relayoutDuring() : dispatchEvent(new Event("resize")));
+  /* app.js's top-level declarations share this script's scope, but reaching for
+   * one that is missing must not take the rest of this file down with it. */
+  const appGlobal = (fn) => { try { fn(); } catch {} };
 
   /* index.html owns these buttons and app.js never rebuilds them, so the list
    * is taken once and shared by everything below that walks the nav. */
@@ -409,123 +412,39 @@
   /* =========================================================================
    * THE CHAT DECK
    *
-   * The agent picker moves out of its initials rail into the dock header as
-   * labelled tabs, with the tail behind a +N.
+   * One conversation, with Jarvis. The agent picker is gone: app.js still
+   * routes a per-agent transcript behind #dockrail, but switching between ten
+   * of them was a tab strip to maintain for a thing nobody wanted to do.
    *
-   * app.js owns #dockrail's markup and rewrites it on every agent poll, so
-   * this observes the node and re-labels whatever it just wrote instead of
-   * trying to own it.
+   * Removing the node rather than hiding it is deliberate - renderCommsTabs()
+   * opens with `if (!rail) return`, so app.js stops rebuilding ten buttons on
+   * every agent poll instead of rebuilding them into something invisible.
    * ======================================================================= */
   {
-    const dockrail = $("dockrail");
     const head = document.querySelector("#comms .dockhead");
     const nameEl = $("dock-name");
-    if (dockrail && head && nameEl) {
-      // a mark in front of the name, as the mock has it
-      if (!head.querySelector(".dockmark")) {
-        const m = document.createElement("span");
-        m.className = "dockmark";
-        m.textContent = "J";
-        head.insertBefore(m, nameEl);
-      }
-      head.insertBefore(dockrail, nameEl.nextSibling);
-
-      /* The observer has to be DISCONNECTED while we write, not guarded by a
-       * flag: MutationObserver callbacks are delivered as microtasks, so a
-       * synchronous `dressing = true / false` pair is already back to false by
-       * the time the callback runs. Guarded that way this re-entered forever
-       * and hung the tab. Writes are also made idempotent, so a stray record
-       * cannot start a second lap. */
-      const obs = new MutationObserver(() => dress());
-      const watch = () => obs.observe(dockrail, { childList: true, subtree: true });
-
-      function dress() {
-        obs.disconnect();
-        try {
-          const scroll = dockrail.querySelector(".dscroll") || dockrail;
-          const tiles = [...scroll.querySelectorAll(".dtile[data-tab]")];
-          const byId = new Map(
-            (typeof AGENTS_LIST !== "undefined" ? AGENTS_LIST : []).map((a) => [a.id, a.label]));
-          const showAll = dockrail.classList.contains("all");
-
-          tiles.forEach((t) => {
-            const lab = byId.get(t.dataset.tab);
-            if (lab && t.dataset.dressed !== lab) {
-              // keep the live/unread markers, replace only the initials
-              const marks = [...t.querySelectorAll(".live, .unread")];
-              t.textContent = lab.charAt(0) + lab.slice(1).toLowerCase();
-              marks.forEach((m) => t.appendChild(m));
-              t.dataset.dressed = lab;
-            }
-          });
-
-          let more = dockrail.querySelector(".dmore");
-          if (!more) {
-            more = document.createElement("button");
-            more.className = "dmore";
-            more.type = "button";
-            more.onclick = () => { dockrail.classList.toggle("all"); dress(); };
-          }
-          if (more.parentNode !== scroll || scroll.lastElementChild !== more) scroll.appendChild(more);
-
-          /* How many fit is measured, not assumed. A fixed count overflowed the
-           * header at the compact dock width and ran the tabs under the brain
-           * pill; the strip is flex-basis 0, so its clientWidth IS the space
-           * left over once the name and the right-hand controls have taken
-           * theirs. Everything is shown before measuring, because a tile that
-           * is display:none has no width to measure. */
-          tiles.forEach((t) => t.classList.remove("hidden"));
-          // measured at its widest label, so the space reserved is never short
-          more.hidden = false;
-          more.textContent = "+" + tiles.length;
-          const moreW = more.offsetWidth;
-
-          let fit = tiles.length;
-          if (!showAll && tiles.length) {
-            const GAP = 6;
-            const avail = dockrail.clientWidth - 10;   // the padding-left
-            let used = 0;
-            fit = 0;
-            for (let k = 0; k < tiles.length; k++) {
-              const w = tiles[k].offsetWidth + (k ? GAP : 0);
-              const needMore = k < tiles.length - 1 ? GAP + moreW : 0;
-              if (used + w + needMore > avail) break;
-              used += w;
-              fit = k + 1;
-            }
-            /* No forced minimum. Selecting an agent puts its name in the header
-             * AND reveals the RUN NOW / BLOCKED button, which together can leave
-             * less room than one tab needs - and a tab sliced through a word
-             * ("Cale") reads as breakage. When nothing fits the strip collapses
-             * to the +N, which still opens the full list. */
-          }
-
-          tiles.forEach((t, i) => t.classList.toggle("hidden", !showAll && i >= fit));
-          const extra = showAll ? 0 : tiles.length - fit;
-          const want = showAll ? "−" : `+${extra}`;
-          if (more.textContent !== want) more.textContent = want;
-          more.hidden = !showAll && !extra;
-        } finally { watch(); }
-      }
-
-      dress();
-      // the dock changes width on expand/compact and on window resize, and the
-      // number that fits changes with it
-      if (window.ResizeObserver) new ResizeObserver(() => dress()).observe($("comms"));
-
-      /* Selecting an agent rewrites the header around the strip: the name
-       * becomes the agent's, and RUN NOW / BLOCKED is un-hidden beside it.
-       * Neither changes #dockrail or resizes #comms, so no observer above
-       * fires - and the strip kept measuring against space it no longer had.
-       * These two watch the furniture that takes the room. */
-      {
-        const runBtn = $("dock-run");
-        if (runBtn) new MutationObserver(() => dress())
-          .observe(runBtn, { attributes: true, attributeFilter: ["hidden", "disabled"] });
-        new MutationObserver(() => dress())
-          .observe(nameEl, { childList: true, characterData: true, subtree: true });
-      }
+    if (head && nameEl && !head.querySelector(".dockmark")) {
+      const m = document.createElement("span");
+      m.className = "dockmark";
+      m.textContent = "J";
+      head.insertBefore(m, nameEl);
     }
+    const dockrail = $("dockrail");
+    if (dockrail) dockrail.remove();
+
+    /* With no tabs there is no way back to an agent's transcript, and
+     * applyCommsFilter() hides every message whose data-agent is not the
+     * selected tab - so "radar started" and "morning finished" would have gone
+     * on being written and never shown again. One stream now shows all of it.
+     * app.js calls this on every addMsg, so it has to stay cheap. */
+    appGlobal(() => {
+      applyCommsFilter = () => {
+        msgs.querySelectorAll('.msg[style*="display"]').forEach((m) => {
+          m.style.display = "";
+        });
+      };
+      applyCommsFilter();
+    });
   }
 
   /* ⌘K focuses the composer. The mock draws the hint on the field; a hint for

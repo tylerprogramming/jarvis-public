@@ -519,34 +519,18 @@ header .modes span.bad .dot {
 }
 #comms #dock-status { display: none; }   /* the header band already says ONLINE */
 
-/* flex-basis 0, not auto: with `auto` the strip sizes to its content, so the
-   tabs pushed straight through the header and under CLAUDE.CODE instead of
-   being bounded by the space left over. Basis 0 makes the leftover space the
-   input to how many tabs fit, which is what ui-v2.js then measures against. */
-#comms #dockrail {
-  width: auto; flex: 1 1 0; min-width: 0;
-  flex-direction: row; align-items: center; gap: 6px;
-  padding: 0 0 0 10px;
-  background: none; border-right: 0;
-  border-left: 1px solid rgba(var(--accent-rgb), 0.12);
-  overflow: hidden;
-}
-/* style.css puts a `<span class="fill">` in the head at flex:1 to push the
-   brain pill right. The tab strip is flex:1 too, so the two split the leftover
-   space equally and the strip only ever saw HALF the room - 115px of 242px,
-   which is not enough for even one tab, so it collapsed to a bare "+9".
-   The strip is the spacer now, and the pill is pushed by it. */
-#comms .dockhead .fill { flex: 0 0 0; }
-/* the fixed furniture on either side never gives up width to the tabs */
+/* One conversation. The agent tab strip and the CLAUDE.CODE pill are gone:
+   ui-v2.js removes #dockrail from the DOM, and which brain is answering is
+   already said by LINK in the header band, in colour, without a word. */
+#comms .dockhead .brainpill { display: none; }
+#comms .dockhead .fill { flex: 1; }
 #comms .dockhead #dock-name { flex: none; }
-#comms .dockhead .brainpill,
 #comms .dockhead .dockbtn,
 #comms .dockhead .runnow { flex: none; }
 /* the rule under the head, as the mock draws it */
 #comms .dockhead { border-bottom: 1px solid rgba(var(--accent-rgb), 0.10); }
-/* The mock rests on one control at the right. Minimize is still here - it just
-   does not spend header width until you reach for it, and that is width the
-   agent tabs get to use instead. */
+/* The mock rests on one control at the right; minimize does not spend header
+   width until you reach for it. */
 #comms .dockhead #dock-min {
   max-width: 0; padding: 0; margin: 0; opacity: 0; overflow: hidden;
   transition: max-width var(--v2-mid) var(--v2-ez),
@@ -555,37 +539,6 @@ header .modes span.bad .dot {
 }
 #comms .dockhead:hover #dock-min,
 #comms .dockhead #dock-min:focus-visible { max-width: 26px; opacity: 1; margin-left: 2px; }
-/* asked to see them all: let the strip wrap rather than clip */
-#comms #dockrail.all { overflow: visible; }
-#comms #dockrail.all .dscroll { flex-wrap: wrap; row-gap: 6px; }
-/* nowrap, or the tabs fold into a 140px column and take the dock header to
-   148px tall - .dscroll wrapping and #dockrail sizing to its content is a
-   circular squeeze that settles at the narrowest layout, not the widest */
-#comms #dockrail .dscroll {
-  display: flex; flex-direction: row; align-items: center;
-  gap: 6px; flex-wrap: nowrap; min-width: 0;
-}
-#comms #dockrail .dtile {
-  width: auto; height: 26px; padding: 0 11px; border-radius: 999px;
-  font-family: var(--sans); font-size: 12px; font-weight: 500;
-  letter-spacing: 0; white-space: nowrap;
-}
-#comms #dockrail .dtile.hidden { display: none; }
-#comms #dockrail .dtile.j { display: none; }   /* the mark IS the Jarvis tab */
-#comms #dockrail .dtile.add { display: none; } /* + lives in the composer */
-#comms #dockrail .dmore {
-  appearance: none; border: 0; cursor: pointer; flex: none;
-  height: 26px; padding: 0 10px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05); color: var(--dim);
-  font-family: var(--sans); font-size: 12px;
-  transition: background var(--v2-fast) var(--v2-ez), color var(--v2-fast) var(--v2-ez);
-}
-#comms #dockrail .dmore:hover { background: rgba(var(--accent-rgb), 0.12); color: var(--accent-hi); }
-#comms #dockrail .dtile .live, #comms #dockrail .dtile .unread {
-  position: static; margin-left: 6px; width: 6px; height: 6px; border: 0;
-  display: inline-block; vertical-align: 1px;
-}
-#comms .brainpill { font-size: 9.5px; letter-spacing: 0.1em; }
 
 /* ---- the transcript ---- */
 #comms .msgs { gap: 16px; padding: 10px 20px 2px; }
