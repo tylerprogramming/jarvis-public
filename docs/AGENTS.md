@@ -56,7 +56,7 @@ Two things this deliberately does not do. It does not enable anything — if the
 server is not in `chat.mcp_servers` the agent runs without it and says so in
 its log. And it does not hand an agent every server you have on: each agent
 gets only the kinds it declared, so turning Gmail on for the nightly recap does
-not give the morning agent the ability to email people.
+not give the brief the ability to email people.
 
 ## requires
 

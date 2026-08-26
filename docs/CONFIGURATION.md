@@ -31,7 +31,7 @@ Who you are. This drives the persona, so vagueness here produces vague advice.
 ```
 
 `about` is used by the scout agent to filter topics to what you can credibly
-make. `working_hours` is how the morning agent knows not to suggest filming a
+make. `working_hours` is how the brief knows not to suggest filming a
 video during your day job. A channel left blank is not drawn on the HUD.
 
 ## primary_cards

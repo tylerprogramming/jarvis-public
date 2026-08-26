@@ -362,7 +362,7 @@ async function main() {
    * directives until the first scheduled agent fires tomorrow morning. One run
    * now means the first thing they see is their own numbers, a real report in
    * the trail, and three things to do. */
-  if (youtube && claude && (await askYes("\n  Run the morning agent once so the dashboard is not empty (~1 min)", true))) {
+  if (youtube && claude && (await askYes("\n  Run the brief once so the dashboard is not empty (~1 min)", true))) {
     console.log("  running...");
     try {
       execFileSync("node", [path.join(ROOT, "bin", "jarvis"), "agent", "brief"], { stdio: "inherit" });

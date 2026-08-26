@@ -163,7 +163,7 @@ editable later in Settings, so it only asks if you say you want to.
 Along the way it offers to install anything missing rather than leaving you to
 find out later: a self-contained `yt-dlp` (no brew, no pip), Kokoro for a good
 local voice, and a `jarvis` command on your PATH. At the end it pulls your real
-numbers and runs the morning agent once, so the dashboard has your data, a real
+numbers and runs the brief once, so the dashboard has your data, a real
 report, and three things to do the first time you open it.
 
 ### 3. Check it
