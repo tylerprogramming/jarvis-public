@@ -117,8 +117,32 @@ No Homebrew? Download the macOS **LTS** installer from
 picks it up. npm comes bundled with Node, so `npm: command not found` is the
 same problem with the same fix.
 
-On Debian or Ubuntu: `sudo apt install nodejs npm`. Everything else the setup
-will offer to handle.
+**On Linux, and on a VPS, check the version apt gives you.** Ubuntu 22.04 and
+Debian 11 still ship Node 12 in their default repos, so `apt install nodejs`
+succeeds and then Jarvis fails with syntax errors that look like a bug in the
+code. Ubuntu 24.04 and Debian 12 ship 18 and are fine.
+
+```bash
+sudo apt install nodejs npm && node --version    # 18 or higher?
+```
+
+If that came back lower than v18, install a current one instead:
+
+```bash
+# NodeSource - system-wide, survives reboots, good for a server
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# or nvm - per-user, no sudo, easy to switch versions
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+nvm install --lts
+```
+
+On Windows: `winget install OpenJS.NodeJS.LTS`, or the installer from
+[nodejs.org](https://nodejs.org). Open a new terminal afterwards so `PATH`
+picks it up.
+
+Everything else the setup will offer to handle.
 
 **You want:** [Claude Code](https://claude.com/claude-code). It is the default
 brain and the best one. Without it, Jarvis runs on any OpenAI-compatible
