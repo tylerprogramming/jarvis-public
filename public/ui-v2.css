@@ -531,11 +531,19 @@ header .modes span.bad .dot {
   border-left: 1px solid rgba(var(--accent-rgb), 0.12);
   overflow: hidden;
 }
+/* style.css puts a `<span class="fill">` in the head at flex:1 to push the
+   brain pill right. The tab strip is flex:1 too, so the two split the leftover
+   space equally and the strip only ever saw HALF the room - 115px of 242px,
+   which is not enough for even one tab, so it collapsed to a bare "+9".
+   The strip is the spacer now, and the pill is pushed by it. */
+#comms .dockhead .fill { flex: 0 0 0; }
 /* the fixed furniture on either side never gives up width to the tabs */
 #comms .dockhead #dock-name { flex: none; }
 #comms .dockhead .brainpill,
 #comms .dockhead .dockbtn,
 #comms .dockhead .runnow { flex: none; }
+/* the rule under the head, as the mock draws it */
+#comms .dockhead { border-bottom: 1px solid rgba(var(--accent-rgb), 0.10); }
 /* The mock rests on one control at the right. Minimize is still here - it just
    does not spend header width until you reach for it, and that is width the
    agent tabs get to use instead. */
@@ -635,6 +643,12 @@ header .modes span.bad .dot {
    open or not. It has to stay ordered first or it inserts an empty row. */
 #comms #bar .extras { order: -1; }
 #comms #bar.open .extras { max-height: 46px; }
+
+/* Rounded squares, not circles - the mock's composer controls share the
+   squircle family the panels and pills already use, and a circle next to a
+   16px-radius field reads as a different kit. */
+#comms #bar .ico, #comms #bar #mic, #comms .sendbtn { border-radius: 11px; }
+#comms #bar #mic { border-radius: 12px; }
 
 /* ---- the mic ----
    38px against send's 32px, accent-filled rather than the same grey wash as
