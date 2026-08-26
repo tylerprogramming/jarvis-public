@@ -1,7 +1,8 @@
 ---
 name: postmortem
 label: POST-MORTEM
-schedule: "0 8 * * *"
+# No schedule: chained from brief's pre-commands, so it cannot drift out of
+# step with the brief that reads what it writes. Still runnable on its own.
 description: Review each new video at its 48h and 7d marks, turn the result into a rule.
 requires: [youtube]
 tools: Read Glob Grep Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)

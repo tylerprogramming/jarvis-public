@@ -1,6 +1,6 @@
 ---
-name: nightly
-label: NIGHTLY
+name: journal
+label: JOURNAL
 schedule: "0 20 * * *"
 description: End of day - write the journal entry for the day being closed out, and deliver it if delivery is on.
 mcp: [gmail]

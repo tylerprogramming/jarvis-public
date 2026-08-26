@@ -88,12 +88,14 @@
   },
   "agents": {
     "enabled": [
-      "morning",
+      "brief",
       "radar",
-      "postmortem",
       "scout",
       "study",
-      "weekly-review"
+      "review",
+      "journal",
+      "calendar",
+      "postmortem"
     ]
   },
   "chat": {

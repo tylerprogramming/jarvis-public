@@ -33,14 +33,25 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 
 | Agent | When | What it does |
 |---|---|---|
-| `morning` | daily 07:00 | Refresh the numbers, write a status report, reset your top 3 |
+| `brief` | daily 07:00 | Where you stand and what to do today. Collects first (see below), then writes it |
 | `radar` | daily 06:30 | Sweep channels you watch, flag videos breaking out against their own baseline |
-| `postmortem` | daily 08:00 | Review each video at 48h and 7d, turn the result into a rule |
 | `scout` | Fri 15:00 | Search what is actually pulling right now, hand back two topics with evidence |
 | `study` | Wed 16:00 | Reads the transcripts of the strongest videos in your lanes and writes down what's reusable |
-| `weekly-review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
-| `social` | daily 06:00 | Follower counts for your other platforms, via Apify. Off by default, needs a paid scraper |
-| `nightly` | daily 20:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail you the recap |
+| `review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
+| `journal` | daily 20:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail you the recap |
+
+Three more run as steps of `brief` rather than on their own schedule, because
+each only exists to put something on the desk before the brief reads it:
+
+| Chained | What it does |
+|---|---|
+| `calendar` | Rebuilds the week's publishing strip from what is queued in Blotato |
+| `social` | Follower counts for your other platforms, via Apify. Needs a paid scraper |
+| `postmortem` | Reviews each video at 48h and 7d, turns the result into a rule |
+
+They keep their own prompts and their own MCP grants — chaining is one slot in
+the timetable, not one big agent. Run any of them alone with
+`jarvis agent <name>`.
 
 **A journal it keeps for you.** At the end of the day the `nightly` agent reads
 its own agent logs, the reports written that day, and the numbers, then writes
@@ -266,7 +277,7 @@ cannot record a single sample.
 ```bash
 jarvis doctor              # what is wired up and what is missing
 jarvis agents              # list agents, schedules, last run
-jarvis agent morning       # run one now instead of waiting for 7am
+jarvis agent brief         # run one now instead of waiting for 7am
 jarvis transcript <url>    # transcript of any YouTube video
 jarvis index               # rebuild index.md in every documents folder
 jarvis ytdlp status        # is yt-dlp current and can it fetch

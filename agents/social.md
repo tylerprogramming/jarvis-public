@@ -1,7 +1,8 @@
 ---
 name: social
 label: SOCIAL
-schedule: "0 6 * * *"
+# No schedule: chained from brief's pre-commands, so it cannot drift out of
+# step with the brief that reads what it writes. Still runnable on its own.
 description: Pull follower counts for the non-YouTube platforms into vitals, via Apify.
 requires: [apify, social]
 pre:

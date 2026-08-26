@@ -1,6 +1,6 @@
 ---
-name: weekly-review
-label: WEEKLY
+name: review
+label: REVIEW
 schedule: "0 18 * * 0"
 description: Sunday review - what shipped, what moved, and the one experiment for next week.
 requires: [youtube]

@@ -249,7 +249,7 @@ in `.env`, not here. Non-loopback without a token refuses to start.
 ## agents
 
 ```json
-{ "agents": { "enabled": ["morning", "radar", "postmortem", "scout", "weekly-review"] } }
+{ "agents": { "enabled": ["brief", "radar", "scout", "review"] } }
 ```
 
 Only enabled agents get scheduled. See [AGENTS.md](AGENTS.md).

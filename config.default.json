@@ -187,8 +187,14 @@
   },
   "agents": {
     "enabled": [
-      "morning",
-      "radar"
+      "brief",
+      "radar",
+      "scout",
+      "study",
+      "review",
+      "journal",
+      "calendar",
+      "postmortem"
     ],
     "dir": "agents"
   }

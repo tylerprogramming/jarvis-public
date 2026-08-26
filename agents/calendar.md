@@ -1,7 +1,8 @@
 ---
 name: calendar
 label: CALENDAR
-schedule: "0 5 * * *"
+# No schedule: chained from brief's pre-commands, so it cannot drift out of
+# step with the brief that reads what it writes. Still runnable on its own.
 description: Refresh the week's publishing strip from Blotato's scheduled posts.
 requires: [blotato]
 mcp: [blotato]

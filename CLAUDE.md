@@ -156,7 +156,7 @@ requires the offset to appear across two agents so a manual run cannot fake it.
 ```bash
 node bin/jarvis doctor          # what is actually wired up, end to end
 node bin/jarvis agents check    # preflight every agent before trusting a schedule
-node bin/jarvis agent morning   # run one in the foreground and watch it
+node bin/jarvis agent brief     # run one in the foreground and watch it
 node bin/jarvis                 # start the HUD on 127.0.0.1:4747
 ```
 

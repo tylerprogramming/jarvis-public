@@ -204,7 +204,7 @@ async function main() {
     lanes: cfg.research?.lanes || [],
     kokoro: false,
     agents: cfg.agents?.enabled ||
-      ["morning", "radar", "postmortem", "scout", "study", "weekly-review", "nightly"],
+      ["brief", "radar", "scout", "study", "review", "journal", "calendar", "postmortem"],
   };
 
   const writeConfig = () => {
@@ -288,7 +288,7 @@ async function main() {
     elevenKey = await ask("\n  ElevenLabs key, if you want the paid voice (optional)", "");
     openaiKey = await ask("  OpenAI key for hosted Whisper (optional)", "");
 
-    if (!(await askYes("\n  Enable the standard agents", true))) state.agents = ["morning"];
+    if (!(await askYes("\n  Enable the standard agents", true))) state.agents = ["brief"];
 
     writeConfig();
     console.log("\n  updated config.json");
@@ -365,9 +365,9 @@ async function main() {
   if (youtube && claude && (await askYes("\n  Run the morning agent once so the dashboard is not empty (~1 min)", true))) {
     console.log("  running...");
     try {
-      execFileSync("node", [path.join(ROOT, "bin", "jarvis"), "agent", "morning"], { stdio: "inherit" });
+      execFileSync("node", [path.join(ROOT, "bin", "jarvis"), "agent", "brief"], { stdio: "inherit" });
     } catch {
-      console.log(`  that did not finish - you can retry with: ${CMD} agent morning`);
+      console.log(`  that did not finish - you can retry with: ${CMD} agent brief`);
     }
   }
 
