@@ -90,11 +90,12 @@ makes the whole interface backable-out. Note that `style.css` declares several
 classes twice (`.brk`, `.directive .txt`) and the later block wins — override
 in `ui-v2.css` rather than editing `style.css`.
 
-**This repo has a public twin.** `~/jarvis` is private (branch `public-prep`)
-and is the one that runs on :4747; `~/jarvis-public` is the public mirror on
-`main`. `public/`, `agents/` and the docs are byte-identical across both. Edit
-one, copy to the other, verify with `shasum` before committing. Testing :4747
-after editing the wrong clone will convince you a correct fix did not work.
+**One clone, operator state on top.** The public repo is the one that runs. The
+maintainer's own instance is this same checkout (`~/dev/jarvis`) with
+`config.json`, `.env`, `data/`, `reports/`, `drafts/`, `journal/` and
+`playbook/` layered on - all gitignored, exactly as for anyone else who clones
+it. There is no longer a private twin to keep in sync, so nothing needs
+copying or `shasum`-checking; `git status` should stay clean after a run.
 
 **Never edit `config.default.json` to change behaviour for one person.** It is
 the shipped baseline. User settings live in `config.json`, which is gitignored
