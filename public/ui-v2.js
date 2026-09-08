@@ -176,19 +176,60 @@
    * so it cannot disagree with them.
    *
    * "DONE" is real, not inferred from the clock. /api/agents carries lastRun
-   * (server.js stats the agent's log file), so a finished agent reports the
-   * time it actually finished. An agent whose scheduled time has merely passed
-   * is not marked done - that would be reporting the timetable as history.
+   * and a health verdict from the run ledger (lib/runs.js), so a finished
+   * agent reports the time it actually finished and DONE is only claimed when
+   * the run exited 0 and left what it was meant to leave. An agent whose
+   * scheduled time has merely passed is not marked done - that would be
+   * reporting the timetable as history. Anything not ok (failed, overdue, not
+   * loaded, stale) gets its own pill in a warning colour, because the log
+   * mtime version of this bar showed DONE for twelve days of nothing running.
    * ======================================================================= */
   const nowbar = document.createElement("div");
   nowbar.id = "nowbar";
   nowbar.innerHTML =
     `<span class="nowlab">NOW</span><span id="nowpills"></span>` +
-    `<span class="nowfill"></span><span id="nownext"></span>`;
+    `<span class="nowfill"></span><span id="nowattn"></span><span id="nownext"></span>`;
   const header = document.querySelector("header");
   if (header && header.parentNode) header.parentNode.insertBefore(nowbar, header.nextSibling);
   const nowPills = nowbar.querySelector("#nowpills");
   const nowNext = nowbar.querySelector("#nownext");
+  const nowAttn = nowbar.querySelector("#nowattn");
+
+  /* Words for a health state, and which warning token it wears. FAILED is
+   * red because it is a run that happened and broke; the rest are amber
+   * because nothing broke, something just did not happen. */
+  const STATE_WORD = {
+    failed: "FAILED", overdue: "OVERDUE", "not-loaded": "NOT LOADED", stale: "STALE", never: "NEVER RAN",
+  };
+  const stateClass = (s) => (s === "failed" ? "bad" : STATE_WORD[s] ? "warn" : "");
+  const healthOf = (a) => (a.health && a.health.state) || "ok";
+  // an on-demand agent that has not run yet is not a problem, only a fact
+  const needsAttention = (a) => Boolean(STATE_WORD[healthOf(a)]) && !a.running && (healthOf(a) !== "never" || a.schedule);
+  /* The agents-need-attention modal. There is no agents panel in the rail,
+   * so the click opens the same modal app.js uses to explain an agent, with
+   * one line per problem and the fix beside it. */
+  const attentionModal = (list) => {
+    const title = $("modal-title"), body = $("modal-body"), modal = $("modal");
+    if (!title || !body || !modal) return;
+    title.textContent = `${list.length} AGENT${list.length === 1 ? "" : "S"} NEED ATTENTION`;
+    body.textContent = "";
+    for (const a of list) {
+      const row = document.createElement("div");
+      row.className = "v2attn";
+      row.innerHTML = `<b>${esc(a.label)}</b> <span class="st ${stateClass(healthOf(a))}">${esc(STATE_WORD[healthOf(a)])}</span>` +
+        `<div class="dt">${esc((a.health && a.health.detail) || "")}</div>`;
+      body.appendChild(row);
+    }
+    const foot = document.createElement("div");
+    foot.className = "v2attn foot";
+    foot.textContent = "jarvis doctor prints the same list with the fix for each one.";
+    body.appendChild(foot);
+    modal.classList.add("open");
+  };
+  nowAttn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    attentionModal(lastAgents.filter((a) => a.id !== "runner" && a.enabled !== false && needsAttention(a)));
+  });
 
   /* "05:00" / "FRI 15:00" / "ON DEMAND" -> ms from now, or null. Only used for
    * ordering, so a tag it cannot parse sorts last rather than being guessed at. */
@@ -213,9 +254,11 @@
   const startedAt = new Map();
 
   let lastNowHtml = "";
+  let lastAgents = [];
   async function paintNow() {
     let list = [];
     try { list = (await (await fetch("/api/agents")).json()).agents || []; } catch { return; }
+    lastAgents = list;
     const on = list.filter((a) => a.id !== "runner" && a.enabled !== false);
 
     for (const a of on) {
@@ -224,8 +267,9 @@
     }
 
     const running = on.filter((a) => a.running);
+    const attention = on.filter(needsAttention);
     const doneToday = on
-      .filter((a) => !a.running && a.lastRun && isToday(a.lastRun))
+      .filter((a) => !a.running && healthOf(a) === "ok" && a.lastRun && isToday(a.lastRun))
       .sort((x, y) => y.lastRun - x.lastRun);
     const blocked = on.filter((a) => (a.unmet || []).length);
 
@@ -245,25 +289,78 @@
       return m >= 1 ? ` ${m}m` : "";
     };
 
+    // failed first, then the rest of the trouble, then what ran clean; the
+    // bar is read left to right and the left is what needs a decision
+    const order = { failed: 0, "not-loaded": 1, overdue: 2, stale: 3, never: 4 };
+    attention.sort((x, y) => (order[healthOf(x)] ?? 9) - (order[healthOf(y)] ?? 9));
     const pills =
       running.map((a) => `<span class="nowpill live"><i></i>${esc(a.label)} · RUNNING${mins(a.id)}</span>`)
+        .concat(attention.slice(0, 4).map((a) =>
+          `<span class="nowpill ${stateClass(healthOf(a))}" title="${esc((a.health && a.health.detail) || "")}"><i></i>${esc(a.label)} · ${esc(STATE_WORD[healthOf(a)])}</span>`))
         .concat(doneToday.slice(0, 4).map((a) =>
-          `<span class="nowpill done">${esc(a.label)} · ${clock(a.lastRun)} DONE</span>`))
-        .concat(blocked.length ? [`<span class="nowpill warn"><i></i>${blocked.length} BLOCKED</span>`] : []);
+          `<span class="nowpill done" title="${esc((a.health && a.health.detail) || "")}">${esc(a.label)} · ${clock(a.lastRun)} DONE</span>`))
+        .concat(blocked.length ? [`<span class="nowpill bad"><i></i>${blocked.length} BLOCKED</span>`] : []);
 
     if (!pills.length) pills.push(`<span class="nowpill">NOTHING RUNNING</span>`);
 
     const nextHtml = next
       ? `<span class="nownextlab">NEXT · ${esc(next.label)} ${esc(next.tag)}</span>` : "";
+    const attnHtml = attention.length
+      ? `<span class="nowattnlab" title="click for the list">${attention.length} AGENT${attention.length === 1 ? "" : "S"} NEED${attention.length === 1 ? "S" : ""} ATTENTION</span>` : "";
 
-    const html = pills.join("") + "\uE000" + nextHtml;
+    const html = pills.join("") + "\uE000" + nextHtml + "\uE000" + attnHtml;
     if (html === lastNowHtml) return;   // a 20s poll that changed nothing must not re-animate
     lastNowHtml = html;
     nowPills.innerHTML = pills.join("");
     nowNext.innerHTML = nextHtml;
+    nowAttn.innerHTML = attnHtml;
   }
   paintNow();
   setInterval(paintNow, 20000);
+
+  /* The ring plates say the same thing. app.js builds them from /api/agents
+   * and toggles live/off; this adds the health word under the schedule tag
+   * and a bad/warn class, reading the same AGENTS_LIST app.js filled, so
+   * app.js stays untouched and the plate and the pill can never disagree
+   * (same payload, same words). */
+  function paintPlates() {
+    const list = (typeof AGENTS_LIST !== "undefined" && Array.isArray(AGENTS_LIST)) ? AGENTS_LIST : [];
+    for (const a of list) {
+      const el = $("ag-" + a.id);
+      if (!el) continue;
+      const state = a.enabled === false ? "ok" : healthOf(a);
+      // the same rule as the pills: an on-demand agent that never ran is
+      // not trouble, it just has no word yet
+      const trouble = needsAttention(a);
+      const word = a.running ? "" : trouble ? STATE_WORD[state] : (state === "ok" && a.lastRun ? "DONE" : "");
+      let st = el.querySelector(".astate");
+      if (!st) { st = document.createElement("span"); st.className = "astate"; el.appendChild(st); }
+      if (st.textContent !== word) st.textContent = word;
+      el.classList.toggle("bad", trouble && stateClass(state) === "bad");
+      el.classList.toggle("warn", trouble && stateClass(state) === "warn");
+      if (a.health && a.health.detail) el.title = `${a.description || a.label}. ${a.health.detail}`;
+    }
+  }
+  /* app.js's setInterval(loadAgents, 8000) holds the original function, so
+   * wrapping the name would only catch the first call. A MutationObserver on
+   * the ring container fires whenever app.js repaints a plate's classes, and
+   * the 20s poll above covers the rest; the observer disconnects during its
+   * own writes so the two cannot ping-pong. */
+  {
+    const box = $("agents");
+    if (box) {
+      let painting = false;
+      const obs = new MutationObserver(() => {
+        if (painting) return;
+        painting = true;
+        try { paintPlates(); } catch {}
+        painting = false;
+      });
+      obs.observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    }
+    setTimeout(paintPlates, 800);
+    setInterval(paintPlates, 20000);
+  }
 
   /* =========================================================================
    * THE RIGHT COLUMN
@@ -305,6 +402,33 @@
     ["YT", "yt_subs"], ["LI", "linkedin_followers"],
     ["TT", "tiktok_followers"], ["IG", "ig_followers"],
   ];
+
+  /* STALE · 12d on the primary card and on the dashboard vitals. Amber, not
+   * red: the numbers are real, they are just old, and the fix is one
+   * command, named in the tooltip. Removed again the moment a fresh collect
+   * lands, so the absence of the badge means something. */
+  function paintStale(age) {
+    const stale = Boolean(age && age.stale);
+    const days = age && age.hours != null ? Math.round(age.hours / 24) : null;
+    const word = stale ? `STALE · ${age && age.hours == null ? "never" : days >= 1 ? `${days}d` : `${Math.round(age.hours)}h`}` : "";
+    const when = age && age.updated_at ? new Date(age.updated_at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" }) : "never";
+    const tip = `last collected ${when}; run jarvis collect --fetch`;
+    const put = (host, cls) => {
+      if (!host) return;
+      let b = host.querySelector(`.${cls.split(" ")[0]}`);
+      if (!stale) { if (b) b.remove(); return; }
+      if (!b) { b = document.createElement("span"); b.className = cls; host.appendChild(b); }
+      if (b.textContent !== word) b.textContent = word;
+      b.title = tip;
+    };
+    // #pd-label's text is rewritten by renderPrimary on every cycle, so the
+    // badge sits beside it on the card, not inside it
+    put($("primary"), "v2stale pd");
+    const vit = $("vitals");
+    // the dashboard vitals are rebuilt by app.js render(); the badge is
+    // appended to the hero head when there is one, else to the panel
+    put(vit && (vit.querySelector(".herohead") || vit), "v2stale");
+  }
 
   /* ------------------------------------------------------------ rail badges
    * Directives shows how many are waiting; the other views show a dot when
@@ -352,6 +476,14 @@
     if (!d || !d.vitals) return;
     const v = d.vitals;
     const audience = PLATFORMS.reduce((s, [, k]) => s + (v[k] || 0), 0);
+
+    /* How old the numbers are. The server decides (vitals_age from
+     * /api/data, against vitals.stale_hours), this only paints it: a badge on
+     * the primary card and one on the dashboard vitals, so a number that
+     * has not been collected in twelve days does not read as this morning's.
+     * The badge is a sibling of the label, never inside #pd-num or #pd-meta,
+     * which app.js rewrites on its 20s cycle. */
+    paintStale(d.vitals_age);
 
     if (platGrid) {
       platGrid.innerHTML = PLATFORMS.map(([lab, key]) =>

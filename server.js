@@ -30,6 +30,7 @@ const tts = require("./lib/tts");
 const stt = require("./lib/stt");
 const brain = require("./lib/brain");
 const agentsLib = require("./lib/agents");
+const runs = require("./lib/runs");
 const playbook = require("./lib/playbook");
 const memory = require("./lib/memory");
 
@@ -144,6 +145,15 @@ function relAge(ms) {
 }
 
 // ---------- api handlers ----------
+function vitalsAge() {
+  const v = readJson(path.join(CFG.paths.data, "vitals.json"), {});
+  const staleHours = Number((CFG.vitals || {}).stale_hours) || 36;
+  const at = v.updated_at ? new Date(v.updated_at).getTime() : null;
+  const hours = at ? (Date.now() - at) / 3600000 : null;
+  return { updated_at: v.updated_at || null, hours: hours === null ? null : Math.round(hours * 10) / 10,
+    stale: hours === null ? true : hours > staleHours, stale_hours: staleHours };
+}
+
 function apiData(res) {
   const p = CFG.profile || {};
   sendJson(res, {
@@ -160,6 +170,10 @@ function apiData(res) {
       owner: p.owner || "",
     },
     vitals: readJson(path.join(CFG.paths.data, "vitals.json"), {}),
+    // How old the numbers are, decided here so every card agrees. The
+    // collector only bumps updated_at when a fetch succeeded, so this is
+    // "when were these numbers last true", not "when did something run".
+    vitals_age: vitalsAge(),
     history: readJson(path.join(CFG.paths.data, "history.json"), []),
     calendar: readJson(path.join(CFG.paths.data, "calendar.json"), null),
     radar: readJson(path.join(CFG.paths.data, "radar.json"), null),
@@ -336,13 +350,16 @@ function apiMemoryDelete(res, q) {
 // ---------- agents ----------
 const RUNNING = new Set();
 
+/* Everything the ring and the NOW bar say about an agent comes from the run
+ * ledger (lib/runs.js), not from the mtime of its log. The mtime version
+ * showed DONE for a crash, a skip, a run that wrote nothing, and a restore
+ * from backup, and showed it for twelve days while no job was loaded. */
 function apiAgents(res) {
   const defined = agentsLib.list(CFG);
   execFile("ps", ["ax", "-o", "command"], (err, stdout) => {
     const procs = err ? "" : stdout;
     const out = defined.map((a) => {
-      let lastRun = null;
-      try { lastRun = fs.statSync(a.log).mtimeMs; } catch {}
+      const h = runs.health(CFG, a);
       return {
         id: a.name,
         label: a.label,
@@ -354,10 +371,12 @@ function apiAgents(res) {
         // the raw expression too, so the HUD can say "every day at 07:00"
         // rather than only the compact tag that fits on the ring
         schedule: a.schedule || "",
-        lastRun,
+        lastRun: h.lastRun,
+        lastExit: h.lastExit,
+        health: { state: h.state, detail: h.detail, expectedAt: h.expectedAt, loaded: h.loaded },
       };
     });
-    out.push({ id: "runner", label: "RUNNER", tag: "ON DEMAND", enabled: true, running: false, unmet: [], lastRun: null });
+    out.push({ id: "runner", label: "RUNNER", tag: "ON DEMAND", enabled: true, running: false, unmet: [], lastRun: null, lastExit: null, health: { state: "ok", detail: "" } });
     sendJson(res, { agents: out });
   });
 }
