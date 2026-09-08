@@ -20,6 +20,9 @@ Empty on a fresh clone apart from this file and the examples.
 | `decisions.jsonl` | Dated decisions and the experiments ledger, for the recap. `kind: decision` rows come from chat; `kind: experiment` (`{id, text, metric, target, deadline, status, source}`) and `kind: result` (`{experiment, text, verdict, source}`) rows come from `scripts/experiments.py`. Append only: an experiment's status is derived from its latest result line, never rewritten | `lib/memory.js`, `scripts/experiments.py` |
 | `chat.log` | Every chat turn, one JSON line each | `server.js` |
 | `session.json` | The current chat session id, so a reload continues it | `server.js` |
+| `inbox.json` | The Telegram bridge: `getUpdates` offset, per-chat session id, last poll time, bot name | `scripts/inbox.py` |
+| `inbox.pid` | The running bridge, for `jarvis inbox stop` and doctor | `jarvis inbox start` |
+| `logs/inbox.log` | One line per phone message and reply, with the chat id, never the token | `scripts/inbox.py` |
 
 ## Two rules worth knowing before you touch any of it
 

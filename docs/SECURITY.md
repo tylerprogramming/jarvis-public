@@ -76,6 +76,32 @@ Not behind a port forward, not on a public VPS with the port open. If you need
 it remotely, use a VPN (Tailscale is the easy answer) so the machine is never
 publicly reachable in the first place.
 
+## The Telegram inbox bridge
+
+`jarvis inbox start` lets you chat with Jarvis from your phone, and it is
+built so that none of the above changes. The bridge (`scripts/inbox.py`) is
+a local process that makes outbound requests only: a long poll to Telegram's
+`getUpdates`, a POST to `/api/chat` on loopback, and `sendMessage` for the
+answer. It opens no port, registers no webhook and needs no tunnel, so the
+server stays bound to `127.0.0.1` and there is still nothing for the
+internet to connect to.
+
+What that leaves is the allow-list, and it is the entire security boundary
+of the feature. A message is forwarded to `/api/chat`, which is a shell, only
+when its chat id is `TELEGRAM_CHAT_ID` or in `TELEGRAM_ALLOWED_CHAT_IDS`.
+Anyone else who finds the bot (its username is public) gets nothing: no
+forward, no reply, no error, only an `ignored <id>` line in
+`data/logs/inbox.log`. So the threats are the ones around that list: the
+bot token leaking (rotate it in @BotFather; whoever holds it can read the
+bot's updates and send as the bot, but still cannot pass the chat id check
+unless they can also send *from* your Telegram account), your own Telegram
+account being taken over (the same exposure as your phone being unlocked at
+the HUD), and an id on the list that you do not control. Keep the list to
+chats that are yours, never a public group, and treat a message from the
+phone exactly as you treat one typed at the HUD: the same tools, the same
+`chat.allowed_tools`, the same brain. Nothing polls unless you start it,
+and `jarvis inbox` shows the list so you can check it.
+
 ## Which brain you pick changes where your files go
 
 Jarvis runs the command bar on Claude Code when it is installed, and on an

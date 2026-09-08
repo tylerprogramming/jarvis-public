@@ -274,11 +274,25 @@ def send_discord(title, body):
     return f"discord: {len(parts)} message(s)"
 
 
-def send_telegram(title, body):
+def telegram_api(method):
+    """The URL for one Bot API method. TELEGRAM_API_BASE exists so a test
+    can point every Telegram call at a loopback stub; nobody sets it
+    otherwise. The bridge in inbox.py builds its URLs through this too, so
+    the two scripts cannot disagree about where Telegram is."""
+    base = (jarvis_config.env("TELEGRAM_API_BASE") or "https://api.telegram.org").rstrip("/")
     token = jarvis_config.env("TELEGRAM_BOT_TOKEN")
-    chat = jarvis_config.env("TELEGRAM_CHAT_ID")
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    parts = chunks(body_with_title(title, body, "*{}*"), LIMITS["telegram"])
+    return f"{base}/bot{token}/{method}"
+
+
+def send_telegram_text(text, chat_id=None):
+    """Send `text` to one chat, chunked under the limit, Markdown first and
+    plain on a 400. This is the whole Telegram send path; send_telegram()
+    below is the provider wrapper the report runner uses, and inbox.py
+    calls this directly to answer a message from the operator's phone.
+    Returns the number of messages sent; raises SystemExit on failure."""
+    chat = chat_id if chat_id is not None else jarvis_config.env("TELEGRAM_CHAT_ID")
+    url = telegram_api("sendMessage")
+    parts = chunks(text, LIMITS["telegram"])
     for i, part in enumerate(parts, 1):
         label = f"telegram ({i}/{len(parts)})"
         # Telegram's Markdown parser rejects the whole message on one
@@ -291,7 +305,12 @@ def send_telegram(title, body):
             if "(400)" not in str(e):
                 raise
             post_json(url, {"chat_id": chat, "text": part}, label + " plain")
-    return f"telegram: {len(parts)} message(s)"
+    return len(parts)
+
+
+def send_telegram(title, body):
+    n = send_telegram_text(body_with_title(title, body, "*{}*"))
+    return f"telegram: {n} message(s)"
 
 
 def send_slack(title, body):
