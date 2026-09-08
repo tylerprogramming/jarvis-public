@@ -74,7 +74,8 @@ put the webhook or token in `.env`, and add `notify: [phone]` to the agent.
 With the default `notify_when: report`, `radar` becomes an alert for free,
 because it writes nothing when nothing broke out. Delivery runs in code after
 the agent exits, so the model never decides whether or where to send. See
-[notify](docs/CONFIGURATION.md#notify).
+[notify](docs/CONFIGURATION.md#notify), and [NOTIFY.md](docs/NOTIFY.md) for
+the per-platform walkthrough.
 
 ```json
 { "notify": { "channels": {

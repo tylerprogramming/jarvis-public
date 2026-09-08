@@ -17,6 +17,7 @@
  *   jarvis notify           which chat channels and providers are configured
  *   jarvis notify test [x]  really post a one-line ping: x is a channel name
  *                           from notify.channels or a provider name
+ *   jarvis notify telegram-id  list the chats that messaged your bot, with ids
  *   jarvis memory           print what the operator told Jarvis to keep
  *   jarvis memory add "<text>"       add a line (same as "remember that" in chat)
  *   jarvis memory forget <needle>    drop every line containing the words
@@ -477,7 +478,50 @@ async function main() {
         process.exit(bad ? 1 : 0);
       }
 
-      console.error("usage: jarvis notify [test [channel-or-provider]]");
+      /* Telegram is the one provider where the second secret cannot be copied
+       * from a settings page: the chat id only exists after someone messages
+       * the bot, and the way to read it is a JSON dump most people have never
+       * seen. Do that lookup here, with the token already in .env, and print
+       * only the chats and their ids. Nothing is sent. */
+      if (sub === "telegram-id") {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        if (!token) {
+          console.error("  set TELEGRAM_BOT_TOKEN in .env first (from @BotFather), then message your bot once");
+          process.exit(1);
+        }
+        const url = `https://api.telegram.org/bot${token}/getUpdates`;
+        let body;
+        try {
+          const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+          body = await r.json();
+          if (!body.ok) throw new Error(body.description || `HTTP ${r.status}`);
+        } catch (e) {
+          console.error(`  telegram refused it: ${String(e.message || e).replace(token, "<token>")}`);
+          console.error("  a 401 means the token is wrong or was revoked in @BotFather");
+          process.exit(1);
+        }
+        const seen = new Map();
+        for (const u of body.result || []) {
+          const m = u.message || u.channel_post || u.edited_message || u.my_chat_member || {};
+          const c = m.chat;
+          if (c && c.id != null) seen.set(String(c.id), c);
+        }
+        if (!seen.size) {
+          console.log("\n  no chats yet. Open your bot in Telegram, send it any message, then run this again.");
+          console.log("  (for a group: add the bot to the group and post a message there; Telegram keeps updates for 24 hours)\n");
+          process.exit(1);
+        }
+        console.log("\n  chats that have messaged this bot:\n");
+        for (const [id, c] of seen) {
+          const who = c.title || [c.first_name, c.last_name].filter(Boolean).join(" ") || c.username || "";
+          console.log(`  ${id.padEnd(16)} ${(c.type || "").padEnd(11)} ${who}`);
+        }
+        const first = [...seen.keys()][0];
+        console.log(`\n  put one in .env:  TELEGRAM_CHAT_ID=${first}\n  then prove it:    jarvis notify test telegram\n`);
+        return;
+      }
+
+      console.error("usage: jarvis notify [test [channel-or-provider] | telegram-id]");
       process.exit(1);
     }
 

@@ -245,6 +245,29 @@ Their numbers, reports, and journal are theirs: everything under `data/`,
 `reports/`, `drafts/`, and `journal/` is gitignored, and API keys belong in
 `.env`, never in `config.json`.
 
+## Hooking up chat delivery for someone
+
+If the operator asks for reports on Discord, Telegram, Slack or their phone,
+follow `docs/NOTIFY.md` rather than working it out from the code. The short
+form:
+
+1. Ask which platform. If they have no preference, ntfy is one minute and no
+   account; Discord is one webhook URL; Telegram needs a bot plus a chat id;
+   Slack needs an app.
+2. Ask them to paste the secret. Write it to `.env`, never `config.json`, and
+   never echo it back in full.
+3. Add a named channel under `notify.channels` in `config.json` and, if they
+   said which agent, `agents.<name>.notify`. Do not edit `agents/*.md`.
+4. For Telegram, never guess the chat id. Have them message the bot, then run
+   `jarvis notify telegram-id` and use what it prints.
+5. `jarvis notify test <channel>` and report the platform's actual reply. A
+   webhook that exists is not a webhook that works.
+6. `jarvis agents check` must list the channel under the agent as a note, not
+   a problem.
+
+The model in the HUD gets the same instructions from `lib/persona.js`, so a
+person can ask Jarvis itself for this and land in the same place.
+
 ## Common tasks
 
 **Add an agent.** Create `agents/<name>.md` with frontmatter and a prompt. No
