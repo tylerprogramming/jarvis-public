@@ -1,9 +1,30 @@
 #!/usr/bin/env node
+/* Jarvis CLI.
+ *
+ *   jarvis                  start the HUD
+ *   jarvis setup            first-run wizard
+ *   jarvis collect [--fetch]refresh vitals
+ *   jarvis voice <cmd>      kokoro setup: install | start | stop | status
+ *   jarvis ytdlp <cmd>      bundle a known-good yt-dlp: install | status | remove
+ *   jarvis mcp              list MCP servers: mcp allow <name> | deny <name>
+ *   jarvis index            rebuild index.md in every documents folder
+ *   jarvis transcript <url> transcript via captions, whisper only if needed
+ *   jarvis agents           list agents and their schedules
+ *   jarvis agents check     preflight every agent before trusting a schedule
+ *   jarvis agent <name>     run one agent now, in the foreground
+ *   jarvis agents install   put enabled agents on the OS scheduler
+ *   jarvis agents uninstall remove them
+ *   jarvis notify           which chat channels and providers are configured
+ *   jarvis notify test [x]  really post a one-line ping: x is a channel name
+ *                           from notify.channels or a provider name
+ *   jarvis doctor           check what is actually wired up
+ */
 
 /* Runs before anything is required, and in ES5 only, so an old Node reaches
  * this message instead of dying on a SyntaxError inside a module it could not
  * parse. Ubuntu 22.04 and Debian 11 still ship Node 12 as `nodejs`, which is
- * how most people arrive here. */
+ * how most people arrive here. `help` prints the block above, so this one has
+ * to stay below it. */
 var MIN_NODE = parseInt(String((require("../package.json").engines || {}).node || "18").replace(/[^0-9]/g, ""), 10) || 18;
 if (parseInt(process.versions.node.split(".")[0], 10) < MIN_NODE) {
   console.error(
@@ -16,22 +37,6 @@ if (parseInt(process.versions.node.split(".")[0], 10) < MIN_NODE) {
   );
   process.exit(1);
 }
-/* Jarvis CLI.
- *
- *   jarvis                  start the HUD
- *   jarvis setup            first-run wizard
- *   jarvis collect [--fetch]refresh vitals
- *   jarvis voice <cmd>      kokoro setup: install | start | stop | status
- *   jarvis ytdlp <cmd>      bundle a known-good yt-dlp: install | status | remove
- *   jarvis mcp              list MCP servers: mcp allow <name> | deny <name>
- *   jarvis index            rebuild index.md in every documents folder
- *   jarvis transcript <url> transcript via captions, whisper only if needed
- *   jarvis agents           list agents and their schedules\n *   jarvis agents check     preflight every agent before trusting a schedule
- *   jarvis agent <name>     run one agent now, in the foreground
- *   jarvis agents install   put enabled agents on the OS scheduler
- *   jarvis agents uninstall remove them
- *   jarvis doctor           check what is actually wired up
- */
 const path = require("path");
 const fs = require("fs");
 const { spawn, execFileSync } = require("child_process");
@@ -381,6 +386,97 @@ async function main() {
       process.exit(1);
     }
 
+    /* Chat delivery is the second thing here that leaves the machine, so the
+     * CLI never sends by accident: no arguments only reads config and .env
+     * and says what is set. `test` does send, one line per target, because a
+     * webhook that exists is not a webhook that works. A target is a channel
+     * name from notify.channels (what agents use) or a bare provider name. */
+    case "notify": {
+      const cfg = load(); // puts .env into process.env, same as every other command
+      const notifyLib = require(path.join(ROOT, "lib", "notify"));
+      const script = path.join(ROOT, "scripts", "notify.py");
+      const [sub, only] = rest;
+      const PROVIDERS = notifyLib.PROVIDERS;
+      const chans = notifyLib.channels(cfg);
+      const ready = Object.keys(PROVIDERS).filter((p) => PROVIDERS[p].every((k) => process.env[k]));
+
+      if (!sub) {
+        console.log("");
+        const names = Object.keys(chans);
+        if (names.length) {
+          console.log("  CHANNELS (notify.channels, what agents name in notify: [...])");
+          for (const n of names) {
+            const r = notifyLib.resolve(cfg, n);
+            console.log(`  ${r.ok ? "ON " : "off"}  ${n.padEnd(12)} ${(r.provider || "?").padEnd(9)} ${r.ok ? "configured" : r.reason}`);
+          }
+          console.log("");
+        }
+        console.log("  PROVIDERS (keys in .env)");
+        for (const [p, keys] of Object.entries(PROVIDERS)) {
+          const missing = keys.filter((k) => !process.env[k]);
+          console.log(`  ${missing.length ? "off" : "ON "}  ${p.padEnd(10)} ${missing.length ? "set " + missing.join(", ") : "configured"}`);
+        }
+        const first = names.find((n) => notifyLib.resolve(cfg, n).ok) || ready[0];
+        console.log(first
+          ? `\n  Nothing was sent. Try one:  jarvis notify test ${first}\n`
+          : `\n  None configured. Add keys to .env (see .env.example), then:  jarvis notify test\n`);
+        if (!names.length && ready.length)
+          console.log(`  Agents deliver to named channels: add {"notify": {"channels": {"phone": {"provider": "${ready[0]}"}}}} to config.json\n`);
+        return;
+      }
+
+      if (sub === "test") {
+        // a channel name wins over a provider name, so a channel called
+        // "discord" tests that channel's env override rather than the default
+        let targets;
+        if (only && chans[only]) targets = [{ label: only, channel: only }];
+        else if (only && PROVIDERS[only]) targets = [{ label: only, provider: only }];
+        else if (only) {
+          console.error(`  no such channel or provider: ${only}`);
+          console.error(`  channels: ${Object.keys(chans).join(", ") || "none"}`);
+          console.error(`  providers: ${Object.keys(PROVIDERS).join(", ")}`);
+          process.exit(1);
+        } else {
+          const okChans = Object.keys(chans).filter((n) => notifyLib.resolve(cfg, n).ok);
+          targets = okChans.length
+            ? okChans.map((n) => ({ label: n, channel: n }))
+            : ready.map((p) => ({ label: p, provider: p }));
+        }
+        if (!targets.length) {
+          console.log("  nothing to test: no channel or provider has its keys in .env");
+          return;
+        }
+        let bad = 0;
+        for (const t of targets) {
+          let provider = t.provider;
+          let env = process.env;
+          if (t.channel) {
+            const r = notifyLib.resolve(cfg, t.channel);
+            if (!r.ok) { bad++; console.log(`  FAIL  ${t.label.padEnd(10)} ${r.reason}`); continue; }
+            provider = r.provider;
+            env = notifyLib.envFor(r);
+          }
+          try {
+            execFileSync("python3", [script, "--via", provider, "--test"], {
+              cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], env, timeout: 30000,
+            });
+            console.log(`  ok    ${t.label.padEnd(10)} ${t.channel ? `(${provider})` : ""}`);
+          } catch (e) {
+            bad++;
+            // the script prints "FAIL <provider>: <reason>" then a summary
+            // line; the reason is the useful part
+            const lines = String((e.stderr || "") + (e.stdout || "")).trim().split("\n");
+            const out = (lines.find((l) => l.startsWith(`FAIL ${provider}:`)) || lines.pop() || String(e.message || "")).replace(`FAIL ${provider}: `, "");
+            console.log(`  FAIL  ${t.label.padEnd(10)} ${out}`);
+          }
+        }
+        process.exit(bad ? 1 : 0);
+      }
+
+      console.error("usage: jarvis notify [test [channel-or-provider]]");
+      process.exit(1);
+    }
+
     case "index":
       return python(path.join(ROOT, "scripts", "index.py"), rest);
 
@@ -557,6 +653,35 @@ async function main() {
           console.log(`    fix                jarvis mcp allow <name>`);
       } else {
         console.log(`\n  MCP SERVERS        none configured for the claude CLI`);
+      }
+
+      /* Chat delivery. Lists what is wired, never sends: doctor gets run in
+       * sanity checks and a ping per run is how a channel gets muted. The
+       * real exercise is one command away and named here. */
+      {
+        const notifyLib = require(path.join(ROOT, "lib", "notify"));
+        const chans = notifyLib.channels(cfg);
+        const names = Object.keys(chans);
+        const agentsLib = require(path.join(ROOT, "lib", "agents"));
+        const users = agentsLib.list(cfg).filter((a) => (a.notify || []).length);
+        if (!names.length) {
+          console.log(`\n  NOTIFY             no channels (notify.channels in config.json; off by default)`);
+          for (const a of users)
+            console.log(`    ${a.name.padEnd(18)} names ${a.notify.join(", ")} but no channel is defined`);
+        } else {
+          const okN = names.filter((n) => notifyLib.resolve(cfg, n).ok).length;
+          console.log(`\n  NOTIFY             ${okN} of ${names.length} channel(s) configured`);
+          for (const n of names) {
+            const r = notifyLib.resolve(cfg, n);
+            const envs = (r.slots || []).map((s) => `${s.from}=${process.env[s.from] ? "yes" : "no"}`).join(" ");
+            const who = users.filter((a) => a.notify.includes(n)).map((a) => a.name);
+            console.log(`    ${n.padEnd(18)} ${(r.provider || "?").padEnd(9)} ${envs || r.reason}${who.length ? `   <- ${who.join(", ")}` : ""}`);
+            console.log(`    ${"".padEnd(18)} test: jarvis notify test ${n}`);
+          }
+          for (const a of users)
+            for (const n of a.notify)
+              if (!chans[n]) console.log(`    ${a.name.padEnd(18)} names channel "${n}" which does not exist`);
+        }
       }
 
       /* Recurring scraper cost is easy to stop noticing, which is how a few

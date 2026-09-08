@@ -38,7 +38,7 @@ schedule. They wake up, do research, and leave a report in the documents trail.
 | `scout` | Fri 15:00 | Search what is actually pulling right now, hand back two topics with evidence |
 | `study` | Wed 16:00 | Reads the transcripts of the strongest videos in your lanes and writes down what's reusable |
 | `review` | Sun 18:00 | What shipped, what moved, and one experiment for next week |
-| `journal` | daily 20:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail you the recap |
+| `journal` | daily 20:00 | Closes out the day into `journal/` — what ran, what moved, what didn't. Can mail or message you the recap |
 
 Three more run as steps of `brief` rather than on their own schedule, because
 each only exists to put something on the desk before the brief reads it:
@@ -59,6 +59,23 @@ one dated entry in `journal/`. Not a summary of your plans — a record of what
 the evidence says happened, including the days nothing did. A week of those is
 what makes Sunday's review honest. It can also drop the recap in your inbox;
 see [journal](docs/CONFIGURATION.md#journal).
+
+**It can ping you where you already look.** Any agent can opt into delivering
+its report to a Discord channel, a Telegram chat, a Slack channel, an ntfy
+topic, or your own webhook. Off by default: name a channel in `config.json`,
+put the webhook or token in `.env`, and add `notify: [phone]` to the agent.
+With the default `notify_when: report`, `radar` becomes an alert for free,
+because it writes nothing when nothing broke out. Delivery runs in code after
+the agent exits, so the model never decides whether or where to send. See
+[notify](docs/CONFIGURATION.md#notify).
+
+```json
+{ "notify": { "channels": {
+    "phone": { "provider": "telegram" },
+    "team":  { "provider": "discord" },
+    "push":  { "provider": "ntfy" } } },
+  "agents": { "radar": { "notify": ["phone", "push"] } } }
+```
 
 **A command bar with hands.** Type or talk, and it goes to a real agent with
 your context loaded — it reads your files, edits your data, runs your tools.

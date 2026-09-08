@@ -19,12 +19,14 @@ makes next Sunday's review possible.
 
 Read the evidence first. Do not write anything until you have looked.
 
-1. WHAT RAN. The agent logs are {{data}}/*.log. Each run is a block starting
-   `=== <agent> <date> <time> ===` and ending `=== done (exit N) ===`. Read
-   only that day's blocks ({{journal_day}}). Note which agents ran, which said
-   `skipped:`, and which finished with a non-zero exit. A missing agent is
-   information too: if the schedule says it should have run and there is no
-   block for it, that is worth one line.
+1. WHAT RAN. The agent logs are {{data}}/logs/*.log, one file per agent. Each
+   run is a block starting `=== <agent> <date> <time> ===` and ending
+   `=== done (exit N) ===`. Read only that day's blocks ({{journal_day}}).
+   Note which agents ran, which said `skipped:`, which finished with a
+   non-zero exit, and any `notify ...: FAILED` line, which means a delivery
+   the operator expected did not go out. A missing agent is information too:
+   if the schedule says it should have run and there is no block for it,
+   that is worth one line.
 
 2. WHAT WAS WRITTEN. List {{reports}} and {{drafts}} and read anything dated
    {{journal_day}}. Use the first line of each, which is written to stand alone as a

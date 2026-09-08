@@ -136,6 +136,76 @@ Jarvis rule; every provider works that way. Send it to yourself.
 `to`, an unknown method, `resend` with no key — before they turn into a recap
 you assumed went out and didn't.
 
+## notify
+
+Chat delivery: a finished report reaches a Discord channel, a Telegram chat, a
+Slack channel, an ntfy topic, or any URL that takes a JSON POST. Off by
+default, and opted into per agent rather than globally.
+
+```json
+{
+  "notify": {
+    "channels": {
+      "phone":  { "provider": "telegram" },
+      "team":   { "provider": "discord" },
+      "alerts": { "provider": "discord", "env": "DISCORD_WEBHOOK_URL_ALERTS" },
+      "push":   { "provider": "ntfy" }
+    }
+  }
+}
+```
+
+`channels` is a map of names you choose to a `provider`, one of `discord`,
+`telegram`, `slack`, `ntfy`, `webhook`. The names are what agents refer to:
+`notify: [phone]` in frontmatter, or `agents.radar.notify: ["phone"]` here.
+Secrets never go in this file. Each provider reads its own variables from
+`.env`:
+
+| provider | `.env` |
+|---|---|
+| `discord` | `DISCORD_WEBHOOK_URL` |
+| `telegram` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| `slack` | `SLACK_WEBHOOK_URL` |
+| `ntfy` | `NTFY_TOPIC` (and `NTFY_URL` for a self-hosted server) |
+| `webhook` | `NOTIFY_WEBHOOK_URL` |
+
+Two targets on the same provider, say one Discord channel for the daily brief
+and another for alerts, need two webhooks. The optional `env` key names the
+variable the second channel reads instead of the default, so `alerts` above
+reads `DISCORD_WEBHOOK_URL_ALERTS`. For a provider with two variables, `env`
+can be an object: `{"TELEGRAM_CHAT_ID": "TELEGRAM_CHAT_ID_ALERTS"}`.
+
+Delivery is a step in the runner, not an instruction in the prompt. After the
+agent exits cleanly, code finds the file it wrote (the newest report or journal
+entry whose `agent:` matches, written since the run began) and calls
+`scripts/notify.py` once per channel. The model never chooses whether to send,
+where to, or what; it cannot send twice or paste the wrong file, because it is
+not involved. A failed delivery is written to `data/logs/<agent>.log` as
+`notify <channel>: FAILED: <reason>` and does not change the agent's exit code.
+One attempt, fifteen seconds, no retries: a retry loop on a webhook is how one
+report becomes three pings.
+
+What to send per agent is set in the agent's frontmatter or under
+`agents.<name>`; see [notify in AGENTS.md](AGENTS.md#notify). To turn it on
+for a shipped agent without editing its file:
+
+```json
+{
+  "agents": {
+    "radar":   { "notify": ["phone"] },
+    "journal": { "notify": ["team"], "notify_mode": "full" }
+  }
+}
+```
+
+`jarvis notify` shows which channels and providers are configured without
+sending. `jarvis notify test phone` really posts a one-line ping, because a
+webhook that exists is not a webhook that works. `jarvis doctor` lists the
+channels and the test command but never sends. `jarvis agents check` reports a
+channel that is named but missing, a provider it does not know, or a variable
+that is not in `.env` as a problem rather than a note: half-configured push is
+worse than none, because you stop checking the file.
+
 ## chat
 
 ```json
@@ -274,6 +344,10 @@ OPENAI_API_KEY=...       # hosted Whisper, only if you want it
 KOKORO_API_KEY=...       # only if your local server requires one
 RESEND_API_KEY=...       # only for journal.deliver = resend
 JARVIS_MAIL_FROM=...     # the from address, on a domain verified with Resend
+DISCORD_WEBHOOK_URL=...  # notify channels, one or two lines per provider;
+TELEGRAM_BOT_TOKEN=...   # see .env.example for the full list
+TELEGRAM_CHAT_ID=...
+NTFY_TOPIC=...
 JARVIS_TOKEN=...         # required for any non-loopback bind
 JARVIS_HOST=127.0.0.1
 JARVIS_PORT=4747
