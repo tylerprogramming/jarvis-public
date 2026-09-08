@@ -15,9 +15,12 @@ playbook/*
 # Everything Jarvis generates about you.
 data/*.json
 data/*.log
+data/*.jsonl
+data/*.md
 data/logs/
 data/.kokoro-mode
 !data/*.example.json
+!data/*.example.md
 !data/README.md
 # Output folders: the folder's own label ships, the contents never do.
 reports/*

@@ -14,6 +14,10 @@ Empty on a fresh clone apart from this file and the examples.
 | `<agent>.log` | Append-only run log, one block per run | the agent runner |
 | `<agent>.launchd.log` | What launchd itself said, when a run never started | launchd |
 | `spend.log` | What each paid scraper run cost | `social` |
+| `memory.md` | Facts you told Jarvis to keep, one dated line per fact under four headings | `lib/memory.js` only: chat "remember that", `jarvis memory add` |
+| `decisions.jsonl` | Dated decisions and experiment results, for the recap | `lib/memory.js` |
+| `chat.log` | Every chat turn, one JSON line each | `server.js` |
+| `session.json` | The current chat session id, so a reload continues it | `server.js` |
 
 ## Two rules worth knowing before you touch any of it
 
