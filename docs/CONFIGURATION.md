@@ -75,8 +75,9 @@ your `about` and recent titles, then tells you what it chose.
 
 `brain_files` are read before any content advice, and agents update them when a
 result confirms or contradicts a rule - this is what makes Jarvis compound
-instead of restarting from zero every week. The first file is inlined into the
-system prompt if it is under 4 KB.
+instead of restarting from zero every week. The chat prompt carries a heading
+index of each file (its `##` and `###` lines) rather than the body, so the
+model knows what each covers and reads the section it needs.
 
 ## documents_dirs
 
@@ -211,7 +212,7 @@ worse than none, because you stop checking the file.
 ```json
 {
   "chat": {
-    "cwd": "~",
+    "cwd": "",
     "permission_mode": "acceptEdits",
     "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
     "disallowed_tools": "",
@@ -220,8 +221,57 @@ worse than none, because you stop checking the file.
 }
 ```
 
-`cwd` is where the agent starts, so point it at the folder you actually work
-in. See [SECURITY.md](SECURITY.md) before widening `allowed_tools`.
+`cwd` is where the chat brain starts. Empty means the repo root, the same
+place the scheduled agents run, so chat and agents read the same `CLAUDE.md`
+and the same project memory. It used to default to `~`, which quietly loaded
+`~/.claude/CLAUDE.md` and your personal Claude project notes into every Jarvis
+reply while the agents saw none of it. Set it only if you want chat to start
+somewhere else. See [SECURITY.md](SECURITY.md) before widening `allowed_tools`.
+
+## memory
+
+What Jarvis carries from one conversation to the next, in tiers. All of it
+lives under `data/` and is gitignored.
+
+```json
+{
+  "memory": {
+    "operator_budget": 3000,
+    "recap_days": 14,
+    "recap_chars": 1500,
+    "chat_log": true
+  }
+}
+```
+
+**`data/memory.md`, the operator tier.** Facts you tell Jarvis to keep. In
+chat, `remember that I only film on Tuesdays` writes exactly that line, dated,
+under one of four headings (Preferences, Corrections, Decisions, Standing
+rules; a few leading words pick the heading: "we decided" or "decision:" is a
+decision, "never", "always" or "rule:" is a standing rule, "correction:" or
+"actually" is a correction, everything else is a preference). `/forget
+<words>` drops every line containing them, `/memory` prints the file. The
+same three things from the terminal: `jarvis memory`, `jarvis memory add
+"<text>"`, `jarvis memory forget <words>`. The MEMORY view in the HUD lists the
+lines with a delete per line.
+
+The model never writes this file. Code intercepts those commands before any
+brain is spawned, so what persists is what you typed, not a paraphrase. The
+whole file goes into every chat prompt and into `{{memory}}` for the `brief`,
+`review` and `journal` agents, which is why `operator_budget` caps it in
+characters: an append that would go past the cap is refused with the reason,
+so you prune rather than the file growing until nobody reads it.
+
+**`data/decisions.jsonl`, the recap.** One JSON line per dated decision,
+experiment or result (`{date, kind, text, source}`). A `remember that we
+decided ...` adds one; agents can append their own. The last `recap_days` days
+are rendered into the chat prompt as RECENT DECISIONS and into
+`{{recent_decisions}}`, cut to `recap_chars` from the oldest end.
+
+**`data/chat.log`.** Every chat turn, one JSON line each, when `chat_log` is
+true. **`data/session.json`** holds the Claude Code session between page
+loads, so a refresh continues the conversation; the `+` in the dock head
+starts a new one. `jarvis doctor` has a MEMORY section reporting all four.
 
 ## chat.mcp_servers
 
