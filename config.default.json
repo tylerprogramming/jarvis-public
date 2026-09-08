@@ -174,6 +174,10 @@
     "deliver": "none",
     "to": ""
   },
+  "$comment_notify": "Chat delivery, off by default. channels are named targets an agent opts into with notify: [<name>] in its frontmatter, or agents.<name>.notify here. Each channel is {\"provider\": ...} where provider is one of discord, telegram, slack, ntfy, webhook. Secrets never go here: they live in .env (DISCORD_WEBHOOK_URL, TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID, SLACK_WEBHOOK_URL, NTFY_TOPIC, NOTIFY_WEBHOOK_URL). For a second target on the same provider, add \"env\": \"DISCORD_WEBHOOK_URL_ALERTS\" to name the .env variable it reads instead. Example: {\"phone\": {\"provider\": \"telegram\"}, \"alerts\": {\"provider\": \"discord\", \"env\": \"DISCORD_WEBHOOK_URL_ALERTS\"}}.",
+  "notify": {
+    "channels": {}
+  },
   "$comment_social": "Which Apify actor to use per platform. Pinned on purpose: an agent that searches the store every morning can silently pick a different actor with different cost, different output, and different reliability. Change these to swap, and the agent reports a failure rather than substituting.",
   "social": {
     "actors": {
