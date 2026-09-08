@@ -15,7 +15,11 @@ Goal: pick next week's topics on evidence, not vibes.
 2. Research these lanes: {{lanes}}. If no lanes are configured, infer two or
    three from {{about}} and the recent titles on {{youtube}}, and say which you
    chose. For each lane run yt-dlp searches, no API key needed, for example:
-   yt-dlp "ytsearchdate30:<query>" --flat-playlist --print "%(title)s|%(view_count)s|%(upload_date)s|%(channel)s|%(duration)s" --no-warnings
+   yt-dlp "ytsearch30:<query>" --flat-playlist --print "%(title)s|%(view_count)s|%(upload_date)s|%(channel)s|%(duration)s" --no-warnings
+   Filter to upload_date within the last 30 days yourself; `ytsearchdate` no
+   longer exists in yt-dlp and fails with "Unsupported url scheme". If the
+   flat search prints NA for a date, fetch that video's details on its own
+   before you rank it, and never rank a video whose date you could not read.
    Use two or three query variants per lane. What matters is a video under 30
    days old with outsized views relative to the size of the channel that
    published it, since that indicates topic demand rather than audience size.
