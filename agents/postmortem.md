@@ -56,10 +56,11 @@ becomes evidence for the next one.
    file: adjust the confirmation date or add the new evidence, and add a
    changelog line. Distilled rules only, never raw data dumps. When you write
    to the playbook, one rule is at most 3 lines and one changelog entry at
-   most 2 lines. Cite the video id. Never restate raw numbers that are
-   already in the report; the report is where numbers live, the playbook is
-   where the rule lives. If no playbook is configured, put the rule at the
-   top of the report instead.
+   most 2 lines. A new rule must cite either a video id or an experiment id
+   from {{experiments_open}}; a rule with no evidence pointer is not written.
+   Never restate raw numbers that are already in the report; the report is
+   where numbers live, the playbook is where the rule lives. If no playbook
+   is configured, put the rule at the top of the report instead.
 
 
 CROSS-PLATFORM. {{data}}/posts.json holds posts from every platform something is

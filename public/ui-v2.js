@@ -1092,6 +1092,81 @@
     }
   }
 
+  /* =========================================================================
+   * EXPERIMENTS
+   *
+   * A small read-only block at the top of the Playbook panel: the open
+   * experiments from data/decisions.jsonl and the last three closed with
+   * their verdict. The page never writes it; the review agent opens and
+   * closes through scripts/experiments.py. app.js rebuilds #playbook on
+   * every loadData(), so this rides on the same rebinding trick the Memory
+   * block uses and prepends itself after each repaint.
+   * ======================================================================= */
+  {
+    const host = () => $("playbook");
+    let last = null;
+
+    function paintExperiments(d) {
+      const box = host();
+      if (!box) return;
+      let block = box.querySelector(".expblock");
+      if (!block) {
+        block = document.createElement("div");
+        block.className = "expblock";
+        box.insertBefore(block, box.firstChild);
+      }
+      if (!d || !Array.isArray(d.experiments)) {
+        block.innerHTML = '<div class="exphead"><span>EXPERIMENTS</span></div><div class="expempty">could not read the ledger</div>';
+        return;
+      }
+      const open = d.experiments.filter((e) => e.status === "open");
+      const closed = d.experiments.filter((e) => e.status === "closed").slice(-3).reverse();
+      const overdue = open.filter((e) => e.overdue).length;
+      let html = `<div class="exphead"><span>EXPERIMENTS</span>` +
+        `<small>${open.length} OPEN${overdue ? ` <b class="expover">${overdue} OVERDUE</b>` : ""}</small></div>`;
+      if (!open.length && !closed.length) {
+        html += '<div class="expempty">No experiments yet. The Sunday review opens one and closes it the week after.</div>';
+      }
+      for (const e of open) {
+        const when = e.days_left === null ? "no deadline"
+          : e.overdue ? `OVERDUE by ${-e.days_left} day${e.days_left === -1 ? "" : "s"}`
+          : e.days_left === 0 ? "due today"
+          : `${e.days_left} day${e.days_left === 1 ? "" : "s"} left`;
+        html += `<div class="exp${e.overdue ? " overdue" : ""}" title="${esc(e.id)}">` +
+          `<div class="exphyp">${esc(e.hypothesis)}</div>` +
+          `<div class="expmeta"><span class="expmetric">${esc(e.metric)} ${esc(e.target)}</span>` +
+          `<span class="expwhen">${esc(e.deadline || "")} ${esc(when)}</span></div></div>`;
+      }
+      for (const e of closed) {
+        html += `<div class="exp closed" title="${esc(e.id)}${e.result ? "\n" + esc(e.result) : ""}">` +
+          `<div class="exphyp">${esc(e.hypothesis)}</div>` +
+          `<div class="expmeta"><span class="expverdict ${esc(e.verdict || "")}">${esc((e.verdict || "").toUpperCase())}</span>` +
+          `<span class="expwhen">${esc(e.closed || "")}</span></div></div>`;
+      }
+      block.innerHTML = html;
+    }
+
+    async function refreshExperiments() {
+      let d = null;
+      try { d = await (await fetch("/api/experiments")).json(); } catch {}
+      last = d;
+      paintExperiments(d);
+    }
+
+    // Fetch once per data poll; if the fetch is still in flight when app.js
+    // repaints, put the last known list back so the block never flickers out.
+    if (typeof loadData === "function") {
+      const orig = loadData;
+      loadData = async function (...a) {
+        const r = await orig.apply(this, a);
+        if (last) paintExperiments(last);
+        try { await refreshExperiments(); } catch {}
+        return r;
+      };
+    }
+    refreshExperiments();
+  }
+
   /* The deck and the right column moved in CSS; the ring is laid out in JS
    * against their measured rectangles, so it needs a nudge once the
    * stylesheet has landed. */

@@ -17,7 +17,7 @@ Empty on a fresh clone apart from this file and the examples.
 | `<agent>.launchd.log` | What launchd itself said, when a run never started | launchd |
 | `spend.log` | What each paid scraper run cost | `social` |
 | `memory.md` | Facts you told Jarvis to keep, one dated line per fact under four headings | `lib/memory.js` only: chat "remember that", `jarvis memory add` |
-| `decisions.jsonl` | Dated decisions and experiment results, for the recap | `lib/memory.js` |
+| `decisions.jsonl` | Dated decisions and the experiments ledger, for the recap. `kind: decision` rows come from chat; `kind: experiment` (`{id, text, metric, target, deadline, status, source}`) and `kind: result` (`{experiment, text, verdict, source}`) rows come from `scripts/experiments.py`. Append only: an experiment's status is derived from its latest result line, never rewritten | `lib/memory.js`, `scripts/experiments.py` |
 | `chat.log` | Every chat turn, one JSON line each | `server.js` |
 | `session.json` | The current chat session id, so a reload continues it | `server.js` |
 

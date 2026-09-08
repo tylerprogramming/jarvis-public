@@ -279,6 +279,29 @@ true. **`data/session.json`** holds the Claude Code session between page
 loads, so a refresh continues the conversation; the `+` in the dock head
 starts a new one. `jarvis doctor` has a MEMORY section reporting all four.
 
+## experiments
+
+The ledger the Sunday `review` keeps in `data/decisions.jsonl` through
+`scripts/experiments.py`: one line per hypothesis (`kind: experiment`, with
+`id`, `metric`, `target`, `deadline`) and one per verdict (`kind: result`,
+`confirmed`, `refuted` or `unmeasured`). Append only; the latest result for
+an id decides its status.
+
+```json
+{
+  "experiments": {
+    "max_open": 2
+  }
+}
+```
+
+`max_open` is how many can be open at once. `add` refuses past it, so the
+review must close an old experiment with evidence before it can propose the
+next one. `jarvis experiments` lists them, `jarvis doctor` has an EXPERIMENTS
+line (`N open, M overdue`), and the HUD's Playbook panel shows the open ones
+with OVERDUE in amber when a deadline has passed. See
+[AGENTS.md](AGENTS.md#experiments) for the commands and the agent steps.
+
 ## chat.mcp_servers
 
 Which MCP servers Jarvis may call. Names exactly as `claude mcp list` shows
