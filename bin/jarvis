@@ -30,6 +30,8 @@ if (parseInt(process.versions.node.split(".")[0], 10) < MIN_NODE) {
  *   jarvis agent <name>     run one agent now, in the foreground
  *   jarvis agents install   put enabled agents on the OS scheduler
  *   jarvis agents uninstall remove them
+ *   jarvis notify           which chat channels have keys in .env
+ *   jarvis notify test [p]  really post a one-line ping to each configured one
  *   jarvis doctor           check what is actually wired up
  */
 const path = require("path");
@@ -378,6 +380,69 @@ async function main() {
       }
 
       console.error("usage: jarvis mcp [list | allow <name> | deny <name>]");
+      process.exit(1);
+    }
+
+    /* Chat delivery is the second thing here that leaves the machine, so the
+     * CLI never sends by accident: no arguments only reads .env and says what
+     * is set. `test` does send, one line per configured provider, because a
+     * webhook that exists is not a webhook that works. */
+    case "notify": {
+      load(); // puts .env into process.env, same as every other command
+      const script = path.join(ROOT, "scripts", "notify.py");
+      const [sub, only] = rest;
+      const PROVIDERS = {
+        discord: ["DISCORD_WEBHOOK_URL"],
+        telegram: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"],
+        slack: ["SLACK_WEBHOOK_URL"],
+        ntfy: ["NTFY_TOPIC"],
+        webhook: ["NOTIFY_WEBHOOK_URL"],
+      };
+      const ready = Object.keys(PROVIDERS).filter((p) => PROVIDERS[p].every((k) => process.env[k]));
+
+      if (!sub) {
+        console.log("");
+        for (const [p, keys] of Object.entries(PROVIDERS)) {
+          const missing = keys.filter((k) => !process.env[k]);
+          console.log(`  ${missing.length ? "off" : "ON "}  ${p.padEnd(10)} ${missing.length ? "set " + missing.join(", ") : "configured"}`);
+        }
+        console.log(ready.length
+          ? `\n  ${ready.length} configured. Nothing was sent. Try one:  jarvis notify test ${ready[0]}\n`
+          : `\n  None configured. Add keys to .env (see .env.example), then:  jarvis notify test\n`);
+        return;
+      }
+
+      if (sub === "test") {
+        const targets = only ? [only] : ready;
+        if (only && !PROVIDERS[only]) {
+          console.error(`  no such provider: ${only}\n  known: ${Object.keys(PROVIDERS).join(", ")}`);
+          process.exit(1);
+        }
+        if (!targets.length) {
+          console.log("  nothing to test: no provider has its keys in .env");
+          return;
+        }
+        let bad = 0;
+        for (const p of targets) {
+          let out = "";
+          try {
+            execFileSync("python3", [script, "--via", p, "--test"], {
+              cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+            });
+            console.log(`  ok    ${p}`);
+          } catch (e) {
+            bad++;
+            // the script prints "FAIL <provider>: <reason>" then a summary
+            // line; the reason is the useful part
+            const lines = String((e.stderr || "") + (e.stdout || "")).trim().split("\n");
+            out = (lines.find((l) => l.startsWith(`FAIL ${p}:`)) || lines.pop() || "").replace(`FAIL ${p}: `, "");
+            console.log(`  FAIL  ${p.padEnd(10)} ${out}`);
+          }
+        }
+        process.exit(bad ? 1 : 0);
+      }
+
+      console.error("usage: jarvis notify [test [provider]]");
       process.exit(1);
     }
 
