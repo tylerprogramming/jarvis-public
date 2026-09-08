@@ -76,6 +76,38 @@ because requirements are evaluated every time you list agents and a live MCP
 health check takes seconds. Whether the server actually answers is left to the
 agent, which is told to fail loudly rather than write a wrong number.
 
+## notify
+
+Send what an agent wrote to a chat channel when the run finishes. Off unless
+you turn it on, and done by code after the model has exited: the model never
+picks a channel, never sends twice, and cannot paste the wrong file, because
+it is not involved.
+
+```markdown
+notify: [phone]         # channel names from notify.channels in config
+notify_when: report     # report (default) | always
+notify_mode: summary    # summary (default) | full | link
+```
+
+`notify_when: report` sends only when the run produced a new file. That is
+free urgency for `radar`: no breakout, no report, no ping. `always` still
+needs a file to send and logs a stated skip when there is none.
+
+`summary` is the title, the first line of the report, and the path. `full` is
+the whole body, cut to the platform's limit with a note saying how much is
+left in the file. `link` is a URL that opens the report in the HUD, on the
+machine running it.
+
+You can set the same three keys under `agents.<name>` in `config.json`, which
+wins over the frontmatter, so a shipped agent can deliver without editing the
+file that `git pull` will overwrite. Channels and their providers are in
+[CONFIGURATION.md](CONFIGURATION.md#notify); the secrets live in `.env`.
+
+A delivery that fails writes `notify <channel>: FAILED: <reason>` to the
+agent's log in `data/logs/` and never changes the agent's own exit code.
+`jarvis agents check` refuses a channel that is missing, has an unknown
+provider, or has no secret set.
+
 ## Running and scheduling
 
 Agents run as independent OS jobs with no locking between them, so two that
@@ -94,7 +126,7 @@ jarvis agents uninstall
 Only agents listed in `agents.enabled` get scheduled. Clicking an agent on the
 HUD ring also runs it immediately, which is the fastest way to test a change.
 
-Every run appends to `data/<name>.log`.
+Every run appends to `data/logs/<name>.log`.
 
 ## Writing a good one
 
