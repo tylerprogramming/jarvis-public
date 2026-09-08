@@ -1500,3 +1500,39 @@ body.light.focus #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }
   border: 1px solid rgba(var(--accent-rgb), 0.13);
 }
 .memhint b { font-weight: 500; color: var(--text); font-family: var(--mono); font-size: 11px; }
+
+/* =========================================================================
+   EXPERIMENTS
+   The read-only block ui-v2.js prepends to the Playbook panel: open
+   hypotheses with their deadline, OVERDUE in the amber token when past,
+   and the last three closed with a verdict. Same card family as the rules
+   below it, so it reads as part of the same loop.
+   ========================================================================= */
+.expblock { margin: 0 0 14px; }
+.exphead {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--dim); margin: 0 0 6px;
+}
+.exphead small { font-size: 9.5px; letter-spacing: 0.12em; color: var(--dim); }
+.exphead .expover { font-weight: 500; color: var(--amber); }
+.exp {
+  padding: 8px 11px; margin-bottom: 6px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+}
+.exp.overdue { border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.exp.closed { opacity: .72; }
+.exphyp { font-size: 12.5px; line-height: 1.45; color: var(--text); text-wrap: pretty; }
+.expmeta {
+  display: flex; justify-content: space-between; gap: 8px; margin-top: 4px;
+  font-family: var(--mono); font-size: 9.5px; color: var(--dim); letter-spacing: 0.04em;
+}
+.expmetric { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expwhen { flex: none; }
+.exp.overdue .expwhen { color: var(--amber); }
+.expverdict { letter-spacing: 0.12em; }
+.expverdict.confirmed { color: var(--accent); }
+.expverdict.refuted { color: var(--red); }
+.expverdict.unmeasured { color: var(--amber); }
+.expempty { font-size: 12px; color: var(--dim); padding: 2px 2px 6px; }
