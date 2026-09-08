@@ -14,11 +14,19 @@ watching six hours of YouTube.
 
 1. Pick the material. Search the lanes ({{lanes}}) with yt-dlp for videos posted
    in the last 14 days:
-   yt-dlp "ytsearchdate25:<query>" --flat-playlist --print "%(id)s|%(title)s|%(view_count)s|%(channel)s|%(channel_follower_count)s" --no-warnings
+   yt-dlp "ytsearch30:<query>" --flat-playlist --print "%(id)s|%(title)s|%(view_count)s|%(upload_date)s|%(channel)s|%(channel_follower_count)s" --no-warnings
+   Filter to upload_date within the last 14 days yourself; `ytsearchdate` no
+   longer exists in yt-dlp and fails with "Unsupported url scheme". A flat
+   search often prints NA for the date and follower count, so fetch those
+   per video for your shortlist before ranking.
    Rank by views RELATIVE to the publishing channel's subscriber count. A video
    pulling well above its channel's size means the topic is carrying it, which
    is the signal worth studying. Raw view count mostly measures channel size.
    Pick the 3 strongest.
+
+   Do not spawn parallel searches or write scratch files; run the searches in
+   sequence and write the report before you finish. If you did not write
+   {{reports}}/{{today}}-study.md, you are not done.
 
 2. Read them. For each pick:
    python3 scripts/transcript.py <video_id> --out /tmp/study-<video_id>.txt
