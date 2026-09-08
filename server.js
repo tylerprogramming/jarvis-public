@@ -190,7 +190,10 @@ function apiPlaybook(res, q) {
 /* Only serves files that genuinely live inside a configured documents dir,
  * checked after resolving symlinks so ../ and link tricks cannot escape. */
 function apiDoc(res, q) {
-  const requested = q.get("f") || "";
+  let requested = q.get("f") || "";
+  // A relative path is taken against the repo, which is how a notification's
+  // link names the file. The allow-list below still decides whether it opens.
+  if (requested && !path.isAbsolute(requested)) requested = path.join(ROOT, requested);
   let real;
   try { real = fs.realpathSync(requested); } catch { return sendJson(res, { error: "not found" }, 404); }
   // The playbook is allowed by exact path, not by directory. It usually lives

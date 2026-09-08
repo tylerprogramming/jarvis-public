@@ -706,6 +706,45 @@
   }
   window.JarvisMarkdown = { render: mdBlocks, inline: mdInline };
 
+  /* =========================================================================
+   * OPENING A DOCUMENT
+   *
+   * The Documents panel says "click one to read it" and never did: app.js
+   * renders the rows with data-f and wires nothing, only the Playbook rules
+   * open. One opener, delegated so it survives every re-render, reading
+   * through /api/doc so the server's directory allow-list still applies.
+   *
+   * The same opener answers ?doc=<path> on the URL, which is what a
+   * notification's link mode points at: the message on your phone opens the
+   * report it is about, not the deck.
+   * ======================================================================= */
+  async function openDoc(file, fallbackName) {
+    if (!file) return;
+    let r;
+    try { r = await (await fetch("/api/doc?f=" + encodeURIComponent(file))).json(); }
+    catch (e) { r = { error: String(e) }; }
+    $("modal-title").textContent = r.name || fallbackName || file.split("/").pop();
+    const body = $("modal-body");
+    body.className = "plain";
+    body.textContent = r.content || r.error || "";
+    $("modal").classList.add("open");
+  }
+  window.openDoc = openDoc;
+  {
+    const list = $("documents");
+    if (list) list.addEventListener("click", (e) => {
+      const row = e.target.closest(".doc[data-f]");
+      if (row) openDoc(row.dataset.f, row.title);
+    });
+    const wanted = new URLSearchParams(location.search).get("doc");
+    if (wanted) {
+      // Relative to the repo is what notify.py sends; /api/doc wants a real
+      // path, so let the server resolve it against its own root.
+      addEventListener("load", () => openDoc(wanted));
+      history.replaceState(null, "", location.pathname);
+    }
+  }
+
   /* The deck and the right column moved in CSS; the ring is laid out in JS
    * against their measured rectangles, so it needs a nudge once the
    * stylesheet has landed. */
