@@ -339,6 +339,16 @@ function apiMemory(res) {
   sendJson(res, { lines: r.lines, chars: r.chars, budget: r.budget, sections: r.sections });
 }
 
+/* The experiments ledger, read only. The HUD never writes it: an experiment
+ * is opened and closed by the review agent through scripts/experiments.py,
+ * so this is exactly what that script would print. */
+function apiExperiments(res) {
+  const ex = require("./lib/experiments");
+  const all = ex.read(CFG);
+  const s = ex.summary(CFG);
+  sendJson(res, { experiments: all, open: s.open, overdue: s.overdue, closed: s.closed, max_open: s.maxOpen });
+}
+
 function apiMemoryDelete(res, q) {
   const hash = (q.get("hash") || "").trim();
   if (!hash) return sendJson(res, { error: "hash required" }, 400);
@@ -556,6 +566,7 @@ const server = http.createServer((req, res) => {
     if (url.pathname === "/api/status") return apiStatus(res);
     if (url.pathname === "/api/config") return apiGetConfig(res);
     if (url.pathname === "/api/memory") return apiMemory(res);
+    if (url.pathname === "/api/experiments") return apiExperiments(res);
   }
 
   if (req.method === "DELETE") {

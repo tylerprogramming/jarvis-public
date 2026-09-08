@@ -21,6 +21,7 @@
  *   jarvis memory           print what the operator told Jarvis to keep
  *   jarvis memory add "<text>"       add a line (same as "remember that" in chat)
  *   jarvis memory forget <needle>    drop every line containing the words
+ *   jarvis experiments      the experiments ledger: open, overdue, closed with verdicts
  *   jarvis doctor           check what is actually wired up
  */
 
@@ -565,6 +566,31 @@ async function main() {
       process.exit(1);
     }
 
+    /* Read only. Opening and closing go through scripts/experiments.py so
+     * the cap and the append-only rule live in one place. */
+    case "experiments": {
+      const cfg = load();
+      const ex = require(path.join(ROOT, "lib", "experiments"));
+      const all = ex.read(cfg);
+      const s = ex.summary(cfg);
+      console.log(`\n  EXPERIMENTS        ${s.head}   ${path.relative(ROOT, ex.file(cfg))}`);
+      const show = (list) => list.forEach((e) => {
+        console.log(`    ${e.id.padEnd(34)} ${e.status.padEnd(7)} ${ex.daysWord(e)}${e.status === "closed" ? `  ${e.verdict}` : ""}`);
+        console.log(`        ${e.hypothesis}`);
+        console.log(`        metric: ${e.metric}   target: ${e.target}   deadline: ${e.deadline || "none"}`);
+        if (e.result) console.log(`        result: ${e.result}`);
+      });
+      const opened = all.filter((e) => e.status === "open");
+      const closed = all.filter((e) => e.status === "closed");
+      console.log(`\n  OPEN (${opened.length} of ${s.maxOpen})`);
+      opened.length ? show(opened) : console.log("    (none)");
+      console.log(`\n  CLOSED (${closed.length})`);
+      closed.length ? show(closed) : console.log("    (none)");
+      console.log(`\n  open one:    python3 scripts/experiments.py add --hypothesis "..." --metric "..." --target "..." --deadline YYYY-MM-DD`);
+      console.log(`  close one:   python3 scripts/experiments.py close <id> --result "..." --verdict confirmed|refuted|unmeasured\n`);
+      return;
+    }
+
     case "transcript":
       if (!rest.length) {
         console.error("usage: jarvis transcript <youtube-url-or-id> [--out FILE]");
@@ -806,6 +832,17 @@ async function main() {
           console.log(`    session            none   (the next chat starts a fresh one)`);
         }
         console.log(`    chat cwd           ${chatCwd(cfg).replace(process.env.HOME || "~", "~")}${cfg.chat.cwd ? "" : "   (repo root, same as the agents)"}`);
+      }
+
+      /* Experiments. Read from the ledger, not the config: the count that
+       * matters is how many hypotheses are past their deadline with no
+       * verdict, which is the review agent skipping its own homework. */
+      {
+        const ex = require(path.join(ROOT, "lib", "experiments"));
+        const s = ex.summary(cfg);
+        console.log(`\n  EXPERIMENTS`);
+        console.log(`    ledger             ${s.open} open, ${s.overdue} overdue, ${s.closed} closed (cap ${s.maxOpen})${fs.existsSync(ex.file(cfg)) ? "" : "   (no decisions.jsonl yet; the review agent opens the first one)"}`);
+        for (const e of ex.due(cfg)) console.log(`    OVERDUE            ${e.id}  ${ex.daysWord(e)}`);
       }
 
       /* Recurring scraper cost is easy to stop noticing, which is how a few

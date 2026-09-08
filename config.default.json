@@ -177,6 +177,10 @@
     "recap_chars": 1500,
     "chat_log": true
   },
+  "$comment_experiments": "The experiments ledger the review agent keeps in data/decisions.jsonl (scripts/experiments.py). max_open caps how many can be open at once: `add` refuses past it, so a new hypothesis cannot be written until an old one is closed with a verdict.",
+  "experiments": {
+    "max_open": 2
+  },
   "$comment_journal": "The nightly entry. dir is empty to mean journal/ beside the repo; set it only to keep entries somewhere else. deliver is none, gmail, or resend. none writes the file and stops - the default, because the other two leave your machine. gmail creates a DRAFT you press send on; the Gmail connector cannot send. resend actually sends, and needs RESEND_API_KEY and JARVIS_MAIL_FROM in .env.",
   "journal": {
     "dir": "",

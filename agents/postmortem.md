@@ -49,7 +49,9 @@ becomes evidence for the next one.
 7. If the review confirms or contradicts a rule in the playbook, update that
    file: adjust the confirmation date or add the new evidence, and add a
    changelog line. Distilled rules only, never raw data dumps. If no playbook
-   is configured, put the rule at the top of the report instead.
+   is configured, put the rule at the top of the report instead. A new
+   playbook rule must cite either a video id or an experiment id from
+   {{experiments_open}}; a rule with no evidence pointer is not written.
 
 
 CROSS-PLATFORM. {{data}}/posts.json holds posts from every platform something is
