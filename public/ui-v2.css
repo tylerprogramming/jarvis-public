@@ -1412,3 +1412,53 @@ body.focus #focus-exit { display: flex; }
 #dock-focus { font-size: 13px; }
 body.light #focus-exit { background: rgba(255, 255, 255, 0.7); }
 body.light.focus #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }
+
+/* =========================================================================
+   MEMORY
+   The rail view ui-v2.js builds for data/memory.md, and the New conversation
+   control beside focus in the dock head. Rows follow the playbook rule cards
+   so the two panels that hold "things Jarvis knows" read as one family.
+   ========================================================================= */
+#dock-new { font-size: 15px; }
+
+#railbody .panel[data-view="memory"] .panelbody { padding-top: 12px; }
+.memmeter {
+  height: 3px; border-radius: 999px; margin: 0 0 14px;
+  background: rgba(var(--accent-rgb), 0.10); overflow: hidden;
+}
+.memmeter i {
+  display: block; height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  transition: width .4s var(--v2-ez);
+}
+.memsect {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--dim); margin: 12px 0 6px;
+}
+.memsect:first-of-type { margin-top: 0; }
+.memline {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 9px 11px; margin-bottom: 6px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(var(--accent-rgb), 0.08);
+  transition: border-color .2s var(--v2-ez);
+}
+.memline:hover { border-color: rgba(var(--accent-rgb), 0.24); }
+.memdate { flex: none; font-family: var(--mono); font-size: 9.5px; color: var(--dim); padding-top: 2px; }
+.memtext { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--text); text-wrap: pretty; }
+.memdel {
+  flex: none; appearance: none; border: 0; cursor: pointer;
+  width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center;
+  background: transparent; color: var(--dim); font-size: 14px; line-height: 1;
+  opacity: 0; transition: opacity .18s, color .18s, background .18s;
+}
+.memline:hover .memdel, .memdel:focus-visible { opacity: 1; }
+.memdel:hover { color: var(--red); background: rgba(var(--red-rgb), 0.12); }
+.memempty { font-size: 12.5px; color: var(--dim); padding: 6px 2px; }
+.memhint {
+  flex: none; margin: 0 20px 18px; padding: 10px 12px; border-radius: 12px;
+  font-size: 12px; line-height: 1.5; color: var(--dim);
+  background: rgba(var(--accent-rgb), 0.05);
+  border: 1px solid rgba(var(--accent-rgb), 0.13);
+}
+.memhint b { font-weight: 500; color: var(--text); font-family: var(--mono); font-size: 11px; }
