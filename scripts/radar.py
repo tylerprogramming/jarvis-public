@@ -69,10 +69,32 @@ def main():
         except Exception as e:
             print(f"{handle}: FAILED {e}", file=sys.stderr)
             continue
-        mature = sorted(v["velocity"] for v in vids if v["age_days"] >= recent_days)
+        # The baseline is the median velocity of uploads older than the recent
+        # window. A channel that posts daily can have all `per_channel` uploads
+        # inside that window, and one whose videos came back without a view
+        # count has velocities of 0. Either way there is no baseline, and a
+        # median of 0 is not one: it silently hides every breakout on that
+        # channel while still being written as a number. Same rule as
+        # posts.py: a missing baseline is omitted with a reason, never zero.
+        mature = sorted(v["velocity"] for v in vids
+                        if v["age_days"] >= recent_days and v["views"] > 0)
         median = mature[len(mature) // 2] if mature else 0
+        if not vids:
+            reason = "no videos with an upload date came back"
+        elif not mature:
+            reason = (f"all {len(vids)} fetched uploads are under {recent_days} days old, "
+                      f"no baseline; raise radar.per_channel for this channel")
+        elif median <= 0:
+            reason = "mature uploads round to zero views a day, no baseline"
+        else:
+            reason = None
+        if reason:
+            channels.append({"handle": handle, "median_velocity": None,
+                             "skipped": reason, "videos": vids})
+            print(f"{handle}: skipped, {reason}")
+            continue
         for v in vids:
-            if (v["age_days"] <= recent_days and median > 0
+            if (v["age_days"] <= recent_days
                     and v["views"] >= min_views
                     and v["velocity"] >= multiple * median):
                 breakouts.append({**v, "channel": handle,
