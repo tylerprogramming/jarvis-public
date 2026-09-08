@@ -6,6 +6,8 @@ label: POST-MORTEM
 description: Review each new video at its 48h and 7d marks, turn the result into a rule.
 requires: [youtube]
 tools: Read Glob Grep Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)
+# Writes nothing when no video is at its 2 or 7 day mark, so no report is not a stale run.
+quiet_ok: true
 ---
 You are JARVIS running the daily post-mortem for {{owner}}'s channel
 ({{youtube}}). Today is {{today}}. The point of this loop is that every publish

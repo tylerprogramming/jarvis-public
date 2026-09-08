@@ -126,7 +126,37 @@ jarvis agents uninstall
 Only agents listed in `agents.enabled` get scheduled. Clicking an agent on the
 HUD ring also runs it immediately, which is the fastest way to test a change.
 
-Every run appends to `data/logs/<name>.log`.
+Every run appends to `data/logs/<name>.log` and writes one row to
+`data/runs.json`, the run ledger: when it started and ended, the exit code,
+whether it was skipped, the file it wrote (found by the convention, not
+reported by the model), the first error line if one of the known failures
+appeared, and whether the scheduler or a person started it. `jarvis agent
+<name>` exits with the run's code; a scheduled run that died of "went to
+sleep mid-response" or "Connection closed" is retried once after a minute,
+as a second row with `retry_of`. A run past `agents.timeout_minutes` is
+killed and recorded as exit 124.
+
+## Health
+
+The HUD, `jarvis agents` and `jarvis doctor` all read the ledger and say one
+of: **ok**, **failed** (exit not 0), **overdue** (scheduled, and no run since
+the last fire plus 90 minutes), **stale** (exited 0 but the prompt writes to
+`{{reports}}` or `{{journal_dir}}` and no file appeared), **never**,
+**running**, or **not loaded** (scheduled and enabled, but the OS job is
+missing, or on macOS the plist points at a `node` that no longer exists,
+which is what a Homebrew upgrade does). DONE is only shown for ok.
+
+An agent that legitimately writes nothing on a quiet day says so with
+`quiet_ok: true` in its frontmatter (`radar`, `postmortem`, `watchdog`), so
+an empty run is not called stale.
+
+`watchdog` runs at 08:15, computes the same verdict for every scheduled agent
+with `scripts/runs.py --check` (stdlib Python, independent of the Node code it
+is checking), and writes `reports/<date>-watchdog.md` only when something is
+wrong, one line per problem with the fix command. To be pinged, give it a
+channel like any other agent: `notify: [phone]` in `agents/watchdog.md`, or
+`agents.watchdog.notify` in `config.json`. Because it is itself scheduled,
+`jarvis doctor` prints when it last checked, so a dead watchdog is visible.
 
 ## Writing a good one
 

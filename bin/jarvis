@@ -17,6 +17,7 @@
  *   jarvis notify           which chat channels and providers are configured
  *   jarvis notify test [x]  really post a one-line ping: x is a channel name
  *                           from notify.channels or a provider name
+ *   jarvis notify telegram-id  list the chats that messaged your bot, with ids
  *   jarvis memory           print what the operator told Jarvis to keep
  *   jarvis memory add "<text>"       add a line (same as "remember that" in chat)
  *   jarvis memory forget <needle>    drop every line containing the words
@@ -46,6 +47,7 @@ const { spawn, execFileSync } = require("child_process");
 
 const ROOT = path.join(__dirname, "..");
 const { load } = require(path.join(ROOT, "lib", "config"));
+const { readJson: readJsonFile } = require(path.join(ROOT, "lib", "util"));
 
 const [, , cmd = "start", ...rest] = process.argv;
 
@@ -476,7 +478,50 @@ async function main() {
         process.exit(bad ? 1 : 0);
       }
 
-      console.error("usage: jarvis notify [test [channel-or-provider]]");
+      /* Telegram is the one provider where the second secret cannot be copied
+       * from a settings page: the chat id only exists after someone messages
+       * the bot, and the way to read it is a JSON dump most people have never
+       * seen. Do that lookup here, with the token already in .env, and print
+       * only the chats and their ids. Nothing is sent. */
+      if (sub === "telegram-id") {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        if (!token) {
+          console.error("  set TELEGRAM_BOT_TOKEN in .env first (from @BotFather), then message your bot once");
+          process.exit(1);
+        }
+        const url = `https://api.telegram.org/bot${token}/getUpdates`;
+        let body;
+        try {
+          const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+          body = await r.json();
+          if (!body.ok) throw new Error(body.description || `HTTP ${r.status}`);
+        } catch (e) {
+          console.error(`  telegram refused it: ${String(e.message || e).replace(token, "<token>")}`);
+          console.error("  a 401 means the token is wrong or was revoked in @BotFather");
+          process.exit(1);
+        }
+        const seen = new Map();
+        for (const u of body.result || []) {
+          const m = u.message || u.channel_post || u.edited_message || u.my_chat_member || {};
+          const c = m.chat;
+          if (c && c.id != null) seen.set(String(c.id), c);
+        }
+        if (!seen.size) {
+          console.log("\n  no chats yet. Open your bot in Telegram, send it any message, then run this again.");
+          console.log("  (for a group: add the bot to the group and post a message there; Telegram keeps updates for 24 hours)\n");
+          process.exit(1);
+        }
+        console.log("\n  chats that have messaged this bot:\n");
+        for (const [id, c] of seen) {
+          const who = c.title || [c.first_name, c.last_name].filter(Boolean).join(" ") || c.username || "";
+          console.log(`  ${id.padEnd(16)} ${(c.type || "").padEnd(11)} ${who}`);
+        }
+        const first = [...seen.keys()][0];
+        console.log(`\n  put one in .env:  TELEGRAM_CHAT_ID=${first}\n  then prove it:    jarvis notify test telegram\n`);
+        return;
+      }
+
+      console.error("usage: jarvis notify [test [channel-or-provider] | telegram-id]");
       process.exit(1);
     }
 
@@ -535,9 +580,14 @@ async function main() {
         console.error("usage: jarvis agent <name>");
         process.exit(1);
       }
-      const res = await agents.run(cfg, name, { onLog: (l) => console.log(l) });
-      if (res.skipped) console.log(`skipped: missing config for ${res.missing.join(", ")}`);
-      return;
+      // Exit with the run's code. This used to return 0 whatever happened,
+      // so launchd, cron and a person reading `$?` all saw success on a run
+      // whose log said "Connection closed". A skip is 0 because the config
+      // is what needs fixing, and the reason is printed so it is not silent.
+      const res = await agents.runWithRetry(cfg, name, { onLog: (l) => console.log(l) });
+      if (res.skipped) { console.log(`skipped: missing config for ${res.missing.join(", ")}`); process.exit(0); }
+      if (res.code !== 0) console.error(`${name}: exit ${res.code}${res.error ? ` (${res.error})` : ""}${res.retried ? ", after one retry" : ""}`);
+      process.exit(res.code || 0);
     }
 
     case "agents": {
@@ -580,12 +630,16 @@ async function main() {
         return;
       }
 
+      const runsLib = require(path.join(ROOT, "lib", "runs"));
       for (const a of all) {
         const unmet = agents.unmetRequirements(a, cfg);
         const state = !a.enabled ? "off" : unmet.length ? `needs ${unmet.join(",")}` : "on";
-        let last = "never run";
-        try { last = new Date(fs.statSync(a.log).mtimeMs).toLocaleString(); } catch {}
-        console.log(`  ${a.name.padEnd(15)} ${String(a.schedule || "on demand").padEnd(14)} ${state.padEnd(16)} ${last}`);
+        // the ledger, not the log's mtime: a restore from backup or a tail
+        // of the log used to make every agent look freshly run
+        const h = runsLib.health(cfg, a);
+        const last = h.lastRun ? `${new Date(h.lastRun).toLocaleString()} ${h.lastExit === null ? "(open)" : `exit ${h.lastExit}`}` : "never run";
+        const flag = a.enabled && h.state !== "ok" ? `  <- ${h.state.toUpperCase()}${h.detail ? `: ${h.detail}` : ""}` : "";
+        console.log(`  ${a.name.padEnd(15)} ${String(a.schedule || "on demand").padEnd(14)} ${state.padEnd(16)} ${last}${flag}`);
       }
       console.log(`\n  run one now:  jarvis agent <name>`);
       console.log(`  schedule all: jarvis agents install`);
@@ -777,15 +831,57 @@ async function main() {
       // that reads as "fine" everywhere else.
       const adv = sleepAdvice();
       const tz = timezoneAdvice(cfg);
-      const state = tz.confirmed ? "AGENTS ARE RUNNING AT THE WRONG TIME"
+
+      /* Then the part that would have caught the twelve silent days: is each
+       * job actually loaded, does its plist point at a node that exists, and
+       * did it run when the schedule said. Read from the ledger and from
+       * launchctl, never from the config, which only says what should happen. */
+      const agents = require(path.join(ROOT, "lib", "agents"));
+      const runsLib = require(path.join(ROOT, "lib", "runs"));
+      const scheduled = agents.list(cfg).filter((a) => a.enabled && a.schedule);
+      const rows = runsLib.all(cfg, scheduled);
+      const nLoaded = rows.filter((r) => r.loaded).length;
+      const nOverdue = rows.filter((r) => r.overdue).length;
+      const nBad = rows.filter((r) => r.state !== "ok").length;
+      // nothing loaded beats every other headline: a timezone offset seen in
+      // old logs is moot while no job can fire at all
+      const state = scheduled.length && nLoaded === 0 ? "NOTHING IS SCHEDULED"
+        : tz.confirmed ? "AGENTS ARE RUNNING AT THE WRONG TIME"
+        : nBad ? `${nBad} AGENT(S) NEED ATTENTION`
         : tz.warn ? "CLOCK MAY BE WRONG"
         : adv.warn ? "AGENTS WILL RUN LATE" : "ok";
       console.log(`\n  SCHEDULE           ${state}`);
+      const when = (ms) => ms ? new Date(ms).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" }) : "never";
+      for (const r of rows) {
+        const a = scheduled.find((x) => x.name === r.agent);
+        const exit = r.lastExit === null ? (r.lastRun ? "open" : "") : `exit ${r.lastExit}`;
+        console.log(`    ${r.agent.padEnd(11)} ${String(a.schedule).padEnd(13)} loaded ${r.loaded ? "yes" : "no "}  last ${when(r.lastRun).padEnd(16)} ${exit.padEnd(8)} expected ${when(r.expectedAt).padEnd(16)} ${r.state.toUpperCase()}`);
+        if (r.state !== "ok" && r.detail) console.log(`    ${"".padEnd(11)} ${r.detail}`);
+      }
+      if (scheduled.length) {
+        console.log(`    ${nLoaded} of ${scheduled.length} scheduled agents loaded; ${nOverdue} overdue`);
+        if (nLoaded < scheduled.length) console.log(`    fix                jarvis agents install`);
+      } else {
+        console.log(`    no enabled agent has a schedule`);
+      }
+      // The watchdog is itself a scheduled agent, so its own silence has to
+      // be visible here or a dead watchdog looks like a quiet one.
+      {
+        const chk = readJsonFile(path.join(cfg.paths.data, "runs-check.json"));
+        if (!chk || !chk.checked_at) {
+          console.log(`    watchdog           never checked (scripts/runs.py --check has not run; jarvis agent watchdog)`);
+        } else {
+          const ageMs = Date.now() - new Date(chk.checked_at).getTime();
+          const age = ageMs < 3600000 ? `${Math.round(ageMs / 60000)} min ago` : ageMs < 86400000 ? `${(ageMs / 3600000).toFixed(1)} h ago` : `${(ageMs / 86400000).toFixed(1)} days ago`;
+          const n = (chk.problems || []).length;
+          console.log(`    watchdog           last checked ${age}, ${n} problem(s)${ageMs > 36 * 3600000 ? "   <- stale, the watchdog itself is not running" : ""}`);
+        }
+      }
+      if (tz.lines.length || adv.lines.length) console.log(`    --`);
       tz.lines.forEach((l) => console.log(`    ${l}`));
       if (tz.warn && adv.lines.length) console.log(`    --`);
       adv.lines.forEach((l) => console.log(`    ${l}`));
 
-      const agents = require(path.join(ROOT, "lib", "agents"));
       const enabled = agents.list(cfg).filter((a) => a.enabled);
       console.log(`\n  AGENTS             ${enabled.length} enabled: ${enabled.map((a) => a.name).join(", ") || "none"}\n`);
       return;

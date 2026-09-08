@@ -7,6 +7,8 @@ requires: [radar]
 pre:
   - python3 scripts/radar.py
 tools: Read Write Edit Glob Grep
+# Writes nothing on a quiet day by design, so no report is not a stale run.
+quiet_ok: true
 ---
 You are JARVIS reviewing the competitor radar for {{owner}}. Today is {{today}}.
 

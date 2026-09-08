@@ -156,7 +156,45 @@ header .modes span.bad .dot {
   border: 1px solid rgba(var(--accent-rgb), 0.07);
   color: var(--dim);
 }
-#nowbar .nowpill.warn { background: rgba(var(--red-rgb), 0.12); color: var(--red); }
+/* Two grades of trouble. bad (red) is a run that happened and broke, or an
+   agent blocked on config; warn (amber) is a run that did not happen: not
+   loaded, overdue, stale, never. Both carry the reason in the title. */
+#nowbar .nowpill.bad { background: rgba(var(--red-rgb), 0.12); color: var(--red); }
+#nowbar .nowpill.warn { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber); }
+#nowbar .nowpill.warn i, #nowbar .nowpill.bad i { background: currentColor; }
+#nowattn .nowattnlab {
+  font-size: 10px; letter-spacing: 0.1em; color: var(--amber); white-space: nowrap;
+  cursor: pointer; margin-right: 14px; text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+#nowattn .nowattnlab:hover { color: var(--text); }
+/* the same words on the ring plates, under the schedule tag */
+.agent .astate {
+  display: block; font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em;
+  margin-top: 2px; color: var(--dim); opacity: .75;
+}
+.agent .astate:empty { display: none; }
+.agent.warn .astate { color: var(--amber); opacity: 1; }
+.agent.bad .astate { color: var(--red); opacity: 1; }
+.agent.warn .adot { border-color: var(--amber); }
+.agent.bad .adot { border-color: var(--red); background: var(--red); }
+/* the list behind "N agents need attention" */
+.v2attn { margin: 6px 0 10px; font-size: 12px; line-height: 1.45; }
+.v2attn b { font-weight: 600; color: var(--text); margin-right: 8px; }
+.v2attn .st { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; }
+.v2attn .st.warn { color: var(--amber); }
+.v2attn .st.bad { color: var(--red); }
+.v2attn .dt { color: var(--dim); font-size: 11.5px; }
+.v2attn.foot { color: var(--dim); font-size: 11px; margin-top: 14px; }
+/* vitals staleness: amber, beside the primary card label and in the hero head */
+.v2stale {
+  display: inline-block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em;
+  color: var(--amber); padding: 2px 7px; border-radius: 999px;
+  border: 1px solid var(--amber); opacity: .9; cursor: help; white-space: nowrap;
+}
+/* appended after the target bar on the primary card, so it never sits on
+   the label that renderPrimary rewrites */
+.v2stale.pd { margin-top: 9px; }
 #nownext .nownextlab {
   font-size: 10px; letter-spacing: 0.1em; color: var(--dim); white-space: nowrap;
 }

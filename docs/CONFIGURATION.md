@@ -49,6 +49,12 @@ Which tiles are drawn: `yt_subs`, `instagram`, `tiktok`, `linkedin`, `x`,
 `community`, `latest_video`, `checkin`. A tile also needs its channel
 configured and its number present, so unused ones disappear on their own.
 
+`vitals.stale_hours` (default 36): when `data/vitals.json` `updated_at` is
+older than this, the primary card and the dashboard show a STALE badge with
+the age, and the watchdog lists it. The collector only moves `updated_at`
+when a fetch really returned data, so the badge means the numbers are old,
+not that nothing ran.
+
 ## radar
 
 Channels watched for breakouts. A breakout is a recent upload whose views per
@@ -373,6 +379,17 @@ in `.env`, not here. Non-loopback without a token refuses to start.
 ```
 
 Only enabled agents get scheduled. See [AGENTS.md](AGENTS.md).
+
+`agents.timeout_minutes` (default 45): the ceiling on one `claude` run. Past
+it the process is killed, the run is recorded in `data/runs.json` with exit
+124 and the error `timed out after N min`, and `jarvis agent <name>` exits
+124. Without a ceiling a run that hung on a dropped connection sat until the
+next scheduled fire started a second copy on top of it.
+
+`agents.<name>.notify` also applies to `watchdog`: `{ "agents": { "watchdog":
+{ "notify": ["phone"] } } }` sends its report, which it only writes when some
+agent failed, is overdue, is not loaded, or wrote nothing. A quiet day sends
+nothing.
 
 ## calendar.week_plan
 

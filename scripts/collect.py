@@ -56,10 +56,16 @@ def collect_youtube(handle, detail_count=6):
     recent = []
     for e in entries:
         d = details.get(e["id"], {})
+        # A flat listing past detail_count carries no view count. Those used to
+        # be written as views 0, which posts.py then upserted, and a zero reads
+        # as a dead post and drags the breakout median down for the whole
+        # platform (posts.py's own rule: omit, never zero). None here means
+        # "not read"; the post store below skips it.
+        views = d.get("views") if d.get("views") is not None else e.get("view_count")
         recent.append({
             "id": e["id"],
             "title": d.get("title") or e.get("title") or "",
-            "views": d.get("views") or e.get("view_count") or 0,
+            "views": views,
             "duration": d.get("duration") or e.get("duration") or 0,
             "upload_date": d.get("upload_date", ""),
         })
@@ -89,7 +95,7 @@ def collect_youtube(handle, detail_count=6):
         "title": latest["title"],
         "views": latest["views"],
         "upload_date": up,
-        "views_per_day": round(latest["views"] / days_live) if days_live else None,
+        "views_per_day": round(latest["views"] / days_live) if days_live and latest["views"] is not None else None,
     }
     return out
 
@@ -174,11 +180,22 @@ def main():
     os.makedirs(DATA, exist_ok=True)
     vitals = load(VITALS, {})
 
+    # updated_at means "these numbers were fetched then". It used to be bumped
+    # on every run, so a run whose every fetch failed still made twelve-day-old
+    # numbers look like this morning's, and the HUD had nothing to warn on.
+    # Now it moves only when at least one source really returned data.
+    fetched = False
     if "--fetch" in sys.argv:
         handle = cfg.get("profile", {}).get("channels", {}).get("youtube", "")
-        vitals.update(collect_youtube(handle))
+        yt = collect_youtube(handle)
+        if yt:
+            fetched = True
+        vitals.update(yt)
 
-    vitals.update(run_plugins())
+    plugged = run_plugins()
+    if plugged:
+        fetched = True
+    vitals.update(plugged)
 
     # YouTube fills the cross-platform post store for free. Everything that
     # reads posts.json (postmortem, own-post breakouts) therefore works for
@@ -190,11 +207,14 @@ def main():
              "url": f"https://www.youtube.com/watch?v={v.get('id')}",
              "title": v.get("title"), "published": v.get("upload_date"),
              "views": v.get("views"), "duration": v.get("duration")}
-            for v in (vitals.get("yt_recent") or []) if v.get("id")
+            for v in (vitals.get("yt_recent") or []) if v.get("id") and v.get("views") is not None
         ])
     except Exception as e:
         print(f"posts store: skipped ({e})", file=sys.stderr)
-    vitals["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    if fetched:
+        vitals["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    elif "--fetch" in sys.argv:
+        print("no source returned data; updated_at left as it was", file=sys.stderr)
 
     update_calendar(cfg, vitals.get("yt_recent"))
 

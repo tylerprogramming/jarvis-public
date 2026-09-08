@@ -11,7 +11,9 @@ Empty on a fresh clone apart from this file and the examples.
 | `radar.json` | Latest competitor sweep and computed breakouts | `scripts/radar.py` |
 | `directives.json` | Your queue. The HUD ticks these off | agents, and you |
 | `calendar.json` | This week's slots and whether they are done | `weekly-review`, and you |
-| `<agent>.log` | Append-only run log, one block per run | the agent runner |
+| `runs.json` | The run ledger: one row per agent run, last 200. `{agent, started, ended, seconds, exit, skipped, artifact, notify, error, trigger, retry_of}`. A row with `exit: null` is a run that started and never finished. The HUD, `jarvis agents` and `jarvis doctor` read this, never a log's mtime | `lib/agents.js` run() |
+| `runs-check.json` | The watchdog's last verdict: `{checked_at, problems: [{agent, state, detail, fix}], ok: [...]}`. `jarvis doctor` prints its age, so a watchdog that stopped running is itself visible | `scripts/runs.py --check` |
+| `logs/<agent>.log` | Append-only run log, one block per run | the agent runner |
 | `<agent>.launchd.log` | What launchd itself said, when a run never started | launchd |
 | `spend.log` | What each paid scraper run cost | `social` |
 | `memory.md` | Facts you told Jarvis to keep, one dated line per fact under four headings | `lib/memory.js` only: chat "remember that", `jarvis memory add` |
