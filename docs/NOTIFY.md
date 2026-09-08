@@ -132,6 +132,68 @@ plain text if Telegram rejects the formatting, so a report with odd
 characters still arrives. A second Telegram target uses
 `"env": {"TELEGRAM_CHAT_ID": "TELEGRAM_CHAT_ID_ALERTS"}`.
 
+## Talking to Jarvis from your phone (Telegram)
+
+The same bot works in the other direction: reply to it and the message goes
+to the HUD's command bar, and the answer comes back as a Telegram message.
+Nothing new to set up; it uses `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+from the section above.
+
+```bash
+jarvis inbox start      # polls Telegram and answers; prints the bot's name
+jarvis inbox            # is it running, when it last polled, who is allowed
+jarvis inbox stop
+```
+
+Off until you run `start`. To have it survive a reboot, `jarvis inbox
+install` writes a launchd (macOS), cron (Linux) or Task Scheduler (Windows)
+keep-alive job, `jarvis inbox install --show` prints it without writing, and
+`jarvis inbox uninstall` removes it. The HUD server has to be running
+(`jarvis start`) for messages to get an answer; while it is not, the bridge
+replies that it cannot reach Jarvis.
+
+**How it stays safe.** The server keeps listening on `127.0.0.1` only. The
+bridge opens no port, sets no webhook and needs no tunnel: it is a local
+process that makes outbound requests, a long poll to Telegram's `getUpdates`
+and a POST to `http://127.0.0.1:4747/api/chat` on the same machine. Nothing
+on the internet can reach the server through it, because nothing is
+listening for anything.
+
+**The allow-list is the whole security of the feature.** A bot's username
+is public and anyone who finds it can message it. `/api/chat` reaches a
+brain that can read files and run commands, so the bridge forwards a message
+only when it comes from a chat id on the allow-list: `TELEGRAM_CHAT_ID`,
+plus any ids in `TELEGRAM_ALLOWED_CHAT_IDS` (comma separated, for a second
+phone or a private group). A stranger who finds your bot can do exactly
+nothing: their message is not forwarded, they get no reply, not even an
+error, because an acknowledgement would tell them the bot is live. The drop
+is written to `data/logs/inbox.log` as `ignored <id>` so you can see it
+happened. Do not add an id you do not own, and never a public group.
+
+Three things the bridge answers itself, without waking the brain:
+
+| Send | It does |
+|---|---|
+| `/new` | forgets the running conversation; the next message starts fresh |
+| `/status` | one message: the brain in use, how many agents need attention and which, when the bridge last polled |
+| `/run <agent>` | starts that agent now, same as clicking it on the ring; replies `started <agent>` or the error |
+
+Everything else goes to `/api/chat` as if typed into the HUD, including
+`remember that ...`, `/forget ...` and `/memory`, which the server answers
+from `data/memory.md` without spawning the brain. Long answers arrive as
+several messages. Each turn costs what a HUD chat turn costs.
+
+State: `data/inbox.json` keeps Telegram's update offset (a restart never
+replays a message), the per-chat session id and the last poll time;
+`data/inbox.pid` is the running poller; `data/logs/inbox.log` is one line
+per event with the chat id and never the token. `jarvis doctor` prints an
+`INBOX` line: off, configured but not running, or running with the last poll
+age, and warns when a running poller has not polled for three minutes.
+
+If it says `409 Conflict`, something else is reading this bot's updates: a
+second copy of the bridge, or a webhook set on the bot. Telegram allows one
+reader. Stop the other one, or delete the webhook.
+
 ## Generic webhook (for n8n, Zapier, Make, your own server)
 
 Jarvis POSTs JSON: `{"title", "text", "file", "mode"}`. No auth header; put

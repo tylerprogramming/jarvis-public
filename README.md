@@ -75,7 +75,10 @@ With the default `notify_when: report`, `radar` becomes an alert for free,
 because it writes nothing when nothing broke out. Delivery runs in code after
 the agent exits, so the model never decides whether or where to send. See
 [notify](docs/CONFIGURATION.md#notify), and [NOTIFY.md](docs/NOTIFY.md) for
-the per-platform walkthrough.
+the per-platform walkthrough. The Telegram bot also works the other way:
+`jarvis inbox start` lets you chat with Jarvis from your phone through an
+outbound-only poll, with the server still on loopback and only your own chat
+id answered; see [NOTIFY.md](docs/NOTIFY.md#talking-to-jarvis-from-your-phone-telegram).
 
 ```json
 { "notify": { "channels": {

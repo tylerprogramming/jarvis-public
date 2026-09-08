@@ -19,6 +19,7 @@ data/*.jsonl
 data/*.md
 data/logs/
 data/.kokoro-mode
+data/*.pid
 !data/*.example.json
 !data/*.example.md
 !data/README.md

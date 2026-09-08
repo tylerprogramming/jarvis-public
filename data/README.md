@@ -20,6 +20,9 @@ Empty on a fresh clone apart from this file and the examples.
 | `decisions.jsonl` | Dated decisions and experiment results, for the recap | `lib/memory.js` |
 | `chat.log` | Every chat turn, one JSON line each | `server.js` |
 | `session.json` | The current chat session id, so a reload continues it | `server.js` |
+| `inbox.json` | The Telegram bridge: `getUpdates` offset, per-chat session id, last poll time, bot name | `scripts/inbox.py` |
+| `inbox.pid` | The running bridge, for `jarvis inbox stop` and doctor | `jarvis inbox start` |
+| `logs/inbox.log` | One line per phone message and reply, with the chat id, never the token | `scripts/inbox.py` |
 
 ## Two rules worth knowing before you touch any of it
 

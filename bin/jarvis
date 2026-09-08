@@ -18,6 +18,11 @@
  *   jarvis notify test [x]  really post a one-line ping: x is a channel name
  *                           from notify.channels or a provider name
  *   jarvis notify telegram-id  list the chats that messaged your bot, with ids
+ *   jarvis inbox            talk to Jarvis from your phone: is the Telegram bridge running
+ *   jarvis inbox start      poll Telegram (outbound only) and answer allowed chats
+ *   jarvis inbox stop
+ *   jarvis inbox install    keep the bridge running across reboots (launchd/cron)
+ *   jarvis inbox uninstall
  *   jarvis memory           print what the operator told Jarvis to keep
  *   jarvis memory add "<text>"       add a line (same as "remember that" in chat)
  *   jarvis memory forget <needle>    drop every line containing the words
@@ -283,6 +288,56 @@ function python(file, args = []) {
   child.on("close", (code) => process.exit(code || 0));
 }
 
+/* ---------- inbox: the Telegram bridge as a background process ----------
+ *
+ * The state lives in two files: data/inbox.pid (who to stop) and
+ * data/inbox.json (what the poller last did). Both are read here and by
+ * doctor, so the two never disagree about "running". A pid whose process is
+ * gone counts as not running, because a stale pid file after a crash or a
+ * reboot is the normal case, not an error. */
+const INBOX_PID = path.join(ROOT, "data", "inbox.pid");
+const INBOX_STATE = path.join(ROOT, "data", "inbox.json");
+const INBOX_LOG = path.join(ROOT, "data", "logs", "inbox.log");
+const INBOX_STUCK_MS = 3 * 60 * 1000; // a 50 s long poll that has not returned in 3 min is wedged
+
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
+
+/* Allowed chat ids as the bridge computes them, from the env load() did. */
+function inboxAllowed() {
+  const out = [];
+  for (const raw of [process.env.TELEGRAM_CHAT_ID, process.env.TELEGRAM_ALLOWED_CHAT_IDS])
+    for (const p of String(raw || "").split(","))
+      if (p.trim() && !out.includes(p.trim())) out.push(p.trim());
+  return out;
+}
+
+function inboxStatus() {
+  const missing = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"].filter((k) => !process.env[k]);
+  let pid = null;
+  try { pid = parseInt(fs.readFileSync(INBOX_PID, "utf8").trim(), 10) || null; } catch {}
+  const running = pid !== null && alive(pid);
+  const st = readJsonFile(INBOX_STATE) || {};
+  const lastPoll = st.last_poll ? new Date(st.last_poll).getTime() : null;
+  const pollAgeMs = lastPoll ? Date.now() - lastPoll : null;
+  return {
+    configured: missing.length === 0, missing, pid, running,
+    allowed: inboxAllowed(), bot: st.bot || "", lastPoll, pollAgeMs,
+    stuck: running && (pollAgeMs === null || pollAgeMs > INBOX_STUCK_MS),
+    offset: st.offset || 0,
+  };
+}
+
+const ago = (ms) => ms === null ? "never" : ms < 60000 ? `${Math.round(ms / 1000)} s ago` : ms < 3600000 ? `${Math.round(ms / 60000)} min ago` : `${(ms / 3600000).toFixed(1)} h ago`;
+
+/* One line for doctor and for `jarvis inbox`: off / configured but not
+ * running / running (pid, last poll age), with the stuck warning. */
+function inboxLine(s) {
+  if (!s.configured) return `off   (set ${s.missing.join(", ")} in .env to talk to Jarvis from your phone; docs/NOTIFY.md)`;
+  if (!s.running) return `configured but not running   (jarvis inbox start)`;
+  const who = s.bot ? `@${s.bot}, ` : "";
+  return `running   pid ${s.pid}, ${who}last poll ${ago(s.pollAgeMs)}${s.stuck ? "   <- poller looks stuck (no poll in 3 min); jarvis inbox stop, then start" : ""}`;
+}
+
 async function main() {
   switch (cmd) {
     case "start":
@@ -522,6 +577,129 @@ async function main() {
       }
 
       console.error("usage: jarvis notify [test [channel-or-provider] | telegram-id]");
+      process.exit(1);
+    }
+
+    /* The reverse of notify: messages from the operator's phone, forwarded to
+     * the local /api/chat by scripts/inbox.py. The bridge only ever makes
+     * outbound requests (a Telegram long poll and a loopback POST), so the
+     * server stays on 127.0.0.1 and nothing new listens. What it forwards is
+     * gated by chat id, and that list is the whole security of the feature;
+     * `jarvis inbox` prints it so it can be checked at a glance. */
+    case "inbox": {
+      const cfg = load();
+      const script = path.join(ROOT, "scripts", "inbox.py");
+      const schedule = require(path.join(ROOT, "lib", "schedule"));
+      const [sub, flag] = rest;
+      const s = inboxStatus();
+      const refuse = () => {
+        console.error(`\n  inbox is not configured: set ${s.missing.join(" and ")} in .env.`);
+        console.error(`  It is the same bot notify uses: docs/NOTIFY.md, the Telegram section.`);
+        console.error(`  The chat id is found, never guessed:  jarvis notify telegram-id\n`);
+        process.exit(1);
+      };
+
+      if (!sub || sub === "status") {
+        console.log(`\n  INBOX              ${inboxLine(s)}`);
+        if (s.configured) {
+          console.log(`    allowed chats      ${s.allowed.length}: ${s.allowed.join(", ")}   (TELEGRAM_CHAT_ID + TELEGRAM_ALLOWED_CHAT_IDS)`);
+          console.log(`    last poll          ${s.lastPoll ? new Date(s.lastPoll).toLocaleString() : "never"}`);
+          console.log(`    keep-alive         ${(await schedule.serviceInstalled("inbox")) ? "installed" : "not installed   (jarvis inbox install)"}`);
+          console.log(`    log                ${path.relative(ROOT, INBOX_LOG)}`);
+          console.log(s.running ? `\n  stop it:  jarvis inbox stop\n` : `\n  start it: jarvis inbox start\n`);
+        } else {
+          console.log("");
+        }
+        return;
+      }
+
+      if (sub === "start") {
+        if (!s.configured) refuse();
+        if (s.running) {
+          console.log(`  already running (pid ${s.pid}). jarvis inbox stop first.`);
+          return;
+        }
+        // getMe once, here, so the operator sees the bot's name and a bad
+        // token fails in the terminal rather than in a log nobody is reading
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const base = (process.env.TELEGRAM_API_BASE || "https://api.telegram.org").replace(/\/$/, "");
+        let bot = "";
+        try {
+          const r = await fetch(`${base}/bot${token}/getMe`, { signal: AbortSignal.timeout(15000) });
+          const body = await r.json();
+          if (!body.ok) throw new Error(body.description || `HTTP ${r.status}`);
+          bot = body.result.username || "";
+        } catch (e) {
+          console.error(`  telegram refused it: ${String(e.message || e).replace(token, "<token>")}`);
+          console.error("  a 401 means the token is wrong or was revoked in @BotFather");
+          process.exit(1);
+        }
+        fs.mkdirSync(path.dirname(INBOX_LOG), { recursive: true });
+        // the script writes its own log; this file only catches a crash
+        const out = fs.openSync(path.join(ROOT, "data", "inbox.out.log"), "a");
+        const child = spawn("python3", [script], {
+          cwd: ROOT, detached: true, stdio: ["ignore", out, out], env: process.env,
+        });
+        child.unref();
+        fs.writeFileSync(INBOX_PID, String(child.pid) + "\n");
+        console.log(`  polling as @${bot || "?"} for chat ${s.allowed.join(", ")} (pid ${child.pid})`);
+        console.log(`  messages from any other chat are ignored. log: ${path.relative(ROOT, INBOX_LOG)}`);
+        console.log(`  stop it: jarvis inbox stop`);
+        return;
+      }
+
+      /* The foreground form the keep-alive job runs: same script, this
+       * process stays attached so launchd can restart it. Not in help; a
+       * person wants `start`. */
+      if (sub === "poll") {
+        if (!s.configured) refuse();
+        if (s.running) { console.error(`  already running (pid ${s.pid})`); process.exit(1); }
+        const child = spawn("python3", [script], { cwd: ROOT, stdio: "inherit", env: process.env });
+        fs.mkdirSync(path.dirname(INBOX_PID), { recursive: true });
+        fs.writeFileSync(INBOX_PID, String(child.pid) + "\n");
+        const stop = () => { try { child.kill("SIGTERM"); } catch {} };
+        process.on("SIGTERM", stop);
+        process.on("SIGINT", stop);
+        child.on("close", (code) => { try { fs.unlinkSync(INBOX_PID); } catch {} process.exit(code || 0); });
+        return;
+      }
+
+      if (sub === "stop") {
+        if (!s.pid) { console.log("  not running"); return; }
+        if (s.running) {
+          try { process.kill(s.pid, "SIGTERM"); } catch {}
+          console.log(`  stopped (pid ${s.pid})`);
+        } else {
+          console.log(`  not running (stale pid ${s.pid} removed)`);
+        }
+        try { fs.unlinkSync(INBOX_PID); } catch {}
+        if (await schedule.serviceInstalled("inbox"))
+          console.log("  the keep-alive job is installed and will start it again; jarvis inbox uninstall to stop that");
+        return;
+      }
+
+      if (sub === "install") {
+        if (!s.configured) refuse();
+        const preview = schedule.servicePreview(cfg, "inbox", ["inbox", "poll"]);
+        if (flag === "--show" || flag === "--dry-run") {
+          console.log(`\n  would write (${preview.platform})${preview.file ? ": " + preview.file : ""}\n`);
+          console.log(preview.text);
+          return;
+        }
+        const p = await schedule.installService(cfg, "inbox", ["inbox", "poll"]);
+        console.log(`  installed on ${p.platform}${p.file ? `: ${p.file}` : ""}`);
+        console.log(`  it starts now and after every reboot. jarvis inbox uninstall removes it.`);
+        return;
+      }
+
+      if (sub === "uninstall") {
+        const gone = await schedule.uninstallService(cfg, "inbox");
+        console.log(gone ? "  keep-alive removed" : "  nothing installed");
+        if (s.running) console.log(`  the poller itself is still running (pid ${s.pid}); jarvis inbox stop`);
+        return;
+      }
+
+      console.error("usage: jarvis inbox [status | start | stop | install [--show] | uninstall]");
       process.exit(1);
     }
 
@@ -776,6 +954,17 @@ async function main() {
             for (const n of a.notify)
               if (!chans[n]) console.log(`    ${a.name.padEnd(18)} names channel "${n}" which does not exist`);
         }
+      }
+
+      /* The phone bridge. "running" is a live pid AND a recent poll: a
+       * process can sit in a wedged socket for hours with its pid file
+       * intact, which is exactly the state that reads as fine everywhere
+       * else. */
+      {
+        const s = inboxStatus();
+        console.log(`\n  INBOX              ${inboxLine(s)}`);
+        if (s.configured)
+          console.log(`    allowed chats      ${s.allowed.length} (${s.allowed.join(", ")}); anything else is ignored`);
       }
 
       /* Memory. Every number here is read from the files, not the config:
