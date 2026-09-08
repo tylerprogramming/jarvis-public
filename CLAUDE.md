@@ -40,6 +40,7 @@ opt-in command the same way rather than in the startup path.
 | `lib/config.js` | Three-layer config loader. Start here to understand anything. |
 | `lib/agents.js` | Frontmatter parsing, placeholder rendering, running, preflight. |
 | `lib/persona.js` | Builds the system prompt, including what Jarvis may claim it can do. |
+| `lib/memory.js` | The operator memory tier: `data/memory.md`, the decisions recap, chat log, session. The only writer of those files. |
 | `lib/brain/` | Pluggable brain. `index.js` picks a provider, others implement one. |
 | `scripts/posts.py` | The cross-platform post store and the breakout math. Read the docstring. |
 | `lib/mcp.js` | Discovers the operator's MCP servers and derives their tool prefixes. |
@@ -147,6 +148,20 @@ built by `journalDelivery()` in `lib/agents.js`, not decided by the model.
 Sending mail is the one thing in this repo that leaves the machine and cannot
 be taken back, so the prompt says precisely one method or precisely none, and a
 misconfigured setting produces a stated skip rather than a guess at an address.
+
+**Memory is written by code, not by the model.** `data/memory.md` is what the
+operator told Jarvis to keep. `/api/chat` intercepts `remember that ...`,
+`/forget ...` and `/memory` before any brain is spawned and calls
+`lib/memory.js`, so what persists is exactly what was typed, dated by the
+machine; the model is told it cannot write memory and never sees those
+messages. The file is capped by `memory.operator_budget` because all of it goes
+into every prompt: an append past the cap is refused with the reason rather
+than the file growing until nobody reads it. Do not give the model a tool that
+writes it, and do not raise the budget to make an append succeed. The brain
+starts at the repo root (`chatCwd()`), never `~`: at `~`, `claude` silently
+loads the operator's personal `~/.claude/CLAUDE.md` and per-project auto
+memory into every chat, and the scheduled agents, which run at the root, see
+none of it.
 
 **An agent declares MCP servers by kind, not by token.** `mcp: [gmail]` in
 frontmatter, resolved at run time against the servers the operator enabled.
