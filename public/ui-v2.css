@@ -1340,3 +1340,75 @@ body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
   #comms .msg.you, #comms .msg.jarvis { animation-duration: 90ms !important; }
   #voicebar .vmeter i { transition-duration: 1ms; }
 }
+
+/* ---------------------------------------------------------------------------
+ * FOCUS
+ *
+ * One switch that stands everything down except the brain, the ring and the
+ * conversation. The header, the NOW band, both rails, the primary card and the
+ * dock's own chrome go away; the ring re-centres by itself because
+ * layoutAgents() measures the furniture rather than assuming it, and the deck
+ * is re-placed from --railw, which the toggle sets to 0.
+ *
+ * The chat stops being a card. Messages sit straight on the field, fading out
+ * at the top, and the composer is the only drawn surface, so the eye lands on
+ * the sphere and then on the one place to type. Everything is body.focus so
+ * removing the class puts the deck back exactly as it was.
+ * ------------------------------------------------------------------------- */
+body.focus header,
+body.focus #nowbar,
+body.focus .rail.left,
+body.focus .rail.right,
+body.focus #primary,
+body.focus #platgrid,
+body.focus #dockbar { display: none !important; }
+
+body.focus #comms {
+  left: 50% !important;
+  width: min(680px, calc(100vw - 48px)) !important;
+  /* Short on purpose. layoutAgents() shrinks the ring until no plate sits
+     under the chat, and the chat is now centred under the brain: a tall
+     transcript here is a ring folded into the sphere. Three lines of the
+     last exchange is what focus is for; the deck has the rest. */
+  height: 212px !important;
+  bottom: 24px;
+  background: none; border: 0; box-shadow: none; backdrop-filter: none;
+  overflow: visible;
+}
+body.focus #comms .dockhead { display: none; }
+body.focus #comms .msgs {
+  padding: 0 4px 6px;
+  -webkit-mask: linear-gradient(180deg, transparent, #000 26%);
+          mask: linear-gradient(180deg, transparent, #000 26%);
+}
+body.focus #comms .msg.you { background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.16); box-shadow: none; }
+body.focus #comms .msg.jarvis { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
+body.focus #bar { padding: 0; }
+body.focus #comms .dockcomposer {
+  border-radius: 999px; padding-left: 18px;
+  background: var(--panel-deep); border: 1px solid rgba(var(--accent-rgb), 0.16);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--accent-rgb), 0.05);
+}
+
+/* The way out. A pill in the corner, plus the same key that put you here. */
+#focus-exit {
+  position: fixed; top: 16px; right: 18px; z-index: 40;
+  display: none; align-items: center; gap: 10px;
+  padding: 7px 8px 7px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(7, 13, 24, 0.7);
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
+  cursor: pointer; backdrop-filter: blur(var(--blur));
+  animation: v2cardIn 420ms var(--v2-ez) both;
+}
+#focus-exit i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.8); }
+#focus-exit kbd { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--text); }
+#focus-exit:hover { color: var(--text); border-color: rgba(var(--accent-rgb), 0.45); }
+body.focus #focus-exit { display: flex; }
+
+/* The switch in the dock head, beside expand. Same glyph family as its
+   neighbours, same hover reveal as minimise is not wanted: this one is the
+   feature, so it stays visible. */
+#dock-focus { font-size: 13px; }
+body.light #focus-exit { background: rgba(255, 255, 255, 0.7); }
+body.light.focus #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }

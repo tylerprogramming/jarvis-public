@@ -706,6 +706,76 @@
   }
   window.JarvisMarkdown = { render: mdBlocks, inline: mdInline };
 
+  /* =========================================================================
+   * FOCUS
+   *
+   * body.focus hides everything but the brain, the ring and the conversation.
+   * The CSS does the hiding; this owns the switch, the way back, the shortcut
+   * and the two numbers the layout code reads: --railw, so placeDeck() centres
+   * the composer in the whole viewport, and a relayout so the ring grows into
+   * the space the furniture gave up. Persisted like the rail mode, so a reload
+   * lands where you left it.
+   * ======================================================================= */
+  {
+    const body = document.body;
+    const head = document.querySelector("#comms .dockhead");
+    const expand = $("dock-expand");
+    let btn = $("dock-focus");
+    if (head && !btn) {
+      btn = document.createElement("button");
+      btn.id = "dock-focus";
+      btn.className = "dockbtn";
+      btn.innerHTML = "&#9678;";
+      btn.dataset.tip = "Focus \u2014 just the brain and the conversation.  \u2318/";
+      btn.setAttribute("aria-label", "Focus mode");
+      head.insertBefore(btn, expand || null);
+    }
+    let exit = $("focus-exit");
+    if (!exit) {
+      exit = document.createElement("button");
+      exit.id = "focus-exit";
+      exit.innerHTML = "<i></i>Focus <kbd>esc</kbd>";
+      exit.setAttribute("aria-label", "Leave focus mode");
+      body.appendChild(exit);
+    }
+
+    function setFocus(on, quiet) {
+      body.classList.toggle("focus", on);
+      if (on) {
+        // The dock has to be visible in focus; a minimised bar has nothing
+        // to type into. Compact is enough, the CSS sizes it.
+        if (typeof setDock === "function" && $("comms") && getComputedStyle($("comms")).display === "none")
+          setDock("compact");
+        document.documentElement.style.setProperty("--railw", "0px");
+        const c = $("comms"); if (c) c.style.left = "";
+      } else {
+        setMode(mode, true);   // restores --railw and the deck's left
+      }
+      try { localStorage.setItem("jarvis_focus", on ? "1" : "0"); } catch {}
+      if (!quiet) { relayout(); setTimeout(relayout, 460); }
+      if (on) { const cmd = $("cmd"); cmd && cmd.focus(); }
+    }
+    const isFocus = () => body.classList.contains("focus");
+
+    if (btn) btn.onclick = () => setFocus(!isFocus());
+    exit.onclick = () => setFocus(false);
+    addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") { e.preventDefault(); setFocus(!isFocus()); return; }
+      // Escape leaves focus only when nothing else is open to close first;
+      // settings.js and app.js keep their own Escape handlers.
+      if (e.key === "Escape" && isFocus()) {
+        const modal = $("modal");
+        const openSettings = document.querySelector(".settings.open, #settings.open, [data-settings].open");
+        if ((modal && modal.classList.contains("open")) || openSettings) return;
+        setFocus(false);
+      }
+    });
+
+    let saved = "0";
+    try { saved = localStorage.getItem("jarvis_focus") || "0"; } catch {}
+    if (saved === "1") setFocus(true, true);
+  }
+
   /* The deck and the right column moved in CSS; the ring is laid out in JS
    * against their measured rectangles, so it needs a nudge once the
    * stylesheet has landed. */
