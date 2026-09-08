@@ -84,6 +84,18 @@ the agent exits, so the model never decides whether or where to send. See
   "agents": { "radar": { "notify": ["phone", "push"] } } }
 ```
 
+**It tells you when it is not running.** Every run writes a row to
+`data/runs.json` (start, end, exit code, the file it wrote, the first error
+line), and the HUD, `jarvis agents` and `jarvis doctor` read that ledger rather
+than guessing from a log's timestamp. An agent shows DONE only when it exited 0
+and left what it was meant to leave; otherwise it shows FAILED, OVERDUE, NOT
+LOADED or STALE with the reason on hover, and the NOW bar says how many need
+attention. `jarvis doctor` lists each scheduled agent with whether its OS job
+is loaded, when it last ran, and when it should have. A `watchdog` agent runs
+every morning (`scripts/runs.py --check`) and writes a short report only when
+something is wrong; give it `notify: [phone]` the same way and the ping itself
+is the alarm. Numbers older than `vitals.stale_hours` wear a STALE badge.
+
 **A command bar with hands.** Type or talk, and it goes to a real agent with
 your context loaded — it reads your files, edits your data, runs your tools.
 [Claude Code](https://claude.com/claude-code) is the default and the best
