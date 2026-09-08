@@ -18,6 +18,7 @@ actually happened, as opposed to what was planned, and it is the thing that
 makes next Sunday's review possible.
 
 Read the evidence first. Do not write anything until you have looked.
+Standing facts from the operator: {{memory}}
 
 1. WHAT RAN. The agent logs are {{data}}/logs/*.log, one file per agent. Each
    run is a block starting `=== <agent> <date> <time> ===` and ending

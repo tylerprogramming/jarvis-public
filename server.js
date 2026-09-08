@@ -31,6 +31,7 @@ const stt = require("./lib/stt");
 const brain = require("./lib/brain");
 const agentsLib = require("./lib/agents");
 const playbook = require("./lib/playbook");
+const memory = require("./lib/memory");
 
 let CFG = load(); // reassigned when settings are saved, see apiPutConfig
 const ROOT = CFG.paths.root;
@@ -235,6 +236,38 @@ function apiDirectives(res, body) {
 }
 
 // ---------- chat: route to the configured brain ----------
+
+/* Memory commands are answered here, before any brain is spawned.
+ *
+ * "remember that ..." writes exactly what was typed into data/memory.md, and
+ * "/forget ..." removes it; the model is never in the loop, so what persists is
+ * what the operator said, not a paraphrase of it. The same SSE shape the brain
+ * uses (done, then end) keeps the HUD code path identical. Returns null when
+ * the message is not a memory command. */
+const REMEMBER = /^(?:remember(?: that)?|\/remember)\s*[:,-]?\s+([\s\S]+)$/i;
+const FORGET = /^\/forget\s+([\s\S]+)$/i;
+
+function memoryCommand(message) {
+  let m;
+  if ((m = message.match(REMEMBER))) {
+    const r = memory.append(CFG, { text: m[1] });
+    return r.ok
+      ? `Remembered under ${r.section}: ${r.line} (${r.chars} / ${r.budget} chars)`
+      : `Not remembered: ${r.reason}.`;
+  }
+  if ((m = message.match(FORGET))) {
+    const r = memory.forget(CFG, m[1]);
+    return r.count
+      ? `Forgot ${r.count} line(s): ${r.removed.join("; ")}`
+      : `Nothing in memory matches "${m[1].trim()}".`;
+  }
+  if (/^\/memory\s*$/i.test(message)) {
+    const r = memory.read(CFG);
+    return r.text ? `${r.text.trim()}\n(${r.chars} / ${r.budget} chars)` : "Memory is empty. Say \"remember that ...\" to add a line.";
+  }
+  return null;
+}
+
 async function apiChat(req, res, body) {
   const message = (body.message || "").trim();
   if (!message) return sendJson(res, { error: "empty message" }, 400);
@@ -246,16 +279,33 @@ async function apiChat(req, res, body) {
   });
   const send = (ev, data) => res.write(`event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`);
 
+  // The page keeps the session in localStorage; the server keeps it in
+  // data/session.json, so a fresh tab or a cleared browser resumes the same
+  // conversation until New conversation is pressed.
+  const sessionId = body.sessionId || memory.getSession(CFG).sessionId || undefined;
+  memory.logChat(CFG, { role: "you", text: message, sessionId });
+
+  const local = memoryCommand(message);
+  if (local !== null) {
+    memory.logChat(CFG, { role: "jarvis", text: local, sessionId });
+    send("done", { result: local, sessionId: sessionId || null, local: true });
+    res.end();
+    return;
+  }
+
   let finished = false;
   const handle = await brain.chat(CFG, {
     message,
-    sessionId: body.sessionId,
+    sessionId,
     on: {
-      session: (sessionId) => send("session", { sessionId }),
+      session: (id) => { memory.setSession(CFG, id); send("session", { sessionId: id }); },
       delta: (text) => send("delta", { text }),
       tool: (name) => send("tool", { name }),
       log: (text) => send("log", { text: String(text).slice(0, 500) }),
-      done: (payload) => send("done", payload),
+      done: (payload) => {
+        memory.logChat(CFG, { role: "jarvis", text: (payload && payload.result) || "", sessionId: (payload && payload.sessionId) || sessionId });
+        send("done", payload);
+      },
       error: (code) => send("error", { code }),
       end: () => { finished = true; res.end(); },
     },
@@ -263,6 +313,24 @@ async function apiChat(req, res, body) {
 
   // client aborted mid-answer - stop the model rather than burning tokens
   res.on("close", () => { if (!finished) handle.kill(); });
+}
+
+function apiChatReset(res) {
+  memory.resetSession(CFG);
+  sendJson(res, { ok: true });
+}
+
+function apiMemory(res) {
+  const r = memory.read(CFG);
+  sendJson(res, { lines: r.lines, chars: r.chars, budget: r.budget, sections: r.sections });
+}
+
+function apiMemoryDelete(res, q) {
+  const hash = (q.get("hash") || "").trim();
+  if (!hash) return sendJson(res, { error: "hash required" }, 400);
+  const r = memory.removeByHash(CFG, hash);
+  if (!r.ok) return sendJson(res, { error: r.reason }, 404);
+  sendJson(res, { ok: true, removed: r.removed });
 }
 
 // ---------- agents ----------
@@ -468,6 +536,12 @@ const server = http.createServer((req, res) => {
     if (url.pathname === "/api/playbook") return apiPlaybook(res, url.searchParams);
     if (url.pathname === "/api/status") return apiStatus(res);
     if (url.pathname === "/api/config") return apiGetConfig(res);
+    if (url.pathname === "/api/memory") return apiMemory(res);
+  }
+
+  if (req.method === "DELETE") {
+    if (url.pathname === "/api/memory") return apiMemoryDelete(res, url.searchParams);
+    return sendJson(res, { error: "unknown endpoint" }, 404);
   }
 
   if (req.method === "POST") {
@@ -480,6 +554,7 @@ const server = http.createServer((req, res) => {
       let body = {};
       try { body = JSON.parse(raw.toString() || "{}"); } catch {}
       if (url.pathname === "/api/chat") return apiChat(req, res, body);
+      if (url.pathname === "/api/chat/reset") return apiChatReset(res);
       if (url.pathname === "/api/directives") return apiDirectives(res, body);
       if (url.pathname === "/api/tts") return apiTts(res, body);
       if (url.pathname === "/api/refresh") return apiRefresh(res);

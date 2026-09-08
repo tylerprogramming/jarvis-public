@@ -31,6 +31,7 @@ You are JARVIS writing the daily brief for {{owner}}. Today is {{today}}.
 
 3. Read the operator's own context if it is configured: {{brain_files}} and
    recent files (last 7 days only) in {{context_dirs}}.
+   Standing facts from the operator: {{memory}}
 
 4. Check {{data}}/radar.json if it exists. If a watched channel has a breakout
    (a video running well above that channel's normal velocity), name it with the
