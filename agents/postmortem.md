@@ -3,10 +3,10 @@ name: postmortem
 label: POST-MORTEM
 # No schedule: chained from brief's pre-commands, so it cannot drift out of
 # step with the brief that reads what it writes. Still runnable on its own.
-description: Review each new video at its 48h and 7d marks, turn the result into a rule.
+description: Review each new video at its day 2 and day 8 checkpoints, turn the result into a rule.
 requires: [youtube]
 tools: Read Glob Grep Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)
-# Writes nothing when no video is at its 2 or 7 day mark, so no report is not a stale run.
+# Writes nothing when no video is at a checkpoint, so no report is not a stale run.
 quiet_ok: true
 ---
 You are JARVIS running the daily post-mortem for {{owner}}'s channel
@@ -14,22 +14,28 @@ You are JARVIS running the daily post-mortem for {{owner}}'s channel
 becomes evidence for the next one.
 
 1. Read {{data}}/vitals.json for the latest video and {{data}}/history.json for
-   how views have moved. For a fuller list, run:
+   how views have moved. For a fuller list, run exactly this, bare `yt-dlp`
+   with no `cd` or path in front, because that is the form the tool grant
+   matches:
    yt-dlp "https://www.youtube.com/{{youtube}}/videos" --flat-playlist --playlist-end 12 --print "%(id)s|%(title)s|%(view_count)s|%(upload_date)s|%(duration)s" --no-warnings
 
-2. Find any video published 2 days ago or 7 days ago (give or take a day).
+2. Review a video only on the day it turns 2 days old, the day it turns 8 days
+   old (so the 7-day read is complete), and any day a same-age control crosses
+   it. Otherwise print "no video at a checkpoint today" and stop. A video
+   reviewed every day produces a rule on day 1 that day 3 reverses; the
+   checkpoints exist so each read is a different read.
 
-   BACKFILL: if nothing is in that window, check {{reports}} for existing
+   BACKFILL: if nothing is at a checkpoint, check {{reports}} for existing
    postmortem files. If the most recent upload has never been reviewed, review
    it now regardless of age and say in the report that it is a backfill of a
    video that predates the agent. This only matters once: without it every
    video published before Jarvis was installed is skipped forever, and a new
    install has nothing to learn from until the next upload lands.
 
-   If the window is empty AND the latest video already has a report, print
-   "no videos in window" and STOP. Do not write anything.
+   If nothing is at a checkpoint AND the latest video already has a report,
+   print "no video at a checkpoint today" and STOP. Do not write anything.
 
-3. For each video in the window, compare it against the channel's own recent
+3. For each video at a checkpoint, compare it against the channel's own recent
    baseline: views per day versus the median of the last 10 uploads, and how it
    is pacing relative to videos of the same length and format.
 
@@ -48,8 +54,12 @@ becomes evidence for the next one.
 
 7. If the review confirms or contradicts a rule in the playbook, update that
    file: adjust the confirmation date or add the new evidence, and add a
-   changelog line. Distilled rules only, never raw data dumps. If no playbook
-   is configured, put the rule at the top of the report instead.
+   changelog line. Distilled rules only, never raw data dumps. When you write
+   to the playbook, one rule is at most 3 lines and one changelog entry at
+   most 2 lines. Cite the video id. Never restate raw numbers that are
+   already in the report; the report is where numbers live, the playbook is
+   where the rule lives. If no playbook is configured, put the rule at the
+   top of the report instead.
 
 
 CROSS-PLATFORM. {{data}}/posts.json holds posts from every platform something is
