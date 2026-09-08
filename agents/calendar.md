@@ -17,7 +17,7 @@ actually queued. If they do not, the agent never runs and the hand-written
 `{{data}}/calendar.json` is left exactly as it is.
 
 You are reading only. Do not create, update, delete or reschedule a post. This
-agent has caused nothing to be published and must stay that way — the operator
+agent has caused nothing to be published and must stay that way, the operator
 schedules, you report.
 
 1. Load the Blotato tools with ToolSearch:
@@ -32,7 +32,7 @@ schedules, you report.
 
 3. Each item gives you `scheduledAt` (ISO 8601, **UTC**) and
    `draft.content.platform`. Convert `scheduledAt` to the operator's local date
-   before bucketing it — a 23:00 local post is the *next* day in UTC, and
+   before bucketing it, a 23:00 local post is the *next* day in UTC, and
    bucketing on the raw string silently moves posts a day forward.
 
 4. Write `{{data}}/calendar.json` in exactly this shape:
@@ -61,7 +61,7 @@ schedules, you report.
      labels; the HUD colours them by platform now.
    - `done` is true when `scheduledAt` is in the past. Blotato's list endpoint
      returns future posts, so anything from earlier today that has already gone
-     out will simply be absent — that is fine, mark what you have.
+     out will simply be absent, that is fine, mark what you have.
    - `time` is local 24h `HH:MM`. `title` is the first ~8 words of
      `draft.content.text`, for the tooltip. Keep it short; it is a hover, not a
      preview.
@@ -73,7 +73,7 @@ schedules, you report.
    would make this agent worse than no agent.
 
 6. Write a one-line summary to stdout: how many posts, across how many
-   platforms, and the busiest day. Nothing else. No report file — this agent
+   platforms, and the busiest day. Nothing else. No report file, this agent
    updates a strip, it does not have findings.
 
 If `blotato_list_schedules` errors or returns nothing, **leave calendar.json
