@@ -86,7 +86,8 @@
     "min_views": 5000
   },
   "chat": {
-    "cwd": "~",
+    "$comment_cwd": "Where the chat brain starts. Empty means the repo root, the same place scheduled agents run. Set it only if you want chat to start somewhere else, and know that `claude -p` reads that folder's CLAUDE.md and project memory into every reply.",
+    "cwd": "",
     "permission_mode": "acceptEdits",
     "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
     "disallowed_tools": "",
@@ -168,6 +169,13 @@
   },
   "$comment_documents_dirs": "EXTRA folders to show in the documents trail. reports/, drafts/, and journal/ are always included and are found relative to wherever you cloned this, so they do not belong here. Use this for a notes vault or a project folder elsewhere on disk.",
   "documents_dirs": [],
+  "$comment_memory": "What Jarvis carries between conversations, in tiers. data/memory.md is the operator tier: facts you tell it with 'remember that ...' in chat, written by code and never by the model, gitignored because it is yours. operator_budget caps that file in characters, since the whole of it goes into every prompt; an append past the cap is refused so you prune rather than the file growing silently. data/decisions.jsonl feeds a recap of the last recap_days days, capped at recap_chars. chat_log appends every chat turn to data/chat.log.",
+  "memory": {
+    "operator_budget": 3000,
+    "recap_days": 14,
+    "recap_chars": 1500,
+    "chat_log": true
+  },
   "$comment_journal": "The nightly entry. dir is empty to mean journal/ beside the repo; set it only to keep entries somewhere else. deliver is none, gmail, or resend. none writes the file and stops - the default, because the other two leave your machine. gmail creates a DRAFT you press send on; the Gmail connector cannot send. resend actually sends, and needs RESEND_API_KEY and JARVIS_MAIL_FROM in .env.",
   "journal": {
     "dir": "",

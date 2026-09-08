@@ -17,6 +17,9 @@
  *   jarvis notify           which chat channels and providers are configured
  *   jarvis notify test [x]  really post a one-line ping: x is a channel name
  *                           from notify.channels or a provider name
+ *   jarvis memory           print what the operator told Jarvis to keep
+ *   jarvis memory add "<text>"       add a line (same as "remember that" in chat)
+ *   jarvis memory forget <needle>    drop every line containing the words
  *   jarvis doctor           check what is actually wired up
  */
 
@@ -480,6 +483,43 @@ async function main() {
     case "index":
       return python(path.join(ROOT, "scripts", "index.py"), rest);
 
+    /* The same file chat's "remember that" writes, from the terminal. Goes
+     * through lib/memory so the budget and the section heuristic are the
+     * ones the server applies; there is one way to write this file. */
+    case "memory": {
+      const cfg = load();
+      const memory = require(path.join(ROOT, "lib", "memory"));
+      const [sub, ...words] = rest;
+      if (!sub) {
+        const r = memory.read(cfg);
+        console.log(r.text ? "\n" + r.text.trim() + "\n" : "\n  memory is empty\n");
+        console.log(`  ${r.chars} / ${r.budget} chars   ${r.file.replace(process.env.HOME || "~", "~")}`);
+        console.log(`  add one:     jarvis memory add "<text>"`);
+        console.log(`  drop lines:  jarvis memory forget <words>\n`);
+        return;
+      }
+      if (sub === "add") {
+        const text = words.join(" ").trim();
+        if (!text) { console.error('usage: jarvis memory add "<text>"'); process.exit(1); }
+        const r = memory.append(cfg, { text });
+        if (!r.ok) { console.error(`  not remembered: ${r.reason}`); process.exit(1); }
+        console.log(`  remembered under ${r.section}: ${r.line}`);
+        console.log(`  ${r.chars} / ${r.budget} chars`);
+        return;
+      }
+      if (sub === "forget") {
+        const needle = words.join(" ").trim();
+        if (!needle) { console.error("usage: jarvis memory forget <words>"); process.exit(1); }
+        const r = memory.forget(cfg, needle);
+        if (!r.count) { console.log(`  nothing in memory matches "${needle}"`); return; }
+        console.log(`  forgot ${r.count} line(s):`);
+        r.removed.forEach((l) => console.log(`    ${l}`));
+        return;
+      }
+      console.error('usage: jarvis memory [add "<text>" | forget <words>]');
+      process.exit(1);
+    }
+
     case "transcript":
       if (!rest.length) {
         console.error("usage: jarvis transcript <youtube-url-or-id> [--out FILE]");
@@ -682,6 +722,36 @@ async function main() {
             for (const n of a.notify)
               if (!chans[n]) console.log(`    ${a.name.padEnd(18)} names channel "${n}" which does not exist`);
         }
+      }
+
+      /* Memory. Every number here is read from the files, not the config:
+       * chat_log can be on with nothing ever logged, and a session id can be
+       * present and days old, which is the one that explains "why does it
+       * still think we were talking about last Tuesday". */
+      {
+        const memory = require(path.join(ROOT, "lib", "memory"));
+        const { chatCwd } = require(path.join(ROOT, "lib", "config"));
+        const mf = memory.files(cfg);
+        const mem = memory.read(cfg);
+        const there = fs.existsSync(mf.memory);
+        const rel = (f) => path.relative(ROOT, f);
+        console.log(`\n  MEMORY`);
+        console.log(`    ${rel(mf.memory).padEnd(18)} ${there ? `yes   ${mem.lines.length} line(s), ${mem.chars} / ${mem.budget} chars` : "no    (say \"remember that ...\" in chat, or jarvis memory add)"}`);
+        const { rows, days } = memory.decisions(cfg);
+        console.log(`    decisions          ${rows.length} in the last ${days} day(s)${fs.existsSync(mf.decisions) ? "" : "   (no decisions.jsonl yet)"}`);
+        const logOn = memory.settings(cfg).chatLog;
+        let logSize = null;
+        try { logSize = fs.statSync(mf.chatLog).size; } catch {}
+        console.log(`    chat log           ${logOn ? "on " : "off"}   ${logSize === null ? "no file yet" : `${rel(mf.chatLog)} ${(logSize / 1024).toFixed(1)} KB`}`);
+        const s = memory.getSession(cfg);
+        if (s.sessionId) {
+          const ageMs = s.started ? Date.now() - new Date(s.started).getTime() : null;
+          const age = ageMs === null ? "age unknown" : ageMs < 3600000 ? `${Math.round(ageMs / 60000)} min old` : ageMs < 86400000 ? `${(ageMs / 3600000).toFixed(1)} h old` : `${(ageMs / 86400000).toFixed(1)} days old`;
+          console.log(`    session            ${s.sessionId.slice(0, 8)}...  ${s.turns || 0} turn(s), ${age}`);
+        } else {
+          console.log(`    session            none   (the next chat starts a fresh one)`);
+        }
+        console.log(`    chat cwd           ${chatCwd(cfg).replace(process.env.HOME || "~", "~")}${cfg.chat.cwd ? "" : "   (repo root, same as the agents)"}`);
       }
 
       /* Recurring scraper cost is easy to stop noticing, which is how a few

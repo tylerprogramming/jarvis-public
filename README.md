@@ -60,6 +60,13 @@ the evidence says happened, including the days nothing did. A week of those is
 what makes Sunday's review honest. It can also drop the recap in your inbox;
 see [journal](docs/CONFIGURATION.md#journal).
 
+**Memory.** Say `remember that I only film on Tuesdays` in chat and that line,
+dated, goes into `data/memory.md`, which every later chat and the brief,
+review and journal agents read. `/forget <words>` drops it, `/memory` shows
+the file, and the MEMORY view in the HUD lists it with a delete per line. Code
+writes the file, never the model, and a small budget keeps it short enough to
+stay in every prompt; see [memory](docs/CONFIGURATION.md#memory).
+
 **It can ping you where you already look.** Any agent can opt into delivering
 its report to a Discord channel, a Telegram chat, a Slack channel, an ntfy
 topic, or your own webhook. Off by default: name a channel in `config.json`,

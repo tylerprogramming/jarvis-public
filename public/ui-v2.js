@@ -815,6 +815,151 @@
     if (saved === "1") setFocus(true, true);
   }
 
+  /* =========================================================================
+   * MEMORY
+   *
+   * A New conversation control in the dock head, and a Memory view in the
+   * rail. Both talk to the server, which owns the files: the page never
+   * writes memory itself. The nav button and panel are built here rather
+   * than in index.html so the v2 files stay a drop-in; app.js's selectView()
+   * finds them by data-view like the six it shipped with, so nothing there
+   * needs a hook.
+   * ======================================================================= */
+  {
+    const head = document.querySelector("#comms .dockhead");
+    const focusBtn = $("dock-focus");
+    let fresh = $("dock-new");
+    if (head && !fresh) {
+      fresh = document.createElement("button");
+      fresh.id = "dock-new";
+      fresh.className = "dockbtn";
+      fresh.innerHTML = "&#43;";
+      fresh.dataset.tip = "Start a new conversation";
+      fresh.setAttribute("aria-label", "Start a new conversation");
+      head.insertBefore(fresh, focusBtn || $("dock-expand") || null);
+    }
+    if (fresh) fresh.onclick = async () => {
+      try { await fetch("/api/chat/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); } catch {}
+      try { localStorage.removeItem("jarvis_session"); } catch {}
+      // app.js keeps the id in a top-level `let`; clearing storage alone would
+      // let the next send resume the old session from that variable
+      appGlobal(() => { sessionId = null; });
+      const list = $("msgs");
+      if (list) list.innerHTML = "";
+      appGlobal(() => addMsg("sys", "new conversation"));
+    };
+
+    // the rail entry, after Documents
+    let navBtn = nav.querySelector('.navb[data-view="memory"]');
+    if (!navBtn) {
+      navBtn = document.createElement("button");
+      navBtn.className = "navb";
+      navBtn.dataset.view = "memory";
+      navBtn.dataset.tip = "Memory \u2014 what you told Jarvis to keep";
+      navBtn.innerHTML =
+        '<svg viewBox="0 0 24 24"><path d="M9 3.6h6a2.4 2.4 0 0 1 2.4 2.4v12a2.4 2.4 0 0 1-2.4 2.4H9A2.4 2.4 0 0 1 6.6 18V6A2.4 2.4 0 0 1 9 3.6z"/><path d="M9.6 8.4h4.8M9.6 12h4.8M9.6 15.6h3"/><path d="M6.6 9h-1.4M6.6 15h-1.4M17.4 9h1.4M17.4 15h1.4"/></svg>' +
+        '<span class="navlabel">Memory</span><span class="navcount"></span>';
+      const docs = nav.querySelector('.navb[data-view="documents"]');
+      if (docs && docs.nextSibling) nav.insertBefore(navBtn, docs.nextSibling);
+      else nav.insertBefore(navBtn, nav.querySelector(".navfill"));
+      navBtn.onclick = () => {
+        const active = navBtn.classList.contains("on");
+        if (active && mode === "full") { setMode("nav"); return; }
+        if (typeof selectView === "function") selectView("memory");
+        setMode("full");
+        paintMemory();
+      };
+    }
+
+    const railbody = $("railbody");
+    let panel = railbody && railbody.querySelector('.panel[data-view="memory"]');
+    if (railbody && !panel) {
+      panel = document.createElement("div");
+      panel.className = "panel";
+      panel.dataset.view = "memory";
+      panel.title = "Facts you told Jarvis to keep. Every chat and every agent reads these.";
+      panel.innerHTML =
+        '<h2>Memory <small id="mem-cap">OPERATOR</small></h2>' +
+        '<div class="panelbody" id="memory"></div>' +
+        '<div class="memhint">Say <b>remember that &hellip;</b> in chat to add a line, <b>/forget &lt;words&gt;</b> to drop one.</div>';
+      railbody.appendChild(panel);
+    }
+    const memBody = $("memory");
+    const memCap = $("mem-cap");
+
+    async function paintMemory() {
+      if (!memBody) return;
+      let d = null;
+      try { d = await (await fetch("/api/memory")).json(); } catch {}
+      if (!d || !Array.isArray(d.lines)) {
+        memBody.innerHTML = '<div class="memempty">could not read memory</div>';
+        return;
+      }
+      if (memCap) memCap.textContent = `${d.chars} / ${d.budget}`;
+      const pct = d.budget ? Math.min(100, Math.round((d.chars / d.budget) * 100)) : 0;
+      let html = `<div class="memmeter" title="${d.chars} of ${d.budget} characters"><i style="width:${pct}%"></i></div>`;
+      if (!d.lines.length) {
+        html += '<div class="memempty">Nothing kept yet. Say "remember that ..." in chat.</div>';
+      } else {
+        const order = d.sections || [];
+        const groups = new Map();
+        for (const l of d.lines) {
+          if (!groups.has(l.section)) groups.set(l.section, []);
+          groups.get(l.section).push(l);
+        }
+        const names = [...order.filter((s) => groups.has(s)), ...[...groups.keys()].filter((s) => !order.includes(s))];
+        for (const s of names) {
+          html += `<div class="memsect">${esc(s)}</div>`;
+          for (const l of groups.get(s)) {
+            html += `<div class="memline" data-hash="${esc(l.hash)}">` +
+              `<span class="memdate">${esc(l.date)}</span>` +
+              `<span class="memtext">${esc(l.text)}</span>` +
+              `<button class="memdel" data-tip="Forget this line" aria-label="Forget this line">&times;</button></div>`;
+          }
+        }
+      }
+      memBody.innerHTML = html;
+      memBody.querySelectorAll(".memdel").forEach((b) => {
+        b.onclick = async (e) => {
+          e.stopPropagation();
+          const row = b.closest(".memline");
+          const hash = row && row.dataset.hash;
+          if (!hash) return;
+          try { await fetch("/api/memory?hash=" + encodeURIComponent(hash), { method: "DELETE" }); } catch {}
+          paintMemory();
+        };
+      });
+    }
+
+    // app.js restores the saved view before this block runs, and when it was
+    // memory it falls back to the dashboard and overwrites jarvis_view with
+    // that, because the panel did not exist yet. So the choice is kept under
+    // a second key that only this file writes, through the same rebinding
+    // trick used on loadData, and restored from here.
+    appGlobal(() => {
+      const orig = selectView;
+      selectView = function (name) {
+        const r = orig.apply(this, arguments);
+        try { localStorage.setItem("jarvis_view_v2", name); } catch {}
+        if (name === "memory") paintMemory();
+        return r;
+      };
+    });
+    let savedView = null;
+    try { savedView = localStorage.getItem("jarvis_view_v2"); } catch {}
+    if (savedView === "memory") appGlobal(() => selectView("memory"));
+    if (panel && panel.classList.contains("on")) paintMemory();
+    // a remembered line lands through chat, so a finished send repaints
+    if (typeof loadData === "function") {
+      const orig = loadData;
+      loadData = async function (...a) {
+        const r = await orig.apply(this, a);
+        if (panel && panel.classList.contains("on")) { try { await paintMemory(); } catch {} }
+        return r;
+      };
+    }
+  }
+
   /* The deck and the right column moved in CSS; the ring is laid out in JS
    * against their measured rectangles, so it needs a nudge once the
    * stylesheet has landed. */
