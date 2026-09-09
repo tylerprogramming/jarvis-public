@@ -96,7 +96,7 @@ these directories.
 
 ## journal
 
-Where the `nightly` agent writes the day, and what it does with it afterwards.
+Where the `journal` agent writes the day, and what it does with it afterwards.
 
 ```json
 {

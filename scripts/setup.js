@@ -204,7 +204,11 @@ async function main() {
     lanes: cfg.research?.lanes || [],
     kokoro: false,
     agents: cfg.agents?.enabled ||
-      ["brief", "radar", "scout", "study", "review", "journal", "calendar", "postmortem"],
+      /* The shipped baseline, not a copy of it. Restating the list here is how
+       * `watchdog` came to be switched off by running setup: arrays replace
+       * wholesale, so an out-of-date literal silently disables whatever it
+       * forgot. */
+      JSON.parse(fs.readFileSync(path.join(ROOT, "config.default.json"), "utf8")).agents.enabled,
   };
 
   const writeConfig = () => {
@@ -371,12 +375,21 @@ async function main() {
     }
   }
 
+  /* Pad against the longest line so the descriptions line up whatever CMD is.
+   * When jarvis is not on PATH, CMD is `node /long/path/bin/jarvis` and a
+   * fixed-width pad collapses to a single space, which reads as part of the
+   * command: people paste `... doctor check what is wired up` and get
+   * `unknown command`. Two spaces minimum, always. */
+  const nextSteps = [
+    ["npm start", "open http://localhost:4747"],
+    [`${CMD} doctor`, "check what is wired up"],
+    [`${CMD} agents install`, "put the agents on a schedule"],
+  ];
+  const width = Math.max(...nextSteps.map(([c]) => c.length));
   console.log(`
   Done. Next:
 
-    npm start                    open http://localhost:4747
-    ${CMD} doctor${" ".repeat(Math.max(1, 21 - CMD.length))}check what is wired up
-    ${CMD} agents install${" ".repeat(Math.max(1, 13 - CMD.length))}put the agents on a schedule
+${nextSteps.map(([c, d]) => `    ${c.padEnd(width)}  ${d}`).join("\n")}
 
   To teach Jarvis your own commands, create PERSONA.md in this folder.
 `);

@@ -749,6 +749,25 @@ async function main() {
     case "experiments": {
       const cfg = load();
       const ex = require(path.join(ROOT, "lib", "experiments"));
+
+      /* Writing goes through the python script, which owns the ledger and its
+       * rules. Forwarding rather than reimplementing keeps one writer, and
+       * stops `jarvis experiments add ...` from printing the read-only
+       * summary and exiting 0 as though it had opened something. */
+      if (rest.length) {
+        const sub = rest[0];
+        if (!["add", "close", "due", "list", "check"].includes(sub)) {
+          console.error(`unknown: jarvis experiments ${sub}`);
+          console.error(`try: jarvis experiments            the summary`);
+          console.error(`     jarvis experiments add ...    open one (--hypothesis --metric --target --deadline)`);
+          console.error(`     jarvis experiments close <id> --result "..." --verdict confirmed|refuted|unmeasured`);
+          process.exitCode = 1;
+          return;
+        }
+        python(path.join(ROOT, "scripts", "experiments.py"), rest);
+        return;
+      }
+
       const all = ex.read(cfg);
       const s = ex.summary(cfg);
       console.log(`\n  EXPERIMENTS        ${s.head}   ${path.relative(ROOT, ex.file(cfg))}`);
@@ -858,6 +877,22 @@ async function main() {
       const mic = await stt.status(cfg);
       const ok = (b) => (b ? "yes" : "no");
       const shell = require(path.join(ROOT, "lib", "shell"));
+
+      /* On a fresh clone every alarm below is true and none of it is the
+       * person's fault: nothing is scheduled because they have not set up
+       * yet. Lead with the three steps instead of making them read ninety
+       * lines of red to find `run jarvis setup` on line eleven. */
+      if (!cfg.configured) {
+        console.log(`
+  NOT SET UP YET
+
+    1. jarvis setup            name, channel, and which agents to run
+    2. npm start               the HUD on http://localhost:4747
+    3. jarvis agents install   only when you want them on a schedule
+
+  The rest of this report is what is on the machine right now. Anything
+  about schedules is expected to be empty until step 3.`);
+      }
 
       /* Platform first. Everything below behaves differently per OS, and
        * "why is scheduling doing nothing" is answered here rather than after
@@ -1070,8 +1105,12 @@ async function main() {
       const nOverdue = rows.filter((r) => r.overdue).length;
       const nBad = rows.filter((r) => r.state !== "ok").length;
       // nothing loaded beats every other headline: a timezone offset seen in
-      // old logs is moot while no job can fire at all
-      const state = scheduled.length && nLoaded === 0 ? "NOTHING IS SCHEDULED"
+      // old logs is moot while no job can fire at all. On a clone that has
+      // never been set up, though, nothing being scheduled is the expected
+      // state rather than a fault, and saying so in red teaches people to
+      // ignore the line that matters later.
+      const state = scheduled.length && nLoaded === 0
+          ? (cfg.configured ? "NOTHING IS SCHEDULED" : "not scheduled yet (jarvis agents install)")
         : tz.confirmed ? "AGENTS ARE RUNNING AT THE WRONG TIME"
         : nBad ? `${nBad} AGENT(S) NEED ATTENTION`
         : tz.warn ? "CLOCK MAY BE WRONG"

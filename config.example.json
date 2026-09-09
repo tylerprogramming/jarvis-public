@@ -95,11 +95,12 @@
       "review",
       "journal",
       "calendar",
-      "postmortem"
+      "postmortem",
+      "watchdog"
     ]
   },
   "chat": {
-    "cwd": "~",
+    "cwd": "",
     "permission_mode": "acceptEdits",
     "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)"
   }

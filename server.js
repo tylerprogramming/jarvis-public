@@ -619,6 +619,27 @@ if (!isLoopback(HOST) && !TOKEN && process.env.JARVIS_ALLOW_INSECURE !== "1") {
   process.exit(1);
 }
 
+/* A busy port is the most likely way starting this fails, and an unhandled
+ * EADDRINUSE prints a Node stack trace that says nothing about what to do.
+ * Usually it means Jarvis is already running - which is worth saying, since
+ * the answer is to open the tab rather than to debug anything. */
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `\nPort ${PORT} is already in use.\n\n` +
+      `Jarvis may already be running - try http://localhost:${PORT} first.\n` +
+      `Otherwise stop whatever holds the port, or pick another one:\n` +
+      `  JARVIS_PORT=4748 npm start\n`,
+    );
+    process.exit(1);
+  }
+  if (err.code === "EACCES") {
+    console.error(`\nNot allowed to bind ${HOST}:${PORT}. Ports below 1024 need root; pick a higher one with JARVIS_PORT.\n`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, HOST, () => {
   const shown = isLoopback(HOST) ? "localhost" : HOST;
   console.log(`JARVIS online -> http://${shown}:${PORT}${TOKEN ? "?token=..." : ""}`);

@@ -53,7 +53,7 @@ They keep their own prompts and their own MCP grants — chaining is one slot in
 the timetable, not one big agent. Run any of them alone with
 `jarvis agent <name>`.
 
-**A journal it keeps for you.** At the end of the day the `nightly` agent reads
+**A journal it keeps for you.** At the end of the day the `journal` agent reads
 its own agent logs, the reports written that day, and the numbers, then writes
 one dated entry in `journal/`. Not a summary of your plans — a record of what
 the evidence says happened, including the days nothing did. A week of those is
@@ -125,7 +125,7 @@ Jarvis has **no npm dependencies** - `package.json` ships an empty dependency
 list, so there is no `npm install` step and no `node_modules` to go stale. Its
 Python helpers use only the standard library, so there is **nothing to pip
 install** either. The one exception is the optional local voice, and it is
-opt-in: see [Voice](#voice-optional).
+opt-in: see [Voice](#voice).
 
 Three commands and you are looking at it:
 
@@ -136,7 +136,18 @@ node bin/jarvis setup
 ```
 
 `setup` writes your config, offers to install its own `yt-dlp`, and prints the
-command to start it. Nothing else is required.
+commands to start it and to check what is wired up.
+
+API keys, if you ever need them, live in `.env` beside the repo - never in
+`config.json`, which is where the settings that are not secret go:
+
+```bash
+cp .env.example .env      # then fill in only the lines you need
+```
+
+Nothing in the default setup requires a key. `.env` matters when you add
+ElevenLabs voice, email delivery, or a Telegram bot; each of those sections
+says which line it needs.
 
 Check both runtimes first. This is the step people actually get stuck on:
 
@@ -342,6 +353,10 @@ cannot record a single sample.
 jarvis doctor              # what is wired up and what is missing
 jarvis agents              # list agents, schedules, last run
 jarvis agent brief         # run one now instead of waiting for 7am
+jarvis memory              # what Jarvis has been told to remember
+jarvis experiments         # the open experiment and what closed
+jarvis notify test <chan>  # prove a Discord/Telegram/Slack channel works
+jarvis inbox status        # the Telegram bridge, for talking to it from a phone
 jarvis transcript <url>    # transcript of any YouTube video
 jarvis index               # rebuild index.md in every documents folder
 jarvis ytdlp status        # is yt-dlp current and can it fetch
@@ -506,9 +521,10 @@ Open settings with the gear button (or `cmd+,`) - name, channels, targets,
 watched channels, research lanes, and which agents run. No JSON editing.
 
 Everything lives in `config.json`, which is gitignored and deep-merged over
-`config.default.json`, so pulling an update never touches your setup. See
-`config.example.json` for the full surface and
-[docs/CONFIGURATION.md](docs/CONFIGURATION.md) for what each key does.
+`config.default.json`, so pulling an update never touches your setup.
+`config.example.json` is a short starting point, not the whole surface -
+`config.default.json` is the shipped baseline with every key in it, and
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md) says what each one does.
 
 **Pick a look.** The contrast button in the command bar opens the theme picker.
 Eight ship: Reactor (the original blue), Nebula, Ember, Nord, Mocha, Tokyo
