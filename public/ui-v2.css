@@ -1536,3 +1536,22 @@ body.light.focus #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }
 .expverdict.refuted { color: var(--red); }
 .expverdict.unmeasured { color: var(--amber); }
 .expempty { font-size: 12px; color: var(--dim); padding: 2px 2px 6px; }
+
+/* A brain failure, shown as a failure rather than as a reply. All colours are
+   theme tokens; the amber/red split matches the vitals cards. */
+.brainerr {
+  margin: 8px 0 2px; padding: 10px 12px;
+  border: 1px solid rgba(var(--red-rgb), 0.35);
+  border-left: 2px solid var(--amber);
+  border-radius: 10px;
+  background: rgba(var(--red-rgb), 0.06);
+  font-size: 12.5px; line-height: 1.5;
+}
+.brainerr-head {
+  font-family: var(--sans); font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--amber); margin-bottom: 5px;
+}
+.brainerr-msg { color: var(--text); }
+.brainerr-hint { color: var(--dim); margin-top: 6px; }
+.brainerr.k-auth-expired { border-left-color: var(--red); }
+.brainerr.k-auth-expired .brainerr-head { color: var(--red); }
