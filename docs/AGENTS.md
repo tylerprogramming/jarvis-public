@@ -158,6 +158,51 @@ channel like any other agent: `notify: [phone]` in `agents/watchdog.md`, or
 `agents.watchdog.notify` in `config.json`. Because it is itself scheduled,
 `jarvis doctor` prints when it last checked, so a dead watchdog is visible.
 
+## Experiments
+
+An experiment is one thing you are trying next week, written down before you
+try it, with the number that will settle it. It exists so the weekly review
+has to answer "did last week's idea work" before it is allowed to have a new
+one, which is the difference between a system that learns and a system that
+produces a fresh opinion every Sunday.
+
+```bash
+jarvis experiments                       # open, overdue, and closed with verdicts
+jarvis experiments add --hypothesis "..." --metric "..." --target "..." --deadline YYYY-MM-DD
+jarvis experiments close <id> --result "..." --verdict confirmed|refuted|unmeasured
+jarvis experiments due                   # only the ones past their deadline
+```
+
+The ledger is `data/decisions.jsonl`, append-only, one JSON object per line,
+shared with the decisions memory tier. Nothing rewrites history: closing an
+experiment appends the close.
+
+**Two open at a time.** `experiments.max_open` defaults to 2 and `add` refuses
+past it, naming what to close first. The cap is the point: running five
+experiments at once means none of them is attributable, and the review agent
+will happily open one every week forever if nothing stops it.
+
+**Three verdicts, and one of them is not a failure.** `confirmed` and
+`refuted` both need the metric read from a data file. `unmeasured` is what an
+honest close looks like when the number was never available, and it is
+required rather than optional because the alternative is a guess dressed as a
+result. The review agent is told: if you cannot read the metric, the verdict
+is unmeasured, never a guess.
+
+**Review closes the books before it proposes.** `agents/review.md` gets the
+open list injected as `{{experiments_open}}`, and its CLOSE THE BOOKS step runs
+before THE EXPERIMENT step. An overdue open experiment blocks a new one, so the
+ledger cannot fill up with abandoned ideas.
+
+**A rule needs a source.** `agents/postmortem.md` may only write a playbook
+rule that cites a video id or an experiment id. A rule with no evidence
+pointer is not written at all, which is what keeps the playbook from
+accumulating opinions nobody can trace.
+
+The HUD shows the open ones at the top of the Playbook panel, and
+`jarvis doctor` prints a one-line count with how many are overdue. Config keys
+are in [CONFIGURATION.md](CONFIGURATION.md#experiments).
+
 ## Writing a good one
 
 **Tell it to stop.** The most valuable line in the postmortem agent is "if
