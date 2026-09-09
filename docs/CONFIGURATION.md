@@ -370,6 +370,36 @@ To force one provider, set the chain to a single entry:
 { "brain": { "chain": ["openai"] } }
 ```
 
+### Setting this up without editing JSON
+
+`jarvis brain` writes every key above for you, and proves each change with a
+real turn rather than reporting that it wrote something.
+
+```bash
+jarvis brain               # which providers are available, and can it actually answer
+jarvis brain model         # probe sonnet, haiku and opus; say which answer and how fast
+jarvis brain model haiku   # set chat.model, then prove it with one real turn
+jarvis brain local         # find an OpenAI-compatible endpoint and write brain.openai.*
+```
+
+Plain `jarvis brain` spends one turn on the live brain, because that is the
+only check that catches an expired login, an exhausted usage cap, or a model
+the plan does not include; `available()` and `claude auth status` stay true
+through all three. On a failure it prints the classified reason, the runner's
+own words, and the fix. For a usage cap it probes the other models and offers
+to set `chat.model` to one that still answers. For an expired login on macOS
+it also compares the `Claude Code-credentials` keychain entry with
+`~/.claude/.credentials.json`, because the CLI reads only the keychain and
+concurrent `claude` sessions can leave that entry blank while the file is
+still valid.
+
+`jarvis brain local` asks the endpoint for its model list, writes
+`brain.openai.base_url`, `brain.openai.model` and a `brain.chain` with
+`openai` first, then proves it answers. It never writes a key into
+`config.json`; if the endpoint needs one it goes to `.env` as
+`OPENAI_API_KEY`. All three commands are safe to run repeatedly, and none of
+them touch `chat.allowed_tools` or `brain.allowed_commands`.
+
 ## voice and stt
 
 Ordered fallback chains. The first provider that works wins.

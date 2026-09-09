@@ -351,6 +351,7 @@ cannot record a single sample.
 
 ```bash
 jarvis doctor              # what is wired up and what is missing
+jarvis brain               # why chat does not answer, and how to fix it
 jarvis agents              # list agents, schedules, last run
 jarvis agent brief         # run one now instead of waiting for 7am
 jarvis memory              # what Jarvis has been told to remember
@@ -361,6 +362,29 @@ jarvis transcript <url>    # transcript of any YouTube video
 jarvis index               # rebuild index.md in every documents folder
 jarvis ytdlp status        # is yt-dlp current and can it fetch
 jarvis mcp                 # which MCP servers Jarvis is allowed to call
+```
+
+### When chat does not answer
+
+`jarvis brain` is the one to run. It says which providers are available and
+which is active, whether the `claude` CLI is installed, and then spends one
+real turn asking the brain a question, because that is the only thing that
+proves anything: a version, a `which claude`, and `claude auth status` all
+stay true through an expired login, an exhausted usage cap, and a model your
+plan does not include.
+
+When the turn fails it prints the runner's own words and the fix. Out of
+quota, it probes sonnet, haiku and opus and offers to switch `chat.model` to
+one that still answers. Signed out on macOS, it compares the `Claude
+Code-credentials` keychain entry against `~/.claude/.credentials.json`, since
+the CLI reads only the keychain and several long-lived `claude` sessions can
+leave that entry holding empty tokens while the file still looks fine.
+
+```bash
+jarvis brain               # diagnose, and say what to do next
+jarvis brain model         # which models still answer, and how fast
+jarvis brain model haiku   # switch, then prove it with a real turn
+jarvis brain local         # no Claude subscription: point it at Ollama or similar
 ```
 
 ## Post-level data, and your own breakouts
