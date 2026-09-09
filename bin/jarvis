@@ -14,6 +14,9 @@
  *   jarvis agent <name>     run one agent now, in the foreground
  *   jarvis agents install   put enabled agents on the OS scheduler
  *   jarvis agents uninstall remove them
+ *   jarvis connect          guided setup for chat delivery: pick a platform and prove it
+ *   jarvis connect <plat>   skip the menu: ntfy | discord | slack | telegram | webhook
+ *   jarvis connect --status what is hooked up right now: channels, secrets, inbox, agents
  *   jarvis notify           which chat channels and providers are configured
  *   jarvis notify test [x]  really post a one-line ping: x is a channel name
  *                           from notify.channels or a provider name
@@ -295,53 +298,12 @@ function python(file, args = []) {
 
 /* ---------- inbox: the Telegram bridge as a background process ----------
  *
- * The state lives in two files: data/inbox.pid (who to stop) and
- * data/inbox.json (what the poller last did). Both are read here and by
- * doctor, so the two never disagree about "running". A pid whose process is
- * gone counts as not running, because a stale pid file after a crash or a
- * reboot is the normal case, not an error. */
-const INBOX_PID = path.join(ROOT, "data", "inbox.pid");
-const INBOX_STATE = path.join(ROOT, "data", "inbox.json");
-const INBOX_LOG = path.join(ROOT, "data", "logs", "inbox.log");
-const INBOX_STUCK_MS = 3 * 60 * 1000; // a 50 s long poll that has not returned in 3 min is wedged
-
-const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
-
-/* Allowed chat ids as the bridge computes them, from the env load() did. */
-function inboxAllowed() {
-  const out = [];
-  for (const raw of [process.env.TELEGRAM_CHAT_ID, process.env.TELEGRAM_ALLOWED_CHAT_IDS])
-    for (const p of String(raw || "").split(","))
-      if (p.trim() && !out.includes(p.trim())) out.push(p.trim());
-  return out;
-}
-
-function inboxStatus() {
-  const missing = ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"].filter((k) => !process.env[k]);
-  let pid = null;
-  try { pid = parseInt(fs.readFileSync(INBOX_PID, "utf8").trim(), 10) || null; } catch {}
-  const running = pid !== null && alive(pid);
-  const st = readJsonFile(INBOX_STATE) || {};
-  const lastPoll = st.last_poll ? new Date(st.last_poll).getTime() : null;
-  const pollAgeMs = lastPoll ? Date.now() - lastPoll : null;
-  return {
-    configured: missing.length === 0, missing, pid, running,
-    allowed: inboxAllowed(), bot: st.bot || "", lastPoll, pollAgeMs,
-    stuck: running && (pollAgeMs === null || pollAgeMs > INBOX_STUCK_MS),
-    offset: st.offset || 0,
-  };
-}
-
-const ago = (ms) => ms === null ? "never" : ms < 60000 ? `${Math.round(ms / 1000)} s ago` : ms < 3600000 ? `${Math.round(ms / 60000)} min ago` : `${(ms / 3600000).toFixed(1)} h ago`;
-
-/* One line for doctor and for `jarvis inbox`: off / configured but not
- * running / running (pid, last poll age), with the stuck warning. */
-function inboxLine(s) {
-  if (!s.configured) return `off   (set ${s.missing.join(", ")} in .env to talk to Jarvis from your phone; docs/NOTIFY.md)`;
-  if (!s.running) return `configured but not running   (jarvis inbox start)`;
-  const who = s.bot ? `@${s.bot}, ` : "";
-  return `running   pid ${s.pid}, ${who}last poll ${ago(s.pollAgeMs)}${s.stuck ? "   <- poller looks stuck (no poll in 3 min); jarvis inbox stop, then start" : ""}`;
-}
+ * The state rule lives in lib/inbox.js, because `jarvis inbox`, doctor and
+ * `jarvis connect --status` all report on the bridge and must agree about the
+ * word "running". */
+const inboxLib = require(path.join(ROOT, "lib", "inbox"));
+const { PID_FILE: INBOX_PID, LOG_FILE: INBOX_LOG } = inboxLib;
+const { status: inboxStatus, line: inboxLine } = inboxLib;
 
 async function main() {
   switch (cmd) {
@@ -451,6 +413,13 @@ async function main() {
       process.exit(1);
     }
 
+    /* The guided version of docs/NOTIFY.md: pick a platform, follow its
+     * clicks, paste the secret, and do not stop until a real message has
+     * arrived. `notify` reports and tests what is already wired; this is what
+     * gets it wired in the first place, for someone who has read nothing. */
+    case "connect":
+      return run(path.join(ROOT, "scripts", "connect.js"), rest);
+
     /* Chat delivery is the second thing here that leaves the machine, so the
      * CLI never sends by accident: no arguments only reads config and .env
      * and says what is set. `test` does send, one line per target, because a
@@ -549,35 +518,21 @@ async function main() {
           console.error("  set TELEGRAM_BOT_TOKEN in .env first (from @BotFather), then message your bot once");
           process.exit(1);
         }
-        const url = `https://api.telegram.org/bot${token}/getUpdates`;
-        let body;
-        try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
-          body = await r.json();
-          if (!body.ok) throw new Error(body.description || `HTTP ${r.status}`);
-        } catch (e) {
-          console.error(`  telegram refused it: ${String(e.message || e).replace(token, "<token>")}`);
+        const r = await notifyLib.telegramChats(token);
+        if (!r.ok) {
+          console.error(`  telegram refused it: ${r.error}`);
           console.error("  a 401 means the token is wrong or was revoked in @BotFather");
           process.exit(1);
         }
-        const seen = new Map();
-        for (const u of body.result || []) {
-          const m = u.message || u.channel_post || u.edited_message || u.my_chat_member || {};
-          const c = m.chat;
-          if (c && c.id != null) seen.set(String(c.id), c);
-        }
-        if (!seen.size) {
+        if (!r.chats.length) {
           console.log("\n  no chats yet. Open your bot in Telegram, send it any message, then run this again.");
           console.log("  (for a group: add the bot to the group and post a message there; Telegram keeps updates for 24 hours)\n");
           process.exit(1);
         }
         console.log("\n  chats that have messaged this bot:\n");
-        for (const [id, c] of seen) {
-          const who = c.title || [c.first_name, c.last_name].filter(Boolean).join(" ") || c.username || "";
-          console.log(`  ${id.padEnd(16)} ${(c.type || "").padEnd(11)} ${who}`);
-        }
-        const first = [...seen.keys()][0];
-        console.log(`\n  put one in .env:  TELEGRAM_CHAT_ID=${first}\n  then prove it:    jarvis notify test telegram\n`);
+        for (const c of r.chats)
+          console.log(`  ${c.id.padEnd(16)} ${(c.type || "").padEnd(11)} ${c.who}`);
+        console.log(`\n  put one in .env:  TELEGRAM_CHAT_ID=${r.chats[0].id}\n  then prove it:    jarvis notify test telegram\n`);
         return;
       }
 
