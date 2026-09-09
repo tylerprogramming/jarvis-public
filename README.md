@@ -22,6 +22,19 @@ you hand it a key that makes it leave.
 └──────────────────────┘   12,400 SUBS                └─────────────────────┘
 ```
 
+## Which document answers which question
+
+| If you want | Read |
+|---|---|
+| To go from `git clone` to agents on a schedule, in order | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
+| To know what something you are looking at means, and what to do about it | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
+| What every config key does, and where secrets go | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
+| To write an agent, schedule it, or understand the experiments and run ledgers | [docs/AGENTS.md](docs/AGENTS.md) |
+| Reports on Discord, Telegram, Slack, ntfy, or your phone | [docs/NOTIFY.md](docs/NOTIFY.md) |
+| What the defaults protect against before you widen anything | [docs/SECURITY.md](docs/SECURITY.md) |
+| How generated documents are named and front-mattered | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) |
+| To change the code, or have Claude Code change it | [CLAUDE.md](CLAUDE.md) |
+
 ## What it actually does
 
 **Live vitals.** Subscriber count, recent video traction, and follower counts
@@ -127,19 +140,41 @@ Python helpers use only the standard library, so there is **nothing to pip
 install** either. The one exception is the optional local voice, and it is
 opt-in: see [Voice](#voice).
 
-Three commands and you are looking at it:
-
 ```bash
 git clone https://github.com/tylerprogramming/jarvis-public.git jarvis
 cd jarvis
-node bin/jarvis setup
+node bin/jarvis setup      # or: npm run setup
 ```
 
-`setup` writes your config, offers to install its own `yt-dlp`, and prints the
-commands to start it and to check what is wired up.
+`setup` asks two questions it cannot guess, your name and your YouTube handle,
+writes `config.json`, and offers to install a self-contained `yt-dlp`, put a
+`jarvis` command on your PATH, and run the brief once so the dashboard is not
+empty. Everything else has a working default.
 
-API keys, if you ever need them, live in `.env` beside the repo - never in
-`config.json`, which is where the settings that are not secret go:
+```bash
+jarvis doctor       # the honest inventory of what is wired up
+jarvis              # the HUD on http://localhost:4747
+```
+
+**Read [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) if you want the
+ordered path**, with what you should see at each step and the schedule left
+until last. If something is already not working, go straight to
+[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md), which is organised by
+symptom.
+
+**Or let Claude Code do it.** `cd` into this folder, run `claude`, and say
+**"read CLAUDE.md and set Jarvis up for me"**. The procedure an agent should
+follow lives in [CLAUDE.md](CLAUDE.md#setting-this-up-for-someone), so it reads
+the repo, asks what it needs, edits `config.json`, and checks its own work with
+`jarvis doctor`. If you are going to use Claude Code as the brain anyway,
+having it do the install is a fair first test that the connection works.
+
+**You want:** [Claude Code](https://claude.com/claude-code). It is the default
+brain and the best one. Without it, Jarvis runs on any OpenAI-compatible
+endpoint instead, including a local model, so it is not a hard requirement.
+
+API keys, if you ever need them, live in `.env` beside the repo, never in
+`config.json`:
 
 ```bash
 cp .env.example .env      # then fill in only the lines you need
@@ -149,203 +184,34 @@ Nothing in the default setup requires a key. `.env` matters when you add
 ElevenLabs voice, email delivery, or a Telegram bot; each of those sections
 says which line it needs.
 
-Check both runtimes first. This is the step people actually get stuck on:
+### Put the agents on a schedule
 
-```bash
-node --version      # needs v18 or higher
-python3 --version   # 3.8 or higher
-```
-
-macOS ships `python3` but **does not ship Node**, so on a clean Mac the first
-command comes back `command not found`. Install it either way:
-
-```bash
-brew install node
-```
-
-No Homebrew? Download the macOS **LTS** installer from
-[nodejs.org](https://nodejs.org), run it, then open a new terminal so `PATH`
-picks it up. npm comes bundled with Node, so `npm: command not found` is the
-same problem with the same fix.
-
-**On Linux, and on a VPS, check the version apt gives you.** Ubuntu 22.04 and
-Debian 11 still ship Node 12 in their default repos, so `apt install nodejs`
-succeeds and then Jarvis fails with syntax errors that look like a bug in the
-code. Ubuntu 24.04 and Debian 12 ship 18 and are fine.
-
-```bash
-sudo apt install nodejs npm && node --version    # 18 or higher?
-```
-
-If that came back lower than v18, install a current one instead:
-
-```bash
-# NodeSource - system-wide, survives reboots, good for a server
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# or nvm - per-user, no sudo, easy to switch versions
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-nvm install --lts
-```
-
-On Windows: `winget install OpenJS.NodeJS.LTS`, or the installer from
-[nodejs.org](https://nodejs.org). Open a new terminal afterwards so `PATH`
-picks it up.
-
-Everything else the setup will offer to handle.
-
-**You want:** [Claude Code](https://claude.com/claude-code). It is the default
-brain and the best one. Without it, Jarvis runs on any OpenAI-compatible
-endpoint instead, including a local model, so it is not a hard requirement.
-
-### 1. Clone it
-
-```bash
-git clone https://github.com/tylerprogramming/jarvis-public.git jarvis
-cd jarvis
-```
-
-**Two ways from here.** Both end in the same place, so pick whichever you
-prefer:
-
-| | |
-|---|---|
-| **Run the wizard** | `npm run setup` — two questions, then you are done. Steps 2 onward below. |
-| **Let Claude Code do it** | `cd` into this folder, run `claude`, and say **"read CLAUDE.md and set Jarvis up for me"**. It reads the repo, asks what it needs, edits `config.json`, and checks its own work with `jarvis doctor`. |
-
-The second one works because this repo documents itself for exactly that: the
-setup procedure an agent should follow lives in
-[CLAUDE.md](CLAUDE.md#setting-this-up-for-someone). If you are going to use
-Claude Code as the brain anyway, having it do the install is a fair first test
-that the connection works.
-
-Nothing to build and nothing to `npm install` - the `dependencies` block is
-empty and stays that way. npm is only a convenience here: every script in
-`package.json` is a one-line wrapper, so `node scripts/setup.js` does exactly
-what `npm run setup` does if you ever want to skip it.
-
-### 2. Run setup
-
-```bash
-npm run setup
-```
-
-Two questions: your name and your YouTube handle. It writes `config.json` and
-tells you that you are set up. Everything else has a working default and is
-editable later in Settings, so it only asks if you say you want to.
-
-Along the way it offers to install anything missing rather than leaving you to
-find out later: a self-contained `yt-dlp` (no brew, no pip), Kokoro for a good
-local voice, and a `jarvis` command on your PATH. At the end it pulls your real
-numbers and runs the brief once, so the dashboard has your data, a real
-report, and three things to do the first time you open it.
-
-### 3. Check it
-
-```bash
-node bin/jarvis doctor      # or: npm run doctor
-```
-
-Setup offers to put `jarvis` on your PATH, so if you said yes there, plain
-`jarvis doctor` works and the rest of this README reads literally. If you
-skipped it, `node bin/jarvis ...` does the same thing everywhere, and
-`npm run doctor` is wired up too.
-
-This is the honest inventory: which brain answers, whether yt-dlp can actually
-*fetch* rather than merely exist, which voice providers are live, and whether
-your microphone audio stays on this machine. Fix anything it flags before
-moving on.
-
-### 4. Open it
-
-```bash
-npm start          # http://localhost:4747
-# or: node server.js
-```
-
-Type in the command bar, or press the mic and talk. Ask it "what can you do?"
-and it will tell you, based on what you actually turned on.
-
-### 5. Put the agents on a schedule
+Only after you have watched one run in the foreground:
 
 ```bash
 jarvis agents check     # would each one work? does it have what it needs?
-jarvis agents install   # launchd on macOS, cron on Linux
+jarvis agent brief      # run one now, in front of you
+jarvis agents install   # launchd on macOS, Task Scheduler on Windows, cron on Linux
 ```
 
 `check` runs first for a reason. It catches agents that will silently skip
 because a requirement is missing, before you rely on them running at 7am.
+`install` writes real OS jobs that survive a reboot; `jarvis agents uninstall`
+removes them. Whether they fire at the times you set depends on the machine
+being awake, and macOS and Linux differ in what happens when it is not:
+[the agents did not run at the time I set](docs/TROUBLESHOOTING.md#the-agents-did-not-run-at-the-time-i-set).
 
-That is the whole install. Steps 6 and 7 are optional.
-
-### 6. Free local voice (optional)
+### Optional extras
 
 ```bash
-jarvis voice install    # Docker if you have it, native if you do not
+jarvis voice install    # free local voice, Docker if you have it, native if not
 jarvis voice start
 ```
 
-### 7. Keep your microphone off the internet (optional)
-
-Without this, speech recognition falls back to the browser, which is
-Chrome-only and uploads your audio to Google. `jarvis doctor` tells you which
-one you are on.
-
-```bash
-brew install whisper-cpp        # or your distro's package
-curl -L -o ~/models/ggml-base.en.bin --create-dirs \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-```
-
-Then point `stt.local.model_path` at that file, in `config.json` or the
-settings panel.
-
-### Will the agents actually run at those times
-
-Only if the machine is awake. Neither launchd nor cron wakes a sleeping
-computer, and nothing runs during sleep because the CPU is halted. Power Nap
-does not change this: it wakes briefly for a few Apple services, not for your
-jobs.
-
-What happens when it is asleep differs by platform, and the difference matters:
-
-- **macOS** replays what it missed once it wakes, spread over a few hours. You
-  still get the day's data, just late.
-- **Linux cron** skips a missed job permanently. That day is simply gone.
-
-`jarvis doctor` reports which situation you are in rather than letting you find
-out days later, and `jarvis agents install` says it at the moment you set the
-schedules. Three ways to fix it:
-
-```bash
-sudo pmset repeat wakeorpoweron MTWRFSU 05:55:00   # wake just before the run
-sudo pmset -a sleep 0                              # or never sleep at all
-```
-
-Or run Jarvis on something that is always on. It is Node 18+ with zero
-dependencies plus python3, so any small VPS works. Two cautions if you do:
-the Claude Code brain needs the `claude` CLI authenticated on that machine, or
-point `brain.openai` at an API endpoint instead; and do not expose the HUD to
-the internet, because `/api/chat` reaches a brain that reads files and runs
-commands. Put it behind a VPN or an SSH tunnel. See
-[docs/SECURITY.md](docs/SECURITY.md).
-
-### If the mic will not start
-
-The HUD tells you which of the five ways it failed, because they need different
-fixes and only one of them is a permission:
-
-| What it says | What is actually wrong |
-|---|---|
-| no microphone found | Nothing is plugged in. A Mac Studio and most desktops have no built-in mic. |
-| microphone blocked | Allow it for the site in your browser, and check System Settings > Privacy & Security > Microphone. |
-| something else is holding it | Another app has the device open. Close it. |
-| refused on this origin | You opened a LAN address. Use localhost or 127.0.0.1. |
-
-`jarvis doctor` reports whether a capture device exists at all, separately from
-whether Whisper is ready, because the whole chain can be green on a machine that
-cannot record a single sample.
+Speech recognition falls back to the browser, which is Chrome-only and uploads
+your audio to Google. To keep your microphone on this machine, install local
+Whisper and point `stt.local.model_path` at a model:
+[my voice is being transcribed by Google](docs/TROUBLESHOOTING.md#my-voice-is-being-transcribed-by-google).
 
 ### Day to day
 
@@ -362,6 +228,8 @@ jarvis index               # rebuild index.md in every documents folder
 jarvis ytdlp status        # is yt-dlp current and can it fetch
 jarvis mcp                 # which MCP servers Jarvis is allowed to call
 ```
+
+`jarvis help` prints the full list.
 
 ## Post-level data, and your own breakouts
 
