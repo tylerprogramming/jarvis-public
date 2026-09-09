@@ -136,10 +136,17 @@ sleep mid-response" or "Connection closed" is retried once after a minute,
 as a second row with `retry_of`. A run past `agents.timeout_minutes` is
 killed and recorded as exit 124.
 
-## Health
+## The run ledger
 
-The HUD, `jarvis agents` and `jarvis doctor` all read the ledger and say one
-of: **ok**, **failed** (exit not 0), **overdue** (scheduled, and no run since
+Every run appends one row to `data/runs.json`. That file, not a log
+timestamp, is where every verdict below comes from: a file's modification time
+says when something was written, never whether the run that should have
+written it succeeded.
+
+The HUD, `jarvis agents` and `jarvis doctor` all read it and say one
+of: **ok**, **failed** (exit not 0, or a run that exited 0 while the output
+carried a known failure: a usage cap, an expired login and an overloaded
+server all end the turn politely), **overdue** (scheduled, and no run since
 the last fire plus 90 minutes), **stale** (exited 0 but the prompt writes to
 `{{reports}}` or `{{journal_dir}}` and no file appeared), **never**,
 **running**, or **not loaded** (scheduled and enabled, but the OS job is
