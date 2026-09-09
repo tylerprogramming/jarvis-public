@@ -891,6 +891,22 @@ async function main() {
       console.log(`    claude code        ${ok(brainStatus.providers["claude-code"])}`);
       console.log(`    openai-compatible  ${ok(brainStatus.providers.openai)}   ${cfg.brain.openai.base_url}`);
       console.log(`    active             ${brainStatus.active || "NONE - chat will not work"}`);
+      console.log(`    model              ${cfg.chat.model || "(the CLI default)"}`);
+
+      /* `claude` being installed is not `claude` being able to answer. An
+       * expired login, an exhausted usage cap and a model the plan does not
+       * include all leave the binary in place and every version check happy,
+       * while chat returns nothing. Spend one real turn. */
+      if (brainStatus.active) {
+        const answer = await brain.probe(cfg).catch((e) => ({ ok: false, kind: "probe", message: String(e) }));
+        if (answer.ok) {
+          console.log(`    answers            ok   (${answer.ms}ms)`);
+        } else {
+          console.log(`    answers            FAILED   ${answer.label || ""}`);
+          if (answer.message) console.log(`                       ${answer.message}`);
+          if (answer.hint) console.log(`                       -> ${answer.hint}`);
+        }
+      }
 
       /* A path that does not exist is not the same as no path configured. The
        * first is a typo the operator can fix; the second is a supported state.

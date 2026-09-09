@@ -1473,7 +1473,27 @@ async function send(message) {
           if (data.result && !acc) reply.textContent = acc = data.result;
           if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem("jarvis_session", sessionId); }
         }
-        else if (ev === "error") reply.textContent = acc + "\n[runner error " + data.code + "]";
+        else if (ev === "error") {
+          /* A brain failure is not an answer. The server classifies it
+           * (kind, label, message, hint) so this can say what broke and what
+           * fixes it, rather than appending an opaque code under text the
+           * model never meant as a reply. */
+          const box = document.createElement("div");
+          box.className = "brainerr" + (data.kind ? " k-" + data.kind : "");
+          const head = document.createElement("div");
+          head.className = "brainerr-head";
+          head.textContent = data.label || "the brain failed";
+          box.appendChild(head);
+          for (const [cls, text] of [["brainerr-msg", data.message || data.code], ["brainerr-hint", data.hint]]) {
+            if (!text) continue;
+            const el = document.createElement("div");
+            el.className = cls;
+            el.textContent = text;
+            box.appendChild(el);
+          }
+          reply.textContent = acc;
+          reply.parentNode.appendChild(box);
+        }
       }
     }
   } catch (e) { reply.textContent = acc + "\n[link error: " + e.message + "]"; }

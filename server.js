@@ -320,7 +320,14 @@ async function apiChat(req, res, body) {
         memory.logChat(CFG, { role: "jarvis", text: (payload && payload.result) || "", sessionId: (payload && payload.sessionId) || sessionId });
         send("done", payload);
       },
-      error: (code) => send("error", { code }),
+      error: (err) => {
+        /* Brain failures arrive classified (kind/label/message/hint) so the
+         * HUD can show why chat stopped and what fixes it. Older callers that
+         * pass a bare string still work. */
+        const e = typeof err === "string" ? { kind: "unknown", label: "the brain failed", message: err } : (err || {});
+        memory.logChat(CFG, { role: "jarvis", text: `[${e.label || "error"}] ${e.message || ""}`.trim(), sessionId });
+        send("error", { code: e.message || e.kind || "error", kind: e.kind || "unknown", label: e.label || "the brain failed", message: e.message || "", hint: e.hint || "" });
+      },
       end: () => { finished = true; res.end(); },
     },
   });
