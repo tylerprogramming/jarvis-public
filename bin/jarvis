@@ -27,6 +27,10 @@
  *   jarvis memory add "<text>"       add a line (same as "remember that" in chat)
  *   jarvis memory forget <needle>    drop every line containing the words
  *   jarvis experiments      the experiments ledger: open, overdue, closed with verdicts
+ *   jarvis brain            can chat actually answer, and what to do when it cannot
+ *   jarvis brain model <n>  switch the chat model and prove it with a real turn
+ *   jarvis brain model      which models still answer, and how fast
+ *   jarvis brain local      point the brain at a local OpenAI-compatible model
  *   jarvis doctor           check what is actually wired up
  */
 
@@ -869,6 +873,18 @@ async function main() {
       return;
     }
 
+    case "brain": {
+      /* Deliberately separate from `doctor`. doctor answers "is this machine
+       * wired up" across a dozen subsystems and prints one line about the
+       * brain; this answers "why does chat not answer" and stays until it
+       * does, with the fix attached to each failure. */
+      const cfg = load();
+      const setup = require(path.join(ROOT, "lib", "brain", "setup"));
+      const code = await setup.run(cfg, rest);
+      process.exitCode = code;
+      return;
+    }
+
     case "doctor": {
       const cfg = load();
       const tts = require(path.join(ROOT, "lib", "tts"));
@@ -940,6 +956,7 @@ async function main() {
           console.log(`    answers            FAILED   ${answer.label || ""}`);
           if (answer.message) console.log(`                       ${answer.message}`);
           if (answer.hint) console.log(`                       -> ${answer.hint}`);
+          console.log(`                       -> jarvis brain   walks through fixing this`);
         }
       }
 

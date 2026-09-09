@@ -18,6 +18,7 @@ data/*.log
 data/*.jsonl
 data/*.md
 data/logs/
+data/sessions/
 data/.kokoro-mode
 data/*.pid
 !data/*.example.json
