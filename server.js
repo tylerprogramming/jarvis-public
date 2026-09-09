@@ -629,7 +629,7 @@ server.on("error", (err) => {
       `\nPort ${PORT} is already in use.\n\n` +
       `Jarvis may already be running - try http://localhost:${PORT} first.\n` +
       `Otherwise stop whatever holds the port, or pick another one:\n` +
-      `  JARVIS_PORT=4748 npm start\n`,
+      `  JARVIS_PORT=${Number(PORT) + 1} npm start\n`,
     );
     process.exit(1);
   }
