@@ -14,6 +14,25 @@ the settings panel (gear button, or `cmd+,`) edits it afterwards.
 Objects merge key by key. **Arrays replace wholesale** - setting
 `radar.channels` gives you exactly your list, not yours appended to the default.
 
+## name and tagline
+
+```json
+{ "name": "J.A.R.V.I.S.", "tagline": "JUST A RATHER VERY INTELLIGENT SYSTEM" }
+```
+
+What the HUD writes across the top. Two strings, no other effect; rename the
+whole thing if you want it to be yours.
+
+## directives.max
+
+```json
+{ "directives": { "max": 6 } }
+```
+
+How many entries the DIRECTIVES panel keeps. Agents are given this number as
+`{{max_directives}}` and told to trim to it when they add one, so the list
+stays a short set of next actions rather than a backlog nobody reads.
+
 ## profile
 
 Who you are. This drives the persona, so vagueness here produces vague advice.
@@ -67,6 +86,10 @@ channel.
 ```
 
 Lower `breakout_multiple` to 2.0 for more signal and more noise.
+
+`radar.names` maps a channel id or handle to the label the HUD shows, for
+channels whose own name is unreadable or too long for the panel:
+`{"radar": {"names": {"@SomeCreator": "Some Creator"}}}`.
 
 ## research.lanes
 
@@ -220,8 +243,9 @@ worse than none, because you stop checking the file.
   "chat": {
     "cwd": "",
     "permission_mode": "acceptEdits",
-    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
+    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
     "disallowed_tools": "",
+    "speak_replies": true,
     "model": null
   }
 }
@@ -233,6 +257,15 @@ and the same project memory. It used to default to `~`, which quietly loaded
 `~/.claude/CLAUDE.md` and your personal Claude project notes into every Jarvis
 reply while the agents saw none of it. Set it only if you want chat to start
 somewhere else. See [SECURITY.md](SECURITY.md) before widening `allowed_tools`.
+
+`speak_replies` (default `true`) is whether the HUD speaks an answer out loud
+as well as printing it. It is sent to the browser with the rest of the config,
+so turning it off in settings takes effect on the next reply.
+
+`model` is `null` by default, meaning whichever model the `claude` CLI would
+pick on its own. Set it to pin one, which is the fix when the CLI's default is
+capped: chat fails, and because a cap ends the turn politely the failure gets
+rendered as an answer.
 
 ## memory
 
@@ -342,8 +375,7 @@ Which model answers the command bar. Ordered chain, first available wins.
   "brain": {
     "chain": ["claude-code", "openai"],
     "openai": { "base_url": "https://api.openai.com/v1", "model": "gpt-4.1" },
-    "allowed_commands": ["yt-dlp", "python3", "ls", "cat", "wc", "date"],
-    "denied_patterns": ["\\.ssh/", "\\.env", "credentials\\.json"]
+    "allowed_commands": ["yt-dlp", "python3", "ls", "cat", "wc", "date"]
   }
 }
 ```
@@ -360,9 +392,22 @@ overrides the key for third-party gateways.
 
 Because a chat endpoint has no tools of its own, Jarvis gives this brain file
 read/write/search plus `run_command`. `allowed_commands` is a binary allowlist
-— anything not listed is refused. `denied_patterns` are regexes checked against
-every resolved path and refused even inside an allowed directory; omit the key
-to keep the built-in secret list, or set your own to replace it.
+— anything not listed is refused.
+
+**`brain.denied_patterns` is not in `config.default.json`.** Set it only to
+override the built-in list, `DEFAULT_DENIED` in `lib/brain/tools.js`, which
+refuses `.ssh/`, `.aws/`, `.gnupg/`, `.kube/`, `.docker/config`, `.netrc`,
+`.npmrc`, `.pypirc`, `.git-credentials`, `.env`, `credentials.json`, `.pem`,
+`.key`, `.p12`, `id_rsa`, `id_ed25519`, `Keychains/` and `.password-store/`.
+They are regexes checked against every resolved path and refused even inside an
+allowed directory. Setting the key **replaces** the built-in list rather than
+adding to it, so include what you still want refused; leaving it unset is the
+safe choice. This matters more for `openai` than for `claude-code`, because
+whatever a tool reads gets sent to whichever API is serving the brain.
+
+```json
+{ "brain": { "denied_patterns": ["\\.ssh/", "\\.env", "credentials\\.json"] } }
+```
 
 To force one provider, set the chain to a single entry:
 
@@ -406,7 +451,7 @@ Ordered fallback chains. The first provider that works wins.
 
 ```json
 {
-  "voice": { "chain": ["kokoro", "elevenlabs", "system", "browser"] },
+  "voice": { "chain": ["kokoro", "elevenlabs", "piper", "system", "browser"] },
   "stt": { "chain": ["local", "openai", "browser"], "local": { "binary": "whisper-cli", "model_path": "~/models/ggml-base.en.bin" } }
 }
 ```
@@ -415,6 +460,88 @@ For Kokoro, run any OpenAI-compatible speech server and point `voice.kokoro.url`
 at it. For local Whisper, either set `stt.local.url` to a compatible server or
 install `whisper-cli` and set `model_path`. `ffmpeg` is required for the CLI
 path. Run `jarvis doctor` to see what is actually live.
+
+Each provider in the voice chain has its own block, and only the one being used
+is read:
+
+```json
+{
+  "voice": {
+    "elevenlabs": {
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "model_id": "eleven_flash_v2_5",
+      "stability": 0.45,
+      "similarity_boost": 0.75
+    },
+    "kokoro": { "url": "http://127.0.0.1:8880/v1/audio/speech", "voice": "am_michael", "speed": 1.0 },
+    "piper":   { "binary": "piper", "model": "" },
+    "system":  { "voice": "Daniel", "rate": 190 }
+  }
+}
+```
+
+| | |
+|---|---|
+| `elevenlabs.voice_id` | Which ElevenLabs voice. Required; without it the provider is skipped even when the key is set. |
+| `elevenlabs.model_id` | Their model. The default is their fast one, which is what keeps a spoken reply ahead of playback. |
+| `elevenlabs.stability`, `.similarity_boost` | Passed through as `voice_settings`. Lower stability is more expressive and less consistent. |
+| `kokoro.speed` | Playback rate sent to the speech server, `1.0` being normal. |
+| `piper.binary`, `piper.model` | The `piper` executable and the path to a `.onnx` voice. Both must exist or the provider is skipped, because Piper ships no default voice. |
+| `system.voice` | The named OS voice: a `say` voice on macOS, a SAPI voice on Windows. |
+| `system.rate` | Words per minute for macOS `say`. On Windows the same key drives SAPI's rate, which runs -10 to 10 and is clamped to it. |
+
+`stt.local.language` (default `en`) is passed to whisper as `-l`. Set it to the
+language you actually speak; leaving it wrong is a common reason transcription
+comes back as plausible nonsense. `stt.local.model` (default `small`) is only
+used by the OpenAI-style `whisper` CLI, not by `whisper-cli` from whisper.cpp,
+which takes a model file through `model_path` instead. `stt.local.binary`
+(default `whisper-cli`) is which executable to call.
+
+`stt.openai` is `{ "url": "https://api.openai.com/v1/audio/transcriptions",
+"model": "whisper-1" }`. It is used only when `OPENAI_API_KEY` is set; point
+`url` elsewhere for an API-compatible transcription server.
+
+## social
+
+**This one spends real money every time it runs.** The `social` agent is the
+paid-scraper path for the platforms Jarvis cannot read for free, and it pays
+[Apify](https://apify.com) per actor run, per platform. It is not in
+`agents.enabled` by default and it has no schedule of its own; it is chained
+from `brief` when you turn it on. Before enabling it, read
+[agents](#agents) and expect a bill.
+
+```json
+{
+  "social": {
+    "actors": {
+      "instagram": "apify/instagram-profile-scraper",
+      "tiktok": "clockworks/tiktok-profile-scraper",
+      "x": "delicious_zebu/advanced-x-twitter-profile-scraper",
+      "linkedin": "harvestapi/linkedin-profile-scraper"
+    },
+    "post_window_days": 30,
+    "max_posts_per_platform": 25
+  }
+}
+```
+
+`actors` pins one Apify actor per platform, and the agent is told to use exactly
+these and never to substitute. That is deliberate: an agent free to search the
+store every morning silently changes its own cost, its output shape, and its
+reliability, with nothing in the log saying why. Swap an actor by editing this
+key. When a pinned actor fails, the agent reports which one and what it said
+rather than reaching for another.
+
+`post_window_days` (30) is how far back the post sweep looks, and
+`max_posts_per_platform` (25) caps how many it pulls per platform. Both exist to
+keep the cost of a run predictable; lower them to spend less. The agent appends
+what each run cost to `data/spend.log`, so the spend does not stay invisible.
+
+The agent needs both an Apify MCP server listed in
+[`chat.mcp_servers`](#chatmcp_servers) and at least one non-YouTube handle in
+`profile.channels`; without either it skips with the reason rather than running
+against nothing. See [requires](AGENTS.md#requires).
+
 
 ## server
 
@@ -443,6 +570,10 @@ next scheduled fire started a second copy on top of it.
 { "notify": ["phone"] } } }` sends its report, which it only writes when some
 agent failed, is overdue, is not loaded, or wrote nothing. A quiet day sends
 nothing.
+
+`agents.dir` (default `agents`) is where the agent files are read from,
+resolved against the repo root, so `../my-agents` keeps your own outside the
+clone where `git pull` will not touch them.
 
 ## calendar.week_plan
 
