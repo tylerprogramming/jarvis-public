@@ -5,6 +5,13 @@ Slack channel, an ntfy topic, or any URL that takes a JSON POST. This is the
 walkthrough for each one, in order of how long it takes. Nothing here is
 required; skip it entirely and Jarvis writes files and stops.
 
+`jarvis connect` is this page as a command: it asks which platform, prints
+the same clicks, takes the secret, writes `.env` and `config.json` for you,
+and finishes by really sending a test message and telling you what the
+platform said. `jarvis connect --status` answers "what is hooked up right
+now". Read on if you would rather do it by hand, or want to know what those
+commands are writing.
+
 Every provider ends the same way, so here is the shape once:
 
 1. Get one secret from the platform (a webhook URL, a bot token, a topic name).

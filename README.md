@@ -69,7 +69,10 @@ stay in every prompt; see [memory](docs/CONFIGURATION.md#memory).
 
 **It can ping you where you already look.** Any agent can opt into delivering
 its report to a Discord channel, a Telegram chat, a Slack channel, an ntfy
-topic, or your own webhook. Off by default: name a channel in `config.json`,
+topic, or your own webhook. Off by default: `jarvis connect` walks you through
+one platform, writes the secret to `.env` and the channel to `config.json`, and
+does not call it done until a real message has arrived on your phone. By hand
+it is the same three pieces: name a channel in `config.json`,
 put the webhook or token in `.env`, and add `notify: [phone]` to the agent.
 With the default `notify_when: report`, `radar` becomes an alert for free,
 because it writes nothing when nothing broke out. Delivery runs in code after
@@ -355,6 +358,8 @@ jarvis agents              # list agents, schedules, last run
 jarvis agent brief         # run one now instead of waiting for 7am
 jarvis memory              # what Jarvis has been told to remember
 jarvis experiments         # the open experiment and what closed
+jarvis connect             # hook up Discord/Telegram/Slack/ntfy, guided, and prove it
+jarvis connect --status    # what is hooked up right now: channels, secrets, phone inbox
 jarvis notify test <chan>  # prove a Discord/Telegram/Slack channel works
 jarvis inbox status        # the Telegram bridge, for talking to it from a phone
 jarvis transcript <url>    # transcript of any YouTube video
