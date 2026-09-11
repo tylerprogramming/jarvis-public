@@ -136,7 +136,11 @@ whose binary is not in `brain.allowed_commands`.
 ## Narrowing what the agent can do
 
 `chat.allowed_tools` in `config.json` controls the blast radius. The shipped
-default is already narrower than a full Claude Code session. To go further:
+default is already narrower than a full Claude Code session: files, web
+search, python3, yt-dlp, and the repo's own CLI (`Bash(node bin/jarvis:*)`),
+which is how chat runs doctor or a notify test, and the widest thing it can
+run. Drop that token if you would rather it only read and write. To go
+further:
 
 ```json
 {

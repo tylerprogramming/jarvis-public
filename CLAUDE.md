@@ -323,7 +323,9 @@ exists.
   real launchd or cron entries that survive reboot.
 - Do not widen `chat.allowed_tools` or `brain.allowed_commands` to make
   something work. That is the security boundary, and widening it silently is how
-  a dashboard becomes a remote shell.
+  a dashboard becomes a remote shell. The widest thing in the default is
+  `Bash(node bin/jarvis:*)`, the repo's own CLI; a new capability for chat is
+  a CLI command or a `RUN:` style server hook, not a broader Bash pattern.
 
 ## License
 

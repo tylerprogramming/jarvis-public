@@ -243,7 +243,7 @@ worse than none, because you stop checking the file.
   "chat": {
     "cwd": "",
     "permission_mode": "acceptEdits",
-    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
+    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*) Bash(node bin/jarvis:*)",
     "disallowed_tools": "",
     "speak_replies": true,
     "model": null
@@ -257,6 +257,13 @@ and the same project memory. It used to default to `~`, which quietly loaded
 `~/.claude/CLAUDE.md` and your personal Claude project notes into every Jarvis
 reply while the agents saw none of it. Set it only if you want chat to start
 somewhere else. See [SECURITY.md](SECURITY.md) before widening `allowed_tools`.
+
+`Bash(node bin/jarvis:*)` is what lets chat run Jarvis's own CLI: "run
+doctor", "test my Discord channel", "check the agents". It is the repo's
+command, bound to what the CLI can do, and includes `agents install`, which
+writes a real schedule; the brain is told to confirm before that one.
+Starting agents does not need it: the brain ends a reply with `RUN: <name>`
+and the server starts them (see [AGENTS.md](AGENTS.md)).
 
 `speak_replies` (default `true`) is whether the HUD speaks an answer out loud
 as well as printing it. It is sent to the browser with the rest of the config,

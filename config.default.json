@@ -90,7 +90,7 @@
     "$comment_cwd": "Where the chat brain starts. Empty means the repo root, the same place scheduled agents run. Set it only if you want chat to start somewhere else, and know that `claude -p` reads that folder's CLAUDE.md and project memory into every reply.",
     "cwd": "",
     "permission_mode": "acceptEdits",
-    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*)",
+    "allowed_tools": "Read Glob Grep WebSearch WebFetch Write Edit ToolSearch Skill Bash(yt-dlp:*) Bash(python3:*) Bash(ls:*) Bash(node bin/jarvis:*)",
     "disallowed_tools": "",
     "speak_replies": true,
     "model": null,
