@@ -910,6 +910,26 @@
       body.appendChild(exit);
     }
 
+    /* The column's geometry, in pixels, written inline. The deck's left,
+     * width and height are inline numbers with CSS transitions, so giving
+     * focus the same kind of numbers is what makes the switch a slide rather
+     * than a jump: left:auto or height:auto would snap. --stage-right goes
+     * on body for the sphere's shift and the ring's centre. Below 900px
+     * there is no room beside the sphere, so the strip under it comes back. */
+    function focusGeometry() {
+      const c = $("comms"); if (!c) return;
+      const narrow = innerWidth <= 900;
+      const stageRight = narrow ? 0 : Math.min(560, Math.max(300, innerWidth * 0.34));
+      body.style.setProperty("--stage-right", stageRight + "px");
+      if (narrow) {
+        c.style.left = "24px"; c.style.width = (innerWidth - 48) + "px"; c.style.height = "240px";
+      } else {
+        c.style.left = (innerWidth - stageRight) + "px";
+        c.style.width = (stageRight - 20) + "px";
+        c.style.height = Math.max(240, innerHeight - 60 - 26) + "px";
+      }
+    }
+
     function setFocus(on, quiet) {
       body.classList.toggle("focus", on);
       if (on) {
@@ -918,15 +938,20 @@
         if (typeof setDock === "function" && $("comms") && getComputedStyle($("comms")).display === "none")
           setDock("compact");
         document.documentElement.style.setProperty("--railw", "0px");
-        const c = $("comms"); if (c) c.style.left = "";
+        focusGeometry();
       } else {
+        body.style.removeProperty("--stage-right");
         setMode(mode, true);   // restores --railw and the deck's left
+        // width and height back to the dock size the person had chosen
+        const c = $("comms");
+        if (c && typeof setDock === "function") setDock(c.classList.contains("expanded") ? "expanded" : "compact");
       }
       try { localStorage.setItem("jarvis_focus", on ? "1" : "0"); } catch {}
       if (!quiet) { relayout(); setTimeout(relayout, 460); }
       if (on) { const cmd = $("cmd"); cmd && cmd.focus(); }
     }
     const isFocus = () => body.classList.contains("focus");
+    addEventListener("resize", () => { if (isFocus()) focusGeometry(); });
 
     if (btn) btn.onclick = () => setFocus(!isFocus());
     exit.onclick = () => setFocus(false);

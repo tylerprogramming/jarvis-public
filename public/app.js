@@ -892,15 +892,26 @@ function layoutAgents() {
   if (!els.length) return;
 
   const rect = (sel) => { const e = document.querySelector(sel); return e && e.getBoundingClientRect(); };
-  const railL = rect(".rail.left");
+  /* In v2 focus the rail and the primary card fade out rather than leaving
+   * the layout (a display:none cannot animate), so they still measure. The
+   * ring treats them as gone, which they are to the eye. */
+  const focus = document.body.classList.contains("focus");
+  const railL = focus ? null : rect(".rail.left");
   const leftEdge = railL ? railL.right : 0;
-  const rightEdge = innerWidth - 20;
+  /* In focus the v2 chat is a column down the right, and the sphere canvas is
+   * shifted left by half its width in CSS (--stage-right). Measured from the
+   * panel itself so the ring centres on the sphere with the same number. */
+  const commsR = focus ? rect("#comms") : null;
+  const stageRight = commsR && commsR.left > innerWidth / 2 ? innerWidth - commsR.left : 0;
+  const rightEdge = innerWidth - stageRight - 20;
 
   // Fixed furniture the ring must not sit under. Measured, not hardcoded, so
   // resizing the chat card or hiding a panel is handled without touching this.
   // #calstrip used to float at top centre; it lives in the Dashboard panel now,
-  // so the ring only has to clear the primary card and the chat.
-  const reserved = [rect("#primary"), rect("#comms")].filter(Boolean);
+  // so the ring only has to clear the primary card and the chat. #linkrail is
+  // v2's, beside the chat when it exists; a hidden one measures 0 by 0.
+  const reserved = (focus ? [rect("#comms")] : [rect("#primary"), rect("#comms"), rect("#linkrail")])
+    .filter((r) => r && r.width > 0);
 
   /* Centre on the BRAIN, not on the gap between the furniture.
    *
@@ -910,7 +921,7 @@ function layoutAgents() {
    * stopped orbiting the thing it orbits. The canvas is full-viewport, so its
    * centre is the viewport centre; collisions are the relaxation's problem. */
   const PAD = 22;
-  const cx = innerWidth / 2;
+  const cx = (innerWidth - stageRight) / 2;
   const cy = innerHeight / 2 - 30;
   let halfW = 0, halfH = 0;
   els.forEach((el) => {

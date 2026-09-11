@@ -540,7 +540,7 @@ header .modes span.bad .dot {
   right: auto; transform: translateX(-50%);
   bottom: 26px;
   transition: width 420ms var(--v2-ez), height 420ms var(--v2-ez),
-              left var(--v2-slow) var(--v2-ez);
+              left var(--v2-slow) var(--v2-ez), transform var(--v2-slow) var(--v2-ez);
 }
 #dockbar:hover { transform: translateX(-50%) translateY(-2px); }
 
@@ -1393,26 +1393,45 @@ body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
  * the sphere and then on the one place to type. Everything is body.focus so
  * removing the class puts the deck back exactly as it was.
  * ------------------------------------------------------------------------- */
+/* Fade, do not vanish. These used to be display:none, which cannot animate,
+   so entering focus was a hard cut while the chat slid. They now fade over
+   the same beat the chat moves, and layoutAgents() knows to ignore them in
+   focus even though they still measure. The minimised bar is the exception:
+   it has no place in focus and is never visible at the moment of the switch. */
+header, #nowbar, .rail.right, #primary, #platgrid {
+  transition: opacity 360ms var(--v2-ez), visibility 0s linear 0s;
+}
+.rail.left { transition: width var(--v2-slow) var(--v2-ez), opacity 360ms var(--v2-ez), visibility 0s linear 0s; }
 body.focus header,
 body.focus #nowbar,
 body.focus .rail.left,
 body.focus .rail.right,
 body.focus #primary,
-body.focus #platgrid,
+body.focus #platgrid {
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition-delay: 0s, 360ms;
+}
+body.focus .rail.left { transition-delay: 0s, 0s, 360ms; }
 body.focus #dockbar { display: none !important; }
+#brain { transition: transform var(--v2-slow) var(--v2-ez); }
 
+/* The conversation takes the right third as a full-height column; the sphere
+   and its ring get the other two thirds. The chat used to be a 212px strip
+   centred under the brain, which showed three lines of the last exchange and
+   nothing of what an agent was doing. --stage-right is the column's width
+   plus its gutter: #brain is shifted left by half of it so the sphere sits in
+   the middle of the space that is left, and layoutAgents() measures the panel
+   to centre the ring on the same point. */
+body.focus { --stage-right: clamp(300px, 34vw, 560px); }
+/* left, width and height are set inline by setFocus() in ui-v2.js, in
+   pixels, so the same transitions that move the deck carry it into the
+   column and back. Only what cannot be animated is declared here. */
 body.focus #comms {
-  left: 50% !important;
-  width: min(680px, calc(100vw - 48px)) !important;
-  /* Short on purpose. layoutAgents() shrinks the ring until no plate sits
-     under the chat, and the chat is now centred under the brain: a tall
-     transcript here is a ring folded into the sphere. Three lines of the
-     last exchange is what focus is for; the deck has the rest. */
-  height: 212px !important;
-  bottom: 24px;
+  transform: none;
   background: none; border: 0; box-shadow: none; backdrop-filter: none;
   overflow: visible;
 }
+body.focus #brain { transform: translateX(calc(var(--stage-right) / -2)); }
 body.focus #comms .dockhead { display: none; }
 body.focus #comms .msgs {
   padding: 0 4px 6px;
