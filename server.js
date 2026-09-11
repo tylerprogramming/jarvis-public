@@ -35,6 +35,20 @@ const playbook = require("./lib/playbook");
 const memory = require("./lib/memory");
 
 let CFG = load(); // reassigned when settings are saved, see apiPutConfig
+
+/* config.json and .env are also written behind the server's back: by
+ * `npm run setup`, `jarvis mcp allow`, `jarvis brain model`, or an editor.
+ * Until this, a server started before setup ran kept answering as nobody
+ * with no channels, and the only fix was to know to restart it. Polled,
+ * not fs.watch: the latter fires on an editor's temp-file rename and never
+ * again on some platforms. Two seconds is invisible next to a chat turn. */
+for (const file of ["config.json", ".env"]) {
+  fs.watchFile(path.join(CFG.paths.root, file), { interval: 2000, persistent: false }, (cur, prev) => {
+    if (cur.mtimeMs === prev.mtimeMs) return;
+    try { CFG = load(); console.log(`${file} changed on disk, settings reloaded`); }
+    catch (e) { console.error(`${file} changed but did not load: ${e.message}`); }
+  });
+}
 const ROOT = CFG.paths.root;
 const PORT = CFG.server.port || 4747;
 const HOST = CFG.server.host || "127.0.0.1";
