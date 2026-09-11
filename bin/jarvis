@@ -405,7 +405,7 @@ async function main() {
         save({ chat: { mcp_servers: list } });
         console.log(`  ${sub === "allow" ? "allowed" : "denied"}: ${names.join(", ")}`);
         console.log(`  Jarvis can now use: ${list.length ? list.join(", ") : "no MCP servers"}`);
-        console.log(`  Restart the server for it to take effect.`);
+        console.log(`  A running server picks this up on its own within a couple of seconds.`);
         return;
       }
 
