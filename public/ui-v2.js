@@ -1192,6 +1192,71 @@
     refreshExperiments();
   }
 
+  /* =========================================================================
+   * LINK RAIL
+   *
+   * app.js puts a pill row above any reply that mentions a URL. Outside focus
+   * the same links are also collected here, beside the chat card, so they
+   * outlive the message scrolling away. linkPills is app.js's; wrapping it
+   * keeps the transcript exactly as app.js draws it.
+   * ======================================================================= */
+  {
+    let rail = $("linkrail");
+    if (!rail) {
+      rail = document.createElement("aside");
+      rail.id = "linkrail";
+      rail.hidden = true;
+      rail.setAttribute("aria-label", "Links from the conversation");
+      rail.innerHTML = '<div class="lrhead">Links</div>';
+      document.body.appendChild(rail);
+    }
+    const seen = [];   // newest first, capped
+    const MAX = 8;
+
+    function placeLinkRail() {
+      const c = $("comms");
+      if (!c || !seen.length || getComputedStyle(c).display === "none") { rail.hidden = true; return; }
+      rail.hidden = false;
+      const r = c.getBoundingClientRect();
+      const left = r.left - 12 - rail.offsetWidth;
+      // the rail must not sit under the left rail; if there is no room, stand down
+      const railL = document.querySelector(".rail.left");
+      const edge = railL ? railL.getBoundingClientRect().right + 12 : 0;
+      if (left < edge) { rail.hidden = true; return; }
+      rail.style.left = left + "px";
+      rail.style.bottom = (innerHeight - r.bottom) + "px";
+    }
+
+    appGlobal(() => {
+      const orig = linkPills;
+      linkPills = function (el, text) {
+        orig(el, text);
+        const urls = [...new Set([...String(text).matchAll(URL_RE)].map((m) => m[0]))];
+        for (const u of urls.reverse()) {
+          const i = seen.indexOf(u);
+          if (i >= 0) seen.splice(i, 1);
+          seen.unshift(u);
+        }
+        seen.splice(MAX);
+        rail.querySelectorAll(".chip.link").forEach((a) => a.remove());
+        for (const u of seen) {
+          const a = document.createElement("a");
+          a.className = "chip link"; a.href = u; a.title = u; a.target = "_blank"; a.rel = "noopener";
+          try { const p = new URL(u); a.textContent = p.hostname.replace(/^www\./, "") + p.pathname.replace(/\/$/, ""); }
+          catch { a.textContent = u; }
+          rail.appendChild(a);
+        }
+        placeLinkRail();
+        relayout();
+      };
+      const origDock = setDock;
+      setDock = function (...a) { origDock.apply(this, a); setTimeout(placeLinkRail, 440); };
+    });
+    const c = $("comms");
+    if (c) c.addEventListener("transitionend", placeLinkRail);
+    addEventListener("resize", placeLinkRail);
+  }
+
   /* The deck and the right column moved in CSS; the ring is laid out in JS
    * against their measured rectangles, so it needs a nudge once the
    * stylesheet has landed. */

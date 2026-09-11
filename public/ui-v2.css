@@ -1435,9 +1435,33 @@ body.focus #brain { transform: translateX(calc(var(--stage-right) / -2)); }
 body.focus #comms .dockhead { display: none; }
 body.focus #comms .msgs {
   padding: 0 4px 6px;
-  -webkit-mask: linear-gradient(180deg, transparent, #000 26%);
-          mask: linear-gradient(180deg, transparent, #000 26%);
+  -webkit-mask: linear-gradient(180deg, transparent, #000 56px);
+          mask: linear-gradient(180deg, transparent, #000 56px);
 }
+/* ---- links beside the chat, outside focus ----
+   Every link a reply mentioned, newest first, in a slim column to the left
+   of the chat card so a Loom or a doc stays one click away after the
+   message has scrolled off. Placed by placeLinkRail() against the card's
+   measured rectangle. In focus the pills above each message are enough. */
+#linkrail {
+  position: fixed; z-index: 6; width: 188px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 10px 12px; border-radius: 16px;
+  background: var(--panel); border: 1px solid var(--line);
+  backdrop-filter: blur(var(--blur));
+  transition: left var(--v2-slow) var(--v2-ez), bottom 420ms var(--v2-ez), opacity 240ms var(--v2-ez);
+}
+#linkrail[hidden] { display: none; }
+#linkrail .navword, #linkrail .lrhead {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--dim); padding: 0 2px 2px;
+}
+#linkrail .chip.link {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  animation: v2pillIn 320ms var(--v2-ez) both;
+}
+body.focus #linkrail { opacity: 0; pointer-events: none; }
+
 body.focus #comms .msg.you { background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.16); box-shadow: none; }
 body.focus #comms .msg.jarvis { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
 body.focus #bar { padding: 0; }
