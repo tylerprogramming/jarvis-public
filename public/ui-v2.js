@@ -114,6 +114,10 @@
    * rail width and the dock size.
    */
   function placeDeck() {
+    // In focus the column's left is owned by focusGeometry(); the load and
+    // resize handlers below call this too, and used to drag the column back
+    // to the deck's centre on every reload that restored focus.
+    if (document.body.classList.contains("focus")) return;
     const rightCol =
       parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--v2-right")) || 300;
     const narrow = innerWidth <= 900;   // below this the right column stands down
@@ -931,6 +935,10 @@
     }
 
     function setFocus(on, quiet) {
+      if (quiet) {
+        body.classList.add("nofx");
+        requestAnimationFrame(() => requestAnimationFrame(() => body.classList.remove("nofx")));
+      }
       body.classList.toggle("focus", on);
       if (on) {
         // The dock has to be visible in focus; a minimised bar has nothing

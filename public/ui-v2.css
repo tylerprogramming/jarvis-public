@@ -1432,7 +1432,15 @@ body.focus #comms {
   overflow: visible;
 }
 body.focus #brain { transform: translateX(calc(var(--stage-right) / -2)); }
-body.focus #comms .dockhead { display: none; }
+/* The head stays: it is where New conversation and the way out of focus
+   live, and a full-height column has room for a title. Only the size
+   buttons go, since the column has one size. */
+body.focus #comms .dockhead { padding: 0 6px 10px; border-bottom: 1px solid var(--line-soft); }
+body.focus #comms .dockhead #dock-expand,
+body.focus #comms .dockhead #dock-min { display: none; }
+/* Restoring focus on load must not replay the slide from the deck's first
+   paint position: setFocus(on, quiet) puts this on for two frames. */
+body.nofx, body.nofx *, body.nofx #brain, body.nofx #comms { transition: none !important; }
 body.focus #comms .msgs {
   padding: 0 4px 6px;
   -webkit-mask: linear-gradient(180deg, transparent, #000 56px);
