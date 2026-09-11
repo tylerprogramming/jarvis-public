@@ -48,6 +48,26 @@ const ask = (q, def = "") =>
     waiting.push(take);
   });
 
+/* Keys are typed without echo.
+ *
+ * The terminal echoes what readline reads, so a pasted key sat in the
+ * scrollback in full, where it is one copy-paste away from a chat log or a
+ * screenshot. Raw mode turns the echo off; the line still arrives through the
+ * same queue, so scripted and piped input behave exactly as before. Raw mode
+ * also hands over backspace and ctrl-c as bytes, so both are handled here. */
+const askSecret = async (q) => {
+  const tty = process.stdin.isTTY && typeof process.stdin.setRawMode === "function";
+  if (!tty) return ask(q, "");
+  process.stdin.setRawMode(true);
+  let line;
+  try { line = await ask(q, ""); } finally { process.stdin.setRawMode(false); }
+  process.stdout.write("\n");
+  if (line.includes("\u0003")) { rl.close(); process.exit(130); }
+  let out = "";
+  for (const c of line) out = c === "\u007f" || c === "\b" ? out.slice(0, -1) : out + c;
+  return out.trim();
+};
+
 const askYes = async (q, def = true) => {
   const a = await ask(`${q} (y/n)`, def ? "y" : "n");
   return /^y/i.test(a);
@@ -128,6 +148,47 @@ async function linkCommand() {
     console.log(`                add this by hand: alias jarvis='node ${src}'`);
     return `node ${src}`;
   }
+}
+
+/* Two of the standard agents need an MCP server the operator may already
+ * have: social reads the non-YouTube counts through Apify, calendar reads the
+ * publishing strip from Blotato. Without this, the very next step ran the
+ * brief, both agents printed "skipped: config is missing apify", and the
+ * person had just been shown an Apify server in the list above. Asked, never
+ * assumed, one at a time, default no: Apify bills per run. */
+async function offerAgentServers(servers, state) {
+  const file = path.join(ROOT, "config.json");
+  const current = readJson(file, {}).chat?.mcp_servers;
+  if (current === "all") return;
+  const allowed = Array.isArray(current) ? [...current] : [];
+  const wants = [
+    { kind: /apify/i, when: state.instagram || state.tiktok || state.linkedin || state.x,
+      why: "The social agent pulls your Instagram, TikTok, LinkedIn and X counts\n  through Apify. Apify bills per run, a few cents each morning." },
+    { kind: /blotato/i, when: true,
+      why: "The calendar agent fills the week's publishing strip from Blotato." },
+  ];
+  let changed = false;
+  for (const w of wants) {
+    const hit = servers.find((x) => w.kind.test(x.name));
+    if (!hit || !w.when || allowed.some((n) => n.toLowerCase() === hit.name.toLowerCase())) continue;
+    console.log(`\n  ${w.why}`);
+    if (await askYes(`  Let Jarvis use "${hit.name}"`, false)) { allowed.push(hit.name); changed = true; }
+  }
+  if (!changed) return;
+  require("../lib/config").save({ chat: { mcp_servers: allowed } });
+  console.log(`  allowed: ${allowed.join(", ")}`);
+}
+
+/* True when a Jarvis is already answering on the configured port, so the
+ * closing message can say the settings are live rather than telling someone
+ * to start what is already running. One second, then assume not. */
+async function serverUp() {
+  const port = readJson(path.join(ROOT, "config.json"), {}).server?.port
+    || readJson(path.join(ROOT, "config.default.json"), {}).server?.port || 4747;
+  try {
+    const r = await fetch(`http://127.0.0.1:${port}/api/config`, { signal: AbortSignal.timeout(1000) });
+    return r.ok ? port : null;
+  } catch { return null; }
 }
 
 async function main() {
@@ -212,7 +273,12 @@ async function main() {
   };
 
   const writeConfig = () => {
+    /* On top of whatever is there now, not the object read at the start:
+     * `jarvis mcp allow` and the MCP step below write the same file while
+     * this is running, and a re-run of setup used to wipe notify channels,
+     * chat settings and anything else it did not ask about. */
     const next = {
+      ...readJson(path.join(ROOT, "config.json"), {}),
       profile: {
         owner,
         about: state.about,
@@ -252,7 +318,11 @@ async function main() {
       state.kokoro = true;
       writeConfig();
       console.log("  kokoro installed and put first in the voice chain");
-      console.log(`  start it whenever you want it: ${CMD} voice start`);
+      if (await askYes("  Start it now", true)) {
+        try { execFileSync("bash", [path.join(ROOT, "scripts", "voice.sh"), "start"], { stdio: "inherit" }); }
+        catch { console.log(`  did not start - try ${CMD} voice start`); }
+      }
+      console.log(`  it does not survive a reboot; ${CMD} voice start brings it back`);
     } catch {
       console.log(`  install did not finish - retry later with: ${CMD} voice install`);
     }
@@ -289,8 +359,9 @@ async function main() {
     );
     state.lanes = lanesRaw.split(",").map((t) => t.trim()).filter(Boolean);
 
-    elevenKey = await ask("\n  ElevenLabs key, if you want the paid voice (optional)", "");
-    openaiKey = await ask("  OpenAI key for hosted Whisper (optional)", "");
+    console.log("\n  Keys are not echoed as you type or paste them.");
+    elevenKey = await askSecret("  ElevenLabs key, if you want the paid voice (optional)");
+    openaiKey = await askSecret("  OpenAI key for hosted Whisper (optional)");
 
     if (!(await askYes("\n  Enable the standard agents", true))) state.agents = ["brief"];
 
@@ -355,6 +426,7 @@ async function main() {
 
     ${CMD} mcp                 see them all
     ${CMD} mcp allow <name>    turn one on`);
+      await offerAgentServers(servers, state);
     }
   } catch {
     // no claude CLI, or it timed out. Not worth failing setup over.
@@ -380,8 +452,10 @@ async function main() {
    * fixed-width pad collapses to a single space, which reads as part of the
    * command: people paste `... doctor check what is wired up` and get
    * `unknown command`. Two spaces minimum, always. */
+  const port = await serverUp();
   const nextSteps = [
-    ["npm start", "open http://localhost:4747"],
+    port ? [`http://localhost:${port}`, "already running, and it has picked up these settings"]
+         : ["npm start", "open http://localhost:4747"],
     [`${CMD} doctor`, "check what is wired up"],
     [`${CMD} agents install`, "put the agents on a schedule"],
   ];
