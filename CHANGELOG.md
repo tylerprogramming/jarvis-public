@@ -21,6 +21,15 @@
   ratio is capped at 1.5, and the ring plates no longer blur what is behind
   them - eleven blurred plates over a live canvas was the most expensive
   thing on the page.
+- Less work per frame and per poll. The chat's per-agent tab system
+  (a rail of initials, an unread map, a filter that ran on every message)
+  is gone with the tab strip that used it. The status line and the ring's
+  health words repaint on the event app.js fires after its own 8-second
+  agents poll, instead of fetching the same list again on two more timers
+  and a mutation observer. Server side, the run ledger is parsed once and
+  kept until its mtime moves, and the agent files are parsed once and kept
+  until one of them or the config's agent settings change: /api/agents was
+  reading and parsing the ledger once per agent on every poll.
 
 - `nightly` moved from 21:00 to 20:00, and now closes out `{{journal_day}}`
   rather than `{{today}}`. An end-of-day agent that slips past midnight was

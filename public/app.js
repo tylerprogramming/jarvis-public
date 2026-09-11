@@ -174,14 +174,6 @@ applyTheme(themeName);
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => n == null ? "—" : n.toLocaleString("en-US");
 
-function spark(hist, key) {
-  const vals = hist.map((r) => r[key]).filter((v) => v != null);
-  if (vals.length < 2) return "";
-  const min = Math.min(...vals), max = Math.max(...vals), span = max - min || 1;
-  const ptsStr = vals.map((v, i) =>
-    `${(i / (vals.length - 1)) * 100},${16 - ((v - min) / span) * 14}`).join(" ");
-  return `<svg viewBox="0 0 100 18" preserveAspectRatio="none"><polyline points="${ptsStr}"/></svg>`;
-}
 
 /* The design's sparkline: a filled area under the line with a dot on the last
  * point, not a bare polyline. Gradient id is unique per call because several
@@ -814,10 +806,10 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
  * 20-second poll does not collapse a paragraph you were halfway through. */
 const OPEN_DIRECTIVES = new Set();
 let PB_FILTER = "ALL";   // playbook section filter
-let BRAIN_LABEL = "LINK";   // re-rendered with the tab bar, so hold the value
 
 /* ---------- agent ring ---------- */
 let AGENTS_LIST = [];
+let AGENTS_OK = true;   // did the last poll answer
 /* The ring is laid out in the gap BETWEEN the two rails, not across the whole
  * viewport.
  *
@@ -971,14 +963,17 @@ async function loadAgents() {
       });
     }
     dispatchFromAgents(AGENTS_LIST);
-    renderCommsTabs();
     for (const a of AGENTS_LIST) {
       const el = $("ag-" + a.id);
       if (!el) continue;
       el.classList.toggle("live", a.running || (a.id === "runner" && state !== "idle"));
       el.classList.toggle("off", a.enabled === false || (a.unmet || []).length > 0);
     }
-  } catch {}
+    AGENTS_OK = true;
+  } catch { AGENTS_OK = false; }
+  // one poll, one event: the status line and the plate health words follow
+  // this rather than fetching the same list again on their own timers
+  document.dispatchEvent(new Event("jarvis:agents"));
 }
 
 /* Clicking an agent explains it before it does anything.
@@ -1101,22 +1096,16 @@ setInterval(loadData, 5 * 60 * 1000);
 let sessionId = localStorage.getItem("jarvis_session") || null, speakOn = true;
 const ACKS = ["On it.", "Right away.", "Working on it now.", "Checking that now.", "Give me a moment.", "Running it now."];
 const msgs = $("msgs");
-/* Every message is stamped with the agent it belongs to.
- *
- * Answering "if I talk in Jarvis, does it land on the right tab": yes for
- * anything an agent produced. Chat you type is stamped `jarvis`, because that
- * is who answers it - routing your typing to another agent's tab would imply
- * that agent replied, which it did not. */
+/* Every message is stamped with the agent it produced it, so a reply and an
+ * agent's "started" line can be told apart later. One transcript shows all
+ * of it. */
 function addMsg(cls, text, agent) {
   const el = document.createElement("div");
   el.className = "msg " + cls; el.textContent = text;
   el.dataset.agent = agent || "jarvis";
   el.dataset.time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   msgs.appendChild(el);
-  if (COMMS_TAB === el.dataset.agent) pinBottom();
-  applyCommsFilter();
-  countMsgs();
-  if (COMMS_TAB !== el.dataset.agent) markTabUnread(el.dataset.agent);
+  pinBottom();
   return el;
 }
 
@@ -1147,25 +1136,6 @@ msgs.addEventListener("scroll", () => {
   if (msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 48) pinned = true;
   else if (msgs.scrollTop < lastSet - 1) pinned = false;
 }, { passive: true });
-
-/* Only the active tab's messages are shown. A class on the container, not a
- * rebuild - the streaming reply writes into a node that has to stay put. */
-function applyCommsFilter() {
-  msgs.querySelectorAll(".msg").forEach((m) => {
-    m.style.display = (m.dataset.agent || "jarvis") === COMMS_TAB ? "" : "none";
-  });
-}
-
-const UNREAD = new Map();   // agent id -> messages arrived while you were elsewhere
-function markTabUnread(id) {
-  UNREAD.set(id, (UNREAD.get(id) || 0) + 1);
-  renderCommsTabs();   // repaints the tile's unread dot
-}
-
-/* wireTabOverflow and wireGrip are gone with the tab row.
- * The rail fits ten agents down the side with no scrolling, so there is
- * nothing to page through, and the dock resizes with the expand control
- * rather than a drag grip. */
 
 /* ---------- dispatch toasts ----------
  *
@@ -1284,109 +1254,6 @@ function chipRow(el, agent) {
   el.appendChild(foot);
 }
 
-/* ---------- comms tabs ----------
- *
- * Filtering is a class on the container, not a rebuild of the list. addMsg
- * returns the element it created and the streaming reply writes tokens into
- * that same node for the rest of the response, so re-rendering the transcript
- * on every tab click would drop the live reply on the floor mid-sentence.
- */
-function countMsgs() {
-  // The rail shows unread as a dot, not a number - there is no room for a
-  // count on a 34px tile and "something arrived" is the whole message.
-  const n = [...UNREAD.values()].reduce((a, b) => a + b, 0);
-  const el = $("db-running");
-  if (el) {
-    const running = AGENTS_LIST.filter((a) => a.running && a.id !== "runner").length;
-    el.textContent = running ? `${running} RUNNING` : n ? `${n} NEW` : "IDLE";
-  }
-}
-
-/* Tabs are JARVIS plus one per agent.
- *
- * Being honest about what these do: JARVIS is the live chat. An agent tab is a
- * VIEW of that agent - what it is for, when it runs, and a button to run it.
- * Messages you type always go to the brain, because per-agent conversations do
- * not exist in Jarvis; pretending the tab re-routed your message would be a
- * lie that only shows up when the wrong thing answers.
- */
-let COMMS_TAB = "jarvis";
-
-/* Two letters, from the label. Collisions are broken by taking the first and
- * last letter instead of the first two - POST-MORTEM and PLAYBOOK would both
- * be "PO" otherwise, and a rail of identical tiles is worse than no rail. */
-function initials(label, taken) {
-  const s = String(label).replace(/[^A-Za-z]/g, "").toUpperCase();
-  let two = s.slice(0, 2);
-  if (taken.has(two) && s.length > 2) two = s[0] + s[s.length - 1];
-  let i = 1;
-  while (taken.has(two) && i < s.length) two = s[0] + s[i++];
-  taken.add(two);
-  return two;
-}
-
-function renderCommsTabs() {
-  const rail = $("dockrail");
-  if (!rail) return;
-  const agents = AGENTS_LIST.filter((a) => a.id !== "runner");
-  const taken = new Set();
-  const dot = (a) => a.running ? '<span class="live"></span>'
-             : (UNREAD.has(a.id) ? '<span class="unread"></span>' : "");
-  rail.innerHTML =
-    `<button class="dtile j${COMMS_TAB === "jarvis" ? " on" : ""}" data-tab="jarvis"
-       title="Jarvis">J</button>` +
-    `<div class="dscroll">` + agents.map((a) =>
-      `<button class="dtile${COMMS_TAB === a.id ? " on" : ""}" data-tab="${esc(a.id)}"
-         title="${esc(a.label)} - ${esc(a.description || "")}">${esc(initials(a.label, taken))}${dot(a)}</button>`).join("") +
-    `</div>
-     <button class="dtile add" id="dock-add" title="Add an agent - opens settings">+</button>`;
-
-  rail.querySelectorAll(".dtile[data-tab]").forEach((b) => {
-    b.onclick = () => selectCommsTab(b.dataset.tab);
-  });
-  const add = $("dock-add");
-  if (add) add.onclick = () => $("settings-btn")?.click();
-  updateDockHead();
-}
-
-/* The header carries who you are talking to. On an agent it also carries the
- * schedule and the run control, so nothing has to be appended to the
- * transcript to tell you what the agent is. */
-function updateDockHead() {
-  const nameEl = $("dock-name"), status = $("dock-status"), run = $("dock-run");
-  if (!nameEl) return;
-  if (COMMS_TAB === "jarvis") {
-    nameEl.textContent = "Jarvis";
-    status.className = "statuspill";
-    status.innerHTML = "<i></i><b>ONLINE</b>";
-    run.hidden = true;
-    return;
-  }
-  const a = AGENTS_LIST.find((x) => x.id === COMMS_TAB);
-  if (!a) return;
-  nameEl.textContent = a.label.charAt(0) + a.label.slice(1).toLowerCase();
-  status.className = "statuspill sched";
-  status.innerHTML = `<i></i><b>${esc(a.schedule ? CRON_WORDS(a.schedule).toUpperCase() : "ON DEMAND")}</b>`;
-  const blocked = (a.unmet || []).length > 0;
-  run.hidden = false;
-  run.disabled = a.running || blocked;
-  run.textContent = a.running ? "RUNNING" : blocked ? "BLOCKED" : "RUN NOW";
-  run.title = blocked ? `missing: ${(a.unmet || []).join(", ")}` : "run this agent now";
-  run.onclick = () => runAgent(a);
-}
-
-function selectCommsTab(id) {
-  COMMS_TAB = id;
-  UNREAD.delete(id);
-  renderCommsTabs();
-  applyCommsFilter();
-  pinBottom();
-}
-
-
-/* cron -> words, shared with the agent explainer */
-const cronWords = (c) => CRON_WORDS(c);
-
 /* The + reveals wake / speak / theme / settings. Collapsed by default so the
  * composer reads as one input rather than a row of six controls. */
 {
@@ -1493,7 +1360,7 @@ async function send(message) {
   typing.remove();   // a reply that ended with nothing at all
   // Chips go on only once the reply has finished streaming - appending them
   // mid-stream would put them above text that is still arriving.
-  if (acc) { linkify(reply, acc); linkPills(reply, acc); chipRow(reply, COMMS_TAB); }
+  if (acc) { linkify(reply, acc); linkPills(reply, acc); chipRow(reply, "jarvis"); }
   pinBottom();
   loadData();
   if (speakOn && acc) speak(acc); else setState("idle");
@@ -1565,13 +1432,7 @@ fetch("/api/status")
   .then((r) => r.json())
   .then((s) => {
     STT_SERVER = Boolean(s.stt_server_side);
-    // name the brain that is actually answering, rather than assuming one.
-    // Held in a variable as well as written to the node: the tab bar re-renders
-    // on every agent poll and would otherwise reset the pill to its default.
     const active = (s.brain || {}).active;
-    BRAIN_LABEL = active ? active.replace("-", ".").toUpperCase() : "NO BRAIN";
-    const label = $("brain-label");
-    if (label) label.textContent = BRAIN_LABEL;
     if (!active)
       addMsg("sys", "no brain available - install claude code, or set OPENAI_API_KEY, or point brain.openai.base_url at a local model");
   })

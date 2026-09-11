@@ -93,10 +93,12 @@
   let lastAgents = [], lastStatusHtml = "", brainUp = true, serverUp = true;
   const statusEl = $("status"), statusText = $("status-text");
 
-  async function paintStatus() {
-    let list = [];
-    try { list = (await (await fetch("/api/agents")).json()).agents || []; serverUp = true; }
-    catch { serverUp = false; }
+  /* Reads the list app.js already polls (AGENTS_LIST, every 8s) and repaints
+   * on its jarvis:agents event, so the sentence and the ring can never show
+   * two different polls, and nothing here fetches the list a second time. */
+  function paintStatus() {
+    const list = (typeof AGENTS_LIST !== "undefined" && Array.isArray(AGENTS_LIST)) ? AGENTS_LIST : [];
+    serverUp = typeof AGENTS_OK === "undefined" ? true : Boolean(AGENTS_OK);
     lastAgents = list;
     const on = list.filter((a) => a.id !== "runner" && a.enabled !== false);
     for (const a of on) {
@@ -153,8 +155,9 @@
     try { const s = await (await fetch("/api/status")).json(); brainUp = Boolean((s.brain || {}).active); }
     catch { brainUp = false; }
   }
-  (async () => { await syncBrain(); await paintStatus(); })();
-  setInterval(async () => { await syncBrain(); await paintStatus(); }, 20000);
+  document.addEventListener("jarvis:agents", paintStatus);
+  (async () => { await syncBrain(); paintStatus(); })();
+  setInterval(async () => { await syncBrain(); paintStatus(); }, 60000);
 
   /* The ring plates say the same thing. app.js builds them from /api/agents
    * and toggles live/off; this adds the health word under the schedule tag
@@ -179,26 +182,8 @@
       if (a.health && a.health.detail) el.title = `${a.description || a.label}. ${a.health.detail}`;
     }
   }
-  /* app.js's setInterval(loadAgents, 8000) holds the original function, so
-   * wrapping the name would only catch the first call. A MutationObserver on
-   * the ring container fires whenever app.js repaints a plate's classes, and
-   * the 20s poll above covers the rest; the observer disconnects during its
-   * own writes so the two cannot ping-pong. */
-  {
-    const box = $("agents");
-    if (box) {
-      let painting = false;
-      const obs = new MutationObserver(() => {
-        if (painting) return;
-        painting = true;
-        try { paintPlates(); } catch {}
-        painting = false;
-      });
-      obs.observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-    }
-    setTimeout(paintPlates, 800);
-    setInterval(paintPlates, 20000);
-  }
+  // app.js fires this after every agent poll has written the plates' classes
+  document.addEventListener("jarvis:agents", paintPlates);
 
   /* =========================================================================
    * STALE NUMBERS
@@ -267,19 +252,6 @@
       head.insertBefore(m, nameEl);
     }
 
-    /* With no tabs there is no way back to an agent's transcript, and
-     * applyCommsFilter() hides every message whose data-agent is not the
-     * selected tab - so "radar started" and "morning finished" would have gone
-     * on being written and never shown again. One stream now shows all of it.
-     * app.js calls this on every addMsg, so it has to stay cheap. */
-    appGlobal(() => {
-      applyCommsFilter = () => {
-        msgs.querySelectorAll('.msg[style*="display"]').forEach((m) => {
-          m.style.display = "";
-        });
-      };
-      applyCommsFilter();
-    });
   }
 
   /* ⌘K focuses the composer. The mock draws the hint on the field; a hint for

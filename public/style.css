@@ -437,8 +437,6 @@
   .vital .num { font-size: 34px; font-weight: 700; color: var(--strong); letter-spacing: 1px; line-height: 1.25; }
   .vital .num small { font-size: 12px; color: var(--dim); font-weight: 400; }
   .vital svg { display: block; width: 100%; height: 18px; margin-top: 3px; }
-  .vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px;
-    border-bottom: 1px solid var(--line-soft); }
   .vcell { padding: 8px 0; }
   .vcell .lab { font-size: 12px; color: var(--dim); }
   .vcell .n { font-size: 22px; font-weight: 700; color: var(--strong); line-height: 1.3; }
@@ -522,25 +520,11 @@
   }
   .dockname { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em;
     color: var(--text); white-space: nowrap; }
-  .statuspill {
-    display: flex; align-items: center; gap: 6px; padding: 3px 8px;
-    border-radius: 999px; background: rgba(91, 230, 168, 0.10); flex-shrink: 0;
-  }
-  .statuspill i { width: 5px; height: 5px; border-radius: 999px; background: #5BE6A8; }
-  .statuspill b { font-family: var(--mono); font-size: 9.5px; font-weight: 400;
-    letter-spacing: 0.12em; color: #9FE8C8; }
-  .statuspill.sched { background: rgba(var(--accent-rgb), 0.10); }
-  .statuspill.sched i { background: var(--accent); }
-  .statuspill.sched b { color: #A9CDEC; }
   .dockhead .fill { flex: 1; }
-  .dockhead .brainpill {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
-    color: #5C7392; border: 0; background: none; padding: 0; margin: 0;
-  }
   /* [hidden] is display:none in the UA sheet, which a later display:grid
      silently beats - RUN NOW stayed visible on the Jarvis tab because of it. */
-  .dockbtn[hidden], .runnow[hidden] { display: none !important; }
-  .dockbtn, .runnow {
+  .dockbtn[hidden] { display: none !important; }
+  .dockbtn {
     appearance: none; border: 0; cursor: pointer; flex-shrink: 0;
     width: 26px; height: 26px; border-radius: 8px; display: grid;
     place-items: center; background: rgba(255, 255, 255, 0.04);
@@ -548,16 +532,6 @@
     transition: color .18s, background .18s;
   }
   .dockbtn:hover { color: #A9CDEC; }
-  .runnow {
-    width: auto; padding: 0 10px; height: 24px; border-radius: 999px;
-    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
-    color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.25);
-    background: none;
-  }
-  .runnow:hover { background: rgba(var(--accent-rgb), 0.1); }
-  .runnow[disabled] { opacity: .45; cursor: default; color: #5C7392;
-    border-color: rgba(var(--accent-rgb), 0.12); }
-
   /* The top of the transcript fades out, so a message scrolling under the
      header dissolves rather than being sliced by a hard edge. */
   #comms .msgs {
@@ -890,15 +864,6 @@
      Areas with counts, the way a folder tree reads. A flat list of rules tells
      you what was learned last; this tells you what Jarvis knows anything about
      at all, which is the question you ask before you trust it on a topic. */
-  /* A section header with a chevron and a count, then indented rows - the
-     folder-tree shape from the reference rather than a flat list. */
-  .treehead {
-    display: flex; align-items: center; gap: 6px; padding: 2px 0 6px;
-    font-family: var(--sans); font-size: 11px; font-weight: 600;
-    letter-spacing: 0; text-transform: none; color: var(--dim); user-select: none;
-  }
-  .treehead .cv { font-size: 8px; }
-  .treehead .n { flex: 1; }
   /* Every row is its own tile, which is the Soft signature. Padding is kept
      tight (6/10) rather than the 8/11 of the mockup: at mockup spacing only
      three areas fitted the panel, and there are nineteen. */
@@ -909,8 +874,6 @@
   }
   #knowledge .area:hover { background: var(--surface-hi); }
   #knowledge .area { transition: background .2s cubic-bezier(0.22, 1, 0.36, 1); }
-  #knowledge .area .cv { color: var(--dim); font-size: 8px; opacity: .7;
-    flex-shrink: 0; width: 7px; }
   #knowledge .area:hover .nm { color: var(--accent-hi); }
   #knowledge .area .dot2 { width: 7px; height: 7px; border-radius: 50%;
     flex-shrink: 0; opacity: .9; }
@@ -1009,50 +972,6 @@
     background: var(--surface); border-radius: 6px; padding: 1px 5px;
   }
 
-  /* ---------- settings panel ---------- */
-  #settings { position: fixed; inset: 0; z-index: 30; background: var(--scrim);
-    display: none; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
-  #settings.open { display: flex; }
-  #settings .sinner { width: min(720px, 92vw); max-height: 86vh; overflow-y: auto;
-    background: var(--panel-deep); border: 1px solid var(--line); padding: 0 26px 24px; }
-  #settings .shead { position: sticky; top: 0; display: flex; align-items: center;
-    justify-content: space-between; padding: 20px 0 14px; background: var(--panel-deep);
-    border-bottom: 1px solid var(--line-soft); }
-  #settings h3 { font-family: var(--sans); font-size: 12px; letter-spacing: 4px;
-    color: var(--accent); margin: 0; }
-  #settings h4 { font-family: var(--sans); font-size: 9.5px; letter-spacing: 3px;
-    color: var(--dim); margin: 22px 0 10px; }
-  #settings #s-close { background: none; border: none; color: var(--dim);
-    cursor: pointer; font-size: 14px; }
-  #settings #s-close:hover { color: var(--accent); }
-  .sfield { display: block; margin-bottom: 10px; }
-  .sfield span { display: block; font-size: 11px; color: var(--text); margin-bottom: 4px; }
-  .sfield small { color: var(--dim); margin-left: 8px; font-size: 10px; }
-  .sfield input { width: 100%; background: var(--panel); border: 1px solid var(--line);
-    color: var(--text); font-family: var(--sans); font-size: 12px; padding: 8px 10px;
-    outline: none; }
-  .sfield input:focus { border-color: var(--accent); }
-  .sagents { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .scheck { border: 1px solid var(--line-soft); padding: 10px 12px; font-size: 11px;
-    cursor: pointer; display: block; }
-  .scheck b { color: var(--text); letter-spacing: 1px; font-family: var(--sans); font-size: 10.5px; }
-  .scheck small { color: var(--dim); margin-left: 6px; font-size: 9.5px; }
-  .scheck .sdesc { color: var(--dim); font-size: 10.5px; margin-top: 4px; line-height: 1.45; }
-  .scheck .swarn { color: var(--amber); font-size: 10px; margin-top: 4px; }
-  .srow { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: var(--dim);
-    font-family: var(--sans); }
-  .pill { font-size: 9px; letter-spacing: 1px; padding: 1px 6px; border: 1px solid var(--line); }
-  .pill.on { color: var(--green); border-color: var(--green); }
-  .pill.off { color: var(--dim); }
-  .snote { color: var(--dim); font-size: 10.5px; margin-top: 10px; line-height: 1.6; }
-  .snote code { color: var(--accent); font-family: var(--mono); }
-  .sactions { display: flex; align-items: center; gap: 14px; margin-top: 26px;
-    padding-top: 16px; border-top: 1px solid var(--line-soft); }
-  #s-save { background: var(--panel); border: 1px solid var(--accent); color: var(--accent);
-    font-family: var(--sans); font-size: 11px; letter-spacing: 3px; padding: 10px 22px;
-    cursor: pointer; }
-  #s-save:hover { background: var(--accent); color: var(--bg); }
-  #s-msg { font-size: 11px; color: var(--dim); }
   .msg .try { color: var(--accent); cursor: pointer; border-bottom: 1px dotted var(--line); }
   .msg .try:hover { color: var(--accent-hi); border-bottom-color: var(--accent-hi); }
   /* ---------- tooltips ----------
@@ -1155,7 +1074,6 @@
   /* Light themes need the starfield and panel edges pulled back, otherwise the
      glow that reads as depth on a dark background just reads as haze. */
   :root[data-theme="daylight"] #stars { opacity: .5; }
-  :root[data-theme="daylight"] .modes .dot { box-shadow: none; }
   :root[data-theme="daylight"] .panel,
   :root[data-theme="daylight"] #calstrip,
 
@@ -1163,112 +1081,6 @@
   :root[data-chrome="flat"] .panel,
   :root[data-chrome="flat"] #calstrip,
 
-
-  /* ---------- settings panel, refined ----------
-     The selects were never styled, so they rendered as raw OS dropdowns in the
-     middle of a themed panel. Everything interactive here now shares one
-     surface, one border, and one focus treatment. */
-
-  #settings .sinner { border-radius: var(--radius); padding: 0 28px 26px; }
-  #settings .shead { padding: 22px 0 15px; }
-  #settings h4 {
-    margin: 26px 0 12px; display: flex; align-items: center; gap: 10px;
-    color: var(--accent-hi);
-  }
-  /* a rule that fills the rest of the line, so sections read as sections */
-  #settings h4::after {
-    content: ""; flex: 1; height: 1px; background: var(--line-soft);
-  }
-  #settings h4 small {
-    font-family: var(--sans); letter-spacing: 0; font-size: 10px;
-    color: var(--dim); text-transform: none;
-  }
-
-  /* inputs and selects share a surface */
-  .sfield input,
-  .sfield select,
-  #settings select {
-    width: 100%; background: var(--panel-deep); border: 1px solid var(--line);
-    color: var(--text); font-family: var(--sans); font-size: 12px;
-    padding: 9px 11px; outline: none; border-radius: var(--radius-sm);
-    transition: border-color .12s, box-shadow .12s;
-  }
-  .sfield input::placeholder { color: var(--dim); opacity: .7; }
-  .sfield input:hover, #settings select:hover { border-color: var(--line); }
-  .sfield input:focus,
-  #settings select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .16);
-  }
-
-  /* the native dropdown arrow is the giveaway, so draw our own */
-  #settings select {
-    appearance: none; -webkit-appearance: none;
-    padding-right: 32px; cursor: pointer;
-    background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%),
-                      linear-gradient(135deg, var(--accent) 50%, transparent 50%);
-    background-position: calc(100% - 17px) calc(50% + 1px),
-                         calc(100% - 12px) calc(50% + 1px);
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-  }
-  /* the open list is OS-drawn; at least keep it legible on dark themes */
-  #settings select option { background: var(--modal); color: var(--text); }
-
-  /* checkboxes: native ones ignore the theme entirely */
-  #settings input[type="checkbox"] {
-    appearance: none; -webkit-appearance: none;
-    width: 14px; height: 14px; flex-shrink: 0;
-    border: 1px solid var(--line); border-radius: var(--radius-sm);
-    background: var(--panel-deep); cursor: pointer; position: relative;
-    vertical-align: -2px; margin-right: 7px;
-    transition: background .12s, border-color .12s;
-  }
-  #settings input[type="checkbox"]:hover { border-color: var(--accent); }
-  #settings input[type="checkbox"]:checked {
-    background: var(--accent); border-color: var(--accent);
-  }
-  #settings input[type="checkbox"]:checked::after {
-    content: ""; position: absolute; left: 4px; top: 1px;
-    width: 4px; height: 8px; border: solid var(--bg);
-    border-width: 0 2px 2px 0; transform: rotate(42deg);
-  }
-  #settings input[type="checkbox"]:focus-visible {
-    outline: none; box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .18);
-  }
-
-  /* selectable cards should look selected */
-  .scheck {
-    border-radius: var(--radius-sm); background: var(--panel-deep);
-    transition: border-color .12s, background .12s;
-  }
-  .scheck:hover { border-color: var(--line); }
-  .scheck:has(input:checked) {
-    border-color: var(--accent); background: rgba(var(--accent-rgb), .07);
-  }
-  .scheck:has(input:checked) b { color: var(--accent-hi); }
-
-  .sactions { gap: 16px; margin-top: 28px; }
-  #s-save { border-radius: var(--radius-sm); cursor: pointer;
-    transition: background .12s, color .12s; }
-  #s-save:hover { background: var(--accent); color: var(--bg); }
-  #settings #s-close { font-size: 18px; line-height: 1; padding: 0 4px;
-    border-radius: var(--radius-sm); }
-
-  /* the MCP list is a long list of short names; two columns wastes less space */
-  .sagents { gap: 9px; }
-
-  /* The sticky header was semi-transparent, so cards scrolled visibly under
-     the title. It has to be opaque to actually cover what passes beneath it. */
-  #settings .shead { background: var(--modal); }
-  #settings .sinner { background: var(--modal); }
-  .snote.swarn { color: var(--amber); }
-
-  /* Opaque was not enough. Sticky without a z-index still loses to any element
-     that creates its own stacking context, so the checkboxes painted over the
-     title as they scrolled past. */
-  #settings .shead { z-index: 3; }
-  #settings .sinner { position: relative; isolation: isolate; }
 
 /* A brain failure, shown as a failure rather than as a reply. All colours are
    theme tokens; the amber/red split matches the vitals cards. */

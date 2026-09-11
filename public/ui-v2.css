@@ -140,16 +140,10 @@
   background: linear-gradient(140deg, var(--accent), var(--accent-deep));
   font-family: var(--mono); font-size: 11px; font-weight: 600; color: #05080F;
 }
-#comms #dock-status { display: none; }   /* the header band already says ONLINE */
 
-/* One conversation. The agent tab strip and the CLAUDE.CODE pill are gone:
-   ui-v2.js removes #dockrail from the DOM, and which brain is answering is
-   already said by LINK in the header band, in colour, without a word. */
-#comms .dockhead .brainpill { display: none; }
 #comms .dockhead .fill { flex: 1; }
 #comms .dockhead #dock-name { flex: none; }
-#comms .dockhead .dockbtn,
-#comms .dockhead .runnow { flex: none; }
+#comms .dockhead .dockbtn { flex: none; }
 /* the rule under the head, as the mock draws it */
 #comms .dockhead { border-bottom: 1px solid rgba(var(--accent-rgb), 0.10); }
 
