@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- The HUD is two screens instead of a cockpit. Numbers first is the default:
+  the subscriber card, the platform tiles and the directives as one column on
+  the left, the sphere and its ring in the middle, the conversation as a
+  full-height column on the right. Focus (`⌘/`, the FOCUS pill, or the
+  button in the chat head) fades the column and puts the same numbers and
+  the first open directive on one line at the bottom. Gone: the header band,
+  the NOW bar, the icon rail and its three widths, the primary card, the
+  platform grid, the dock's compact/expanded/minimised sizes, and the link
+  rail. What they said is now one sentence beside the wordmark (what ran,
+  what is running, what needs attention, what is next), two pills
+  (DOCUMENTS, SETTINGS), and a sheet over the sphere for Documents, Radar,
+  Playbook, Knowledge and Memory. Escape closes the top-most thing.
+- The sphere is a lattice, a core, two orbits and two arcs. The reactor it
+  replaces drew a noise-displaced blob, a 700-point shell, five broken rings,
+  twin lattices, a 72-tick dial and a scan pulse, and rewrote a geometry
+  buffer every frame. Nothing moves by anything but rotation now, the pixel
+  ratio is capped at 1.5, and the ring plates no longer blur what is behind
+  them - eleven blurred plates over a live canvas was the most expensive
+  thing on the page.
+
 - `nightly` moved from 21:00 to 20:00, and now closes out `{{journal_day}}`
   rather than `{{today}}`. An end-of-day agent that slips past midnight was
   reviewing a day minutes old, finding nothing, and reporting that the whole

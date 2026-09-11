@@ -34,140 +34,6 @@
   --railw: 560px;     /* published by ui-v2.js as the rail changes width */
 }
 
-/* ---------------------------------------------------------------------------
- * 1. THE TOOLTIP BUG
- *
- * #nav has backdrop-filter, which makes it a stacking context - so the
- * z-index: 60 on #nav [data-tip]::after could only ever compete INSIDE the
- * rail. #railbody .panel is a later sibling with its own backdrop-filter
- * context, so it painted over the whole nav subtree, tooltip included.
- * Ordering the two contexts is the entire fix.
- * ------------------------------------------------------------------------- */
-#nav { position: relative; z-index: 2; }
-#railbody { position: relative; z-index: 1; }
-
-/* The rail's tooltips open to the RIGHT (style.css repositions ::after), but
-   the pointer ::before was left centred ABOVE the button, floating detached
-   over the icon. Point it left, at the bubble it belongs to. */
-#nav [data-tip]::before {
-  bottom: auto; top: 50%; left: calc(100% + 1px);
-  transform: translateY(-50%) translateX(-4px);
-  border-top-color: transparent; border-right-color: var(--line);
-  z-index: 60;
-}
-#nav [data-tip]:hover::before,
-#nav [data-tip]:focus-visible::before { transform: translateY(-50%) translateX(0); }
-
-/* ---------------------------------------------------------------------------
- * 2. HEADER BAND + NOW BAND
- *
- * The header was a transparent overlay with the mode dots floating at the top
- * right, and the NOW strip hung underneath them in the same corner - which put
- * the single most time-sensitive row on the screen in its least-read corner,
- * wrapped to three lines at 46vw.
- *
- * It becomes two full-width bands: identity and link state on top, the run
- * state underneath, reading left to right like a status line.
- * ------------------------------------------------------------------------- */
-header {
-  height: var(--v2-head); padding: 0 24px;
-  align-items: center;
-  background: linear-gradient(rgba(8, 15, 27, 0.92), rgba(6, 11, 21, 0.88));
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.10);
-  backdrop-filter: blur(var(--blur));
-}
-header .logo h1 { font-size: 18px; letter-spacing: 5px; }
-header #tagline { display: none; }     /* the band has no room for a subtitle */
-header .modes {
-  padding-top: 0; gap: 18px; font-size: 10.5px; letter-spacing: 0.12em;
-  pointer-events: auto;
-}
-header .modes span {
-  display: flex; align-items: center; gap: 6px;
-  transition: color var(--v2-mid) var(--v2-ez);
-}
-header .modes .dot {
-  margin: 0;
-  transition: background var(--v2-mid) var(--v2-ez), box-shadow var(--v2-mid) var(--v2-ez);
-}
-/* the dot already says online; the word only earns its place when the state
-   is not the good one (ui-v2.js sets .quiet from the live state) */
-header .modes span.quiet b { display: none; }
-
-/* Green is health, and it is the same green the RUNNING pill and the live
-   agent markers already use - so one colour means "this is working" across
-   the whole HUD, instead of the accent standing in for it and every light
-   reading the same whether or not anything was actually up. */
-header .modes span.ok { color: #9FE8C8; }
-header .modes span.ok b { color: #9FE8C8; }
-header .modes span.ok .dot { background: #5BE6A8; box-shadow: 0 0 8px rgba(91, 230, 168, 0.55); }
-header .modes span.idle { color: var(--dim); }
-header .modes span.idle b { color: var(--dim); }
-header .modes span.idle .dot { background: #3F5878; box-shadow: none; }
-header .modes span.bad { color: var(--red); }
-header .modes span.bad b { color: var(--red); }
-header .modes span.bad .dot {
-  background: var(--red); box-shadow: 0 0 8px rgba(var(--red-rgb), 0.55);
-  animation: pulse 2.6s ease-in-out infinite;
-}
-
-#nowbar {
-  position: fixed; top: var(--v2-head); left: 0; right: 0; z-index: 5;
-  height: var(--v2-now); padding: 0 24px;
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(5, 9, 17, 0.72);
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.07);
-  backdrop-filter: blur(var(--blur));
-  font-family: var(--mono);
-}
-#nowbar .nowlab {
-  font-size: 9.5px; letter-spacing: 0.18em; color: var(--dim); flex: none;
-  margin-right: 6px;
-}
-#nowbar .nowfill { flex: 1; }
-#nowpills { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
-#nowbar .nowpill {
-  display: flex; align-items: center; gap: 7px; flex: none;
-  padding: 4px 11px; border-radius: 999px;
-  background: var(--surface);
-  font-size: 10px; letter-spacing: 0.08em;
-  color: var(--dim); white-space: nowrap;
-  /* ui-v2.js only rewrites the bar when the words change, so this fires on a
-     real state change and never on the 20s poll */
-  animation: v2pillIn 340ms var(--v2-ez) both;
-}
-#nowbar .nowpill:nth-child(2) { animation-delay: 30ms; }
-#nowbar .nowpill:nth-child(3) { animation-delay: 60ms; }
-#nowbar .nowpill:nth-child(n+4) { animation-delay: 90ms; }
-@keyframes v2pillIn { from { opacity: 0; transform: translateY(-5px) scale(.95); } }
-#nowbar .nowpill i {
-  width: 5px; height: 5px; border-radius: 999px; background: currentColor; flex: none;
-}
-#nowbar .nowpill.live {
-  background: rgba(91, 230, 168, 0.10);
-  border: 1px solid rgba(91, 230, 168, 0.28);
-  color: #9FE8C8;
-}
-#nowbar .nowpill.live i { background: #5BE6A8; animation: pulse 2.6s ease-in-out infinite; }
-/* what already ran keeps the pill shape but drops the accent: it is history
-   sitting next to the one pill that is telling you something is happening now */
-#nowbar .nowpill.done {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(var(--accent-rgb), 0.07);
-  color: var(--dim);
-}
-/* Two grades of trouble. bad (red) is a run that happened and broke, or an
-   agent blocked on config; warn (amber) is a run that did not happen: not
-   loaded, overdue, stale, never. Both carry the reason in the title. */
-#nowbar .nowpill.bad { background: rgba(var(--red-rgb), 0.12); color: var(--red); }
-#nowbar .nowpill.warn { background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--amber); }
-#nowbar .nowpill.warn i, #nowbar .nowpill.bad i { background: currentColor; }
-#nowattn .nowattnlab {
-  font-size: 10px; letter-spacing: 0.1em; color: var(--amber); white-space: nowrap;
-  cursor: pointer; margin-right: 14px; text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-#nowattn .nowattnlab:hover { color: var(--text); }
 /* the same words on the ring plates, under the schedule tag */
 .agent .astate {
   display: block; font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em;
@@ -192,171 +58,6 @@ header .modes span.bad .dot {
   color: var(--amber); padding: 2px 7px; border-radius: 999px;
   border: 1px solid var(--amber); opacity: .9; cursor: help; white-space: nowrap;
 }
-/* appended after the target bar on the primary card, so it never sits on
-   the label that renderPrimary rewrites */
-.v2stale.pd { margin-top: 9px; }
-#nownext .nownextlab {
-  font-size: 10px; letter-spacing: 0.1em; color: var(--dim); white-space: nowrap;
-}
-
-.rail { top: var(--v2-top); }
-
-/* ---------------------------------------------------------------------------
- * 3. LABELLED RAIL
- *
- * Three widths, driven by data-mode on .rail.left (set by ui-v2.js):
- *   full  - labelled nav + panel
- *   nav   - labelled nav, panel hidden (click the active item again)
- *   icons - icon rail only (the chevron)
- *
- * The rail's own width is set inline by JS and had NO transition in style.css,
- * so every collapse was a hard jump while the ring eased.
- * ------------------------------------------------------------------------- */
-.rail.left { transition: width var(--v2-slow) var(--v2-ez); }
-.rail.left #nav {
-  flex: 0 0 194px;
-  align-items: stretch;
-  padding: 14px 10px;
-  gap: 3px;
-  transition: flex-basis var(--v2-slow) var(--v2-ez),
-              padding var(--v2-slow) var(--v2-ez);
-}
-
-#nav .navhead {
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 4px 12px; margin-bottom: 6px;
-  border-bottom: 1px solid rgba(var(--accent-rgb), 0.10);
-  transition: padding var(--v2-mid) var(--v2-ez), border-color var(--v2-fast) linear;
-}
-#nav .navhead .navword {
-  flex: 1; min-width: 0;
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
-  color: var(--dim); white-space: nowrap; overflow: hidden;
-  transition: opacity var(--v2-fast) var(--v2-ez) 90ms, flex-basis var(--v2-mid) var(--v2-ez);
-}
-/* The chevron used to be rewritten between « and », which is a glyph swap and
-   cannot animate. The turn is on an inner span, NOT the button: the button
-   carries the tooltip as a ::after, and a pseudo-element inherits its host's
-   transform - rotating the button rendered the tip upside down and mirrored. */
-#nav .navhead .navcollapse { margin-left: auto; }
-#nav .navcollapse .chevglyph {
-  display: block; line-height: 1;
-  transition: transform var(--v2-mid) var(--v2-ez);
-}
-#nav .navcollapse.flip .chevglyph { transform: rotate(180deg); }
-#nav .navcollapse:active .chevglyph { transform: scale(.85); }
-#nav .navcollapse.flip:active .chevglyph { transform: rotate(180deg) scale(.85); }
-#nav .navrule { display: none; }
-
-/* First paint only. app.js's setSidebar has already written a width by the
-   time ui-v2.js restores the saved mode, so without this the rail would play
-   a 400px -> 560px slide on every reload. */
-.rail.left.nomotion, .rail.left.nomotion * {
-  transition: none !important;
-  animation: none !important;
-}
-
-.rail.left .navb {
-  width: auto; height: auto;
-  display: flex; align-items: center; gap: 11px;
-  padding: 10px 11px; border-radius: 13px;
-  text-align: left;
-  transition: color .22s var(--v2-ez), background .22s var(--v2-ez),
-              border-color .22s var(--v2-ez), transform .18s var(--v2-ez),
-              gap var(--v2-mid) var(--v2-ez), padding var(--v2-mid) var(--v2-ez),
-              width var(--v2-mid) var(--v2-ez);
-}
-/* scale(.94) was tuned for a 38px square; on a 172px row it reads as a wobble */
-.rail.left .navb:active { transform: scale(.985); }
-.rail.left .navb svg { flex: none; }
-.navb .navlabel {
-  flex: 1 1 auto; min-width: 0;
-  font-family: var(--sans); font-size: 13.5px; font-weight: 500;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  opacity: 1; transform: none;
-  transition: opacity var(--v2-fast) var(--v2-ez) 110ms,
-              transform var(--v2-mid) var(--v2-ez) 110ms,
-              flex-basis var(--v2-mid) var(--v2-ez);
-}
-#nav .navkbd {
-  font-family: var(--mono); font-size: 10px; color: var(--dim); opacity: .7;
-  flex: none;
-}
-/* The active marker bar hung 13px outside the icon square. A filled row says
-   the same thing without reaching outside its own box. */
-.rail.left .navb.on::before { display: none; }
-
-/* Directives carries a COUNT, not a dot: "6 waiting" and "something changed"
-   are different facts and the queue length is the one you act on.
-
-   A REAL element, not ::after. The tooltip suppression below is
-   `#nav [data-tip]::after { content: none }` - an ID selector, so it outranks
-   any class-only badge rule and was silently killing every ::after in the
-   rail. The Radar dot had stopped rendering in the labelled widths for the
-   same reason. Two different things cannot share one pseudo-element. */
-.rail.left .navcount {
-  margin-left: auto; flex: none;
-  display: none; align-items: center; justify-content: center;
-  min-width: 18px; padding: 1px 6px; border-radius: 999px;
-  background: rgba(var(--accent-rgb), 0.16);
-  font-family: var(--mono); font-size: 10px; line-height: 1.5;
-  color: var(--accent-hi);
-  animation: v2badgeIn 320ms var(--v2-pop) both;
-}
-.rail.left .navcount.num, .rail.left .navcount.dot { display: flex; }
-.rail.left .navcount.dot {
-  min-width: 0; width: 6px; height: 6px; padding: 0;
-  background: var(--accent); box-shadow: 0 0 6px var(--accent);
-}
-.rail.left .navb.on .navcount.num { background: rgba(var(--accent-rgb), 0.26); }
-@keyframes v2badgeIn { from { transform: scale(0); opacity: 0; } }
-.rail.left .navfill { flex: 1; }
-
-/* Labelled rail carries its own names, so the tooltip is noise here. Kept for
-   the icons-only width, where it is the only label there is. */
-.rail.left[data-mode="full"] #nav [data-tip]::after,
-.rail.left[data-mode="full"] #nav [data-tip]::before,
-.rail.left[data-mode="nav"]  #nav [data-tip]::after,
-.rail.left[data-mode="nav"]  #nav [data-tip]::before { content: none; display: none; }
-
-/* The panel collapses by squeeze, not by display:none - which cannot be
-   animated and made the panel vanish a frame before the rail had finished
-   narrowing. #railbody is flex:1 in a rail whose width JS is already easing,
-   so letting it be squeezed to zero animates the collapse for free. */
-#railbody {
-  transition: opacity var(--v2-fast) var(--v2-ez) 60ms,
-              transform var(--v2-mid) var(--v2-ez) 60ms;
-}
-.rail.left[data-mode="nav"] #railbody,
-.rail.left[data-mode="icons"] #railbody {
-  opacity: 0; transform: translateX(-12px); pointer-events: none;
-  transition-delay: 0ms, 0ms; transition-duration: 130ms, 200ms;
-}
-
-.rail.left[data-mode="icons"] #nav {
-  flex-basis: 60px; align-items: center; padding: 12px 0;
-}
-.rail.left[data-mode="icons"] .navb {
-  width: 38px; height: 38px; justify-content: center; padding: 0; gap: 0;
-}
-.rail.left[data-mode="icons"] .navb .navlabel,
-.rail.left[data-mode="icons"] #nav .navkbd {
-  flex: 0 0 0; opacity: 0; overflow: hidden;
-  transform: translateX(-8px); transition-delay: 0ms, 0ms, 0ms;
-}
-.rail.left[data-mode="icons"] .navb.on::before { display: block; }
-.rail.left[data-mode="icons"] .navhead {
-  flex-direction: column; border-color: transparent; padding-bottom: 8px;
-}
-.rail.left[data-mode="icons"] .navhead .navword { flex: 0 0 0; opacity: 0; transition-delay: 0ms; }
-/* on the icon rail there is no room for a number, so both states are a dot */
-.rail.left[data-mode="icons"] .navcount.num,
-.rail.left[data-mode="icons"] .navcount.dot {
-  position: absolute; top: 4px; right: 4px; margin: 0;
-  min-width: 0; width: 6px; height: 6px; padding: 0;
-  font-size: 0; background: var(--accent); border-radius: 999px;
-}
-
 /* ---------------------------------------------------------------------------
  * 4. THE PANEL
  *
@@ -368,12 +69,6 @@ header .modes span.bad .dot {
 #railbody .panel h2 small { font-variant-numeric: tabular-nums; }
 
 #directives .dprogress { display: none; }
-#directives::before {
-  content: "TODAY";
-  display: block; padding: 0 2px 10px;
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
-  color: var(--dim);
-}
 #directives .directive {
   position: relative; padding: 13px 13px 13px 15px; margin-bottom: 8px;
   border-radius: 14px; overflow: hidden;
@@ -424,108 +119,6 @@ header .modes span.bad .dot {
 #radar .brk .brkhead { gap: 10px; }
 #radar .grouphead { padding-bottom: 8px; }
 
-.paneltotal {
-  flex: none; margin: 0 20px 18px; padding: 13px 15px;
-  border-radius: 15px;
-  background: rgba(var(--accent-rgb), 0.05);
-  border: 1px solid rgba(var(--accent-rgb), 0.13);
-  display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px;
-}
-.paneltotal .tl {
-  grid-column: 1 / -1;
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em; color: var(--dim);
-}
-.paneltotal .tn {
-  font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--strong);
-  font-variant-numeric: tabular-nums;
-}
-.paneltotal .td { font-family: var(--mono); font-size: 11px; color: var(--dim); }
-.paneltotal .td.up { color: #5BE6A8; }
-.paneltotal .td.down { color: var(--red); }
-
-/* ---------------------------------------------------------------------------
- * 5. THE RIGHT COLUMN
- *
- * The audience card carried the total, the target, the week delta, the platform
- * count and all four platform numbers in one 292px box - the last of those as a
- * single ellipsised line you could not read. Primary card with a bar, then the
- * platforms as their own tiles.
- * ------------------------------------------------------------------------- */
-#primary {
-  left: auto; right: 24px; top: var(--v2-top); bottom: auto;
-  transform: none;
-  width: var(--v2-right);
-  text-align: left;
-  padding: 16px 18px 18px;
-  border-radius: 20px;
-  background: linear-gradient(rgba(12, 21, 36, 0.92), rgba(7, 13, 24, 0.96));
-  border: 1px solid rgba(var(--accent-rgb), 0.14);
-  animation: v2cardIn 520ms var(--v2-ez) both;
-}
-@keyframes v2cardIn { from { opacity: 0; transform: translateY(-10px); } }
-#primary .label {
-  font-family: var(--mono); font-size: 9.5px; font-weight: 400;
-  letter-spacing: 0.16em; color: var(--dim); opacity: 1;
-}
-#primary .big {
-  font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1;
-  margin-top: 6px; font-variant-numeric: tabular-nums;
-}
-#primary .big small {
-  display: block; margin-top: 4px;
-  font-size: 11.5px; font-family: var(--sans); letter-spacing: 0;
-  text-transform: lowercase; color: var(--dim);
-}
-/* The unit and the target read as one sentence under the number. THIS WEEK and
-   PLATFORMS are dropped here, not lost: the delta is on the panel's audience
-   card and the platform count is the tile grid below being four tiles. */
-#primary .meta {
-  display: block; border: 0; margin: 4px 0 0; padding: 0;
-  font-family: var(--sans); font-size: 11.5px; letter-spacing: 0; color: var(--dim);
-}
-#primary .meta span { display: none; }
-#primary .meta span:first-child { display: inline; }
-#primary .meta span:first-child::before { content: "· "; }
-#primary .meta b { color: var(--text); font-weight: 500; }
-#primary .deploy { display: none; }
-
-#primary .pdbar {
-  height: 6px; border-radius: 999px; margin-top: 14px;
-  background: rgba(255, 255, 255, 0.06); overflow: hidden;
-}
-#primary .pdbar i {
-  display: block; height: 100%; width: 0; border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
-  transition: width 700ms var(--v2-ez);
-}
-#primary .pdbar i.over { background: linear-gradient(90deg, var(--accent), #5BE6A8); }
-
-#platgrid {
-  position: fixed; z-index: 4;
-  right: 24px; top: calc(var(--v2-top) + 178px);
-  width: var(--v2-right);
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-}
-#platgrid .plat {
-  padding: 12px 14px 13px; border-radius: 16px;
-  background: linear-gradient(rgba(12, 21, 36, 0.9), rgba(7, 13, 24, 0.94));
-  border: 1px solid rgba(var(--accent-rgb), 0.10);
-  transition: border-color var(--v2-fast) var(--v2-ez), transform var(--v2-mid) var(--v2-ez);
-  animation: v2cardIn 520ms var(--v2-ez) both;
-}
-#platgrid .plat:nth-child(2) { animation-delay: 40ms; }
-#platgrid .plat:nth-child(3) { animation-delay: 80ms; }
-#platgrid .plat:nth-child(4) { animation-delay: 120ms; }
-#platgrid .plat:hover { border-color: rgba(var(--accent-rgb), 0.26); transform: translateY(-1px); }
-#platgrid .pl {
-  display: block; font-family: var(--mono); font-size: 9.5px;
-  letter-spacing: 0.16em; color: var(--dim);
-}
-#platgrid .plat b {
-  display: block; margin-top: 5px;
-  font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ---------------------------------------------------------------------------
  * 6. THE CHAT DECK
@@ -535,14 +128,6 @@ header .modes span.bad .dot {
  * --railw is published by ui-v2.js, so this follows the rail as it changes.
  * The width stays inline (setDock owns compact/expanded); only the centre moves.
  * ------------------------------------------------------------------------- */
-#comms, #dockbar {
-  left: calc((var(--railw) + 20px + 100vw - var(--v2-right) - 24px) / 2);
-  right: auto; transform: translateX(-50%);
-  bottom: 26px;
-  transition: width 420ms var(--v2-ez), height 420ms var(--v2-ez),
-              left var(--v2-slow) var(--v2-ez), transform var(--v2-slow) var(--v2-ez);
-}
-#dockbar:hover { transform: translateX(-50%) translateY(-2px); }
 
 /* ---- the head: a mark, the name, then the agents as words ----
    The picker was a 60px column of two-letter initials down the left of the
@@ -567,16 +152,6 @@ header .modes span.bad .dot {
 #comms .dockhead .runnow { flex: none; }
 /* the rule under the head, as the mock draws it */
 #comms .dockhead { border-bottom: 1px solid rgba(var(--accent-rgb), 0.10); }
-/* The mock rests on one control at the right; minimize does not spend header
-   width until you reach for it. */
-#comms .dockhead #dock-min {
-  max-width: 0; padding: 0; margin: 0; opacity: 0; overflow: hidden;
-  transition: max-width var(--v2-mid) var(--v2-ez),
-              opacity var(--v2-fast) linear,
-              margin var(--v2-mid) var(--v2-ez);
-}
-#comms .dockhead:hover #dock-min,
-#comms .dockhead #dock-min:focus-visible { max-width: 26px; opacity: 1; margin-left: 2px; }
 
 /* ---- the transcript ---- */
 #comms .msgs { gap: 16px; padding: 10px 20px 2px; }
@@ -1224,7 +799,6 @@ body.light .v2side, body.light .v2foot { background: rgba(0, 0, 0, 0.04); }
 body.light .v2sw { background: rgba(0, 0, 0, 0.10); }
 body.light .v2sw:hover { background: rgba(0, 0, 0, 0.16); }
 body.light .v2item.dim { background: rgba(0, 0, 0, 0.02); }
-body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
 
 /* ---------------------------------------------------------------------------
  * 8. THE DOCUMENT MODAL
@@ -1333,24 +907,6 @@ body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
 }
 
 /* ---------------------------------------------------------------------------
- * 9. NARROW WINDOWS
- *
- * The right column is fixed-width furniture. Under ~1180px it and an open rail
- * leave the deck nothing, so the platform tiles fold into one column and then
- * the whole column stands down rather than overlapping the sphere.
- * ------------------------------------------------------------------------- */
-@media (max-width: 1180px) {
-  :root { --v2-right: 236px; }
-  #platgrid { grid-template-columns: 1fr; top: calc(var(--v2-top) + 172px); }
-  #platgrid .plat { display: flex; align-items: baseline; justify-content: space-between; }
-  #platgrid .plat b { margin-top: 0; font-size: 18px; }
-}
-@media (max-width: 900px) {
-  #primary, #platgrid { display: none; }
-  #comms, #dockbar { left: 50%; }
-}
-
-/* ---------------------------------------------------------------------------
  * 10. REDUCED MOTION
  *
  * Everything degrades to a cross-fade rather than to nothing: the state changes
@@ -1358,8 +914,7 @@ body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
  * must keep a non-zero duration, because settings.js unmounts them on a timer.
  * ------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .rail.left, .rail.left #nav, #railbody, .navb, .navb .navlabel,
-  #nav .navhead .navword, #primary, #dockbar, #comms {
+  #railbody, #comms {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;
   }
@@ -1367,9 +922,8 @@ body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
   .v2dlg.open .v2card, .v2dlg.closing .v2card { animation-duration: 90ms !important; }
   /* NOTE: the rail badge (.navcount, keyframes v2badgeIn) is deliberately NOT
      listed - adding it here would change what reduced motion currently does. */
-  .v2body > *, .v2chip.fresh, .v2chip.gone, #nowbar .nowpill,
-  .v2sep::after, .v2item.moved,
-  #platgrid .plat { animation-duration: 90ms !important; animation-delay: 0ms !important; }
+  .v2body > *, .v2chip.fresh, .v2chip.gone,
+  .v2sep::after, .v2item.moved { animation-duration: 90ms !important; animation-delay: 0ms !important; }
   .v2x:hover, .v2x:active { transform: none; }
   .v2chip i:hover { transform: none; }
   /* the mic halo and the transcribing ring are status, not decoration */
@@ -1378,129 +932,6 @@ body.light #nowbar { background: rgba(255, 255, 255, 0.6); }
   #comms .msg.you, #comms .msg.jarvis { animation-duration: 90ms !important; }
   #voicebar .vmeter i { transition-duration: 1ms; }
 }
-
-/* ---------------------------------------------------------------------------
- * FOCUS
- *
- * One switch that stands everything down except the brain, the ring and the
- * conversation. The header, the NOW band, both rails, the primary card and the
- * dock's own chrome go away; the ring re-centres by itself because
- * layoutAgents() measures the furniture rather than assuming it, and the deck
- * is re-placed from --railw, which the toggle sets to 0.
- *
- * The chat stops being a card. Messages sit straight on the field, fading out
- * at the top, and the composer is the only drawn surface, so the eye lands on
- * the sphere and then on the one place to type. Everything is body.focus so
- * removing the class puts the deck back exactly as it was.
- * ------------------------------------------------------------------------- */
-/* Fade, do not vanish. These used to be display:none, which cannot animate,
-   so entering focus was a hard cut while the chat slid. They now fade over
-   the same beat the chat moves, and layoutAgents() knows to ignore them in
-   focus even though they still measure. The minimised bar is the exception:
-   it has no place in focus and is never visible at the moment of the switch. */
-header, #nowbar, .rail.right, #primary, #platgrid {
-  transition: opacity 360ms var(--v2-ez), visibility 0s linear 0s;
-}
-.rail.left { transition: width var(--v2-slow) var(--v2-ez), opacity 360ms var(--v2-ez), visibility 0s linear 0s; }
-body.focus header,
-body.focus #nowbar,
-body.focus .rail.left,
-body.focus .rail.right,
-body.focus #primary,
-body.focus #platgrid {
-  opacity: 0; visibility: hidden; pointer-events: none;
-  transition-delay: 0s, 360ms;
-}
-body.focus .rail.left { transition-delay: 0s, 0s, 360ms; }
-body.focus #dockbar { display: none !important; }
-#brain { transition: transform var(--v2-slow) var(--v2-ez); }
-
-/* The conversation takes the right third as a full-height column; the sphere
-   and its ring get the other two thirds. The chat used to be a 212px strip
-   centred under the brain, which showed three lines of the last exchange and
-   nothing of what an agent was doing. --stage-right is the column's width
-   plus its gutter: #brain is shifted left by half of it so the sphere sits in
-   the middle of the space that is left, and layoutAgents() measures the panel
-   to centre the ring on the same point. */
-body.focus { --stage-right: clamp(300px, 34vw, 560px); }
-/* left, width and height are set inline by setFocus() in ui-v2.js, in
-   pixels, so the same transitions that move the deck carry it into the
-   column and back. Only what cannot be animated is declared here. */
-body.focus #comms {
-  transform: none;
-  background: none; border: 0; box-shadow: none; backdrop-filter: none;
-  overflow: visible;
-}
-body.focus #brain { transform: translateX(calc(var(--stage-right) / -2)); }
-/* The head stays: it is where New conversation and the way out of focus
-   live, and a full-height column has room for a title. Only the size
-   buttons go, since the column has one size. */
-body.focus #comms .dockhead { padding: 0 6px 10px; border-bottom: 1px solid var(--line-soft); }
-body.focus #comms .dockhead #dock-expand,
-body.focus #comms .dockhead #dock-min { display: none; }
-/* Restoring focus on load must not replay the slide from the deck's first
-   paint position: setFocus(on, quiet) puts this on for two frames. */
-body.nofx, body.nofx *, body.nofx #brain, body.nofx #comms { transition: none !important; }
-body.focus #comms .msgs {
-  padding: 0 4px 6px;
-  -webkit-mask: linear-gradient(180deg, transparent, #000 56px);
-          mask: linear-gradient(180deg, transparent, #000 56px);
-}
-/* ---- links beside the chat, outside focus ----
-   Every link a reply mentioned, newest first, in a slim column to the left
-   of the chat card so a Loom or a doc stays one click away after the
-   message has scrolled off. Placed by placeLinkRail() against the card's
-   measured rectangle. In focus the pills above each message are enough. */
-#linkrail {
-  position: fixed; z-index: 6; width: 188px;
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 10px 10px 12px; border-radius: 16px;
-  background: var(--panel); border: 1px solid var(--line);
-  backdrop-filter: blur(var(--blur));
-  transition: left var(--v2-slow) var(--v2-ez), bottom 420ms var(--v2-ez), opacity 240ms var(--v2-ez);
-}
-#linkrail[hidden] { display: none; }
-#linkrail .navword, #linkrail .lrhead {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--dim); padding: 0 2px 2px;
-}
-#linkrail .chip.link {
-  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  animation: v2pillIn 320ms var(--v2-ez) both;
-}
-body.focus #linkrail { opacity: 0; pointer-events: none; }
-
-body.focus #comms .msg.you { background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.16); box-shadow: none; }
-body.focus #comms .msg.jarvis { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
-body.focus #bar { padding: 0; }
-body.focus #comms .dockcomposer {
-  border-radius: 999px; padding-left: 18px;
-  background: var(--panel-deep); border: 1px solid rgba(var(--accent-rgb), 0.16);
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--accent-rgb), 0.05);
-}
-
-/* The way out. A pill in the corner, plus the same key that put you here. */
-#focus-exit {
-  position: fixed; top: 16px; right: 18px; z-index: 40;
-  display: none; align-items: center; gap: 10px;
-  padding: 7px 8px 7px 12px; border-radius: 999px;
-  border: 1px solid var(--line); background: rgba(7, 13, 24, 0.7);
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
-  cursor: pointer; backdrop-filter: blur(var(--blur));
-  animation: v2cardIn 420ms var(--v2-ez) both;
-}
-#focus-exit i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.8); }
-#focus-exit kbd { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--text); }
-#focus-exit:hover { color: var(--text); border-color: rgba(var(--accent-rgb), 0.45); }
-body.focus #focus-exit { display: flex; }
-
-/* The switch in the dock head, beside expand. Same glyph family as its
-   neighbours, same hover reveal as minimise is not wanted: this one is the
-   feature, so it stays visible. */
-#dock-focus { font-size: 13px; }
-body.light #focus-exit { background: rgba(255, 255, 255, 0.7); }
-body.light.focus #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }
 
 /* =========================================================================
    MEMORY
@@ -1587,3 +1018,271 @@ body.light.focus #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }
 .expverdict.refuted { color: var(--red); }
 .expverdict.unmeasured { color: var(--amber); }
 .expempty { font-size: 12px; color: var(--dim); padding: 2px 2px 6px; }
+
+/* ===========================================================================
+ * LAYOUT
+ *
+ * Two screens, one HUD.
+ *
+ * Numbers first (the default): the vitals and the directives as a column on
+ * the left, the sphere and its ring in the middle, the conversation as a
+ * full-height column on the right. Nothing else on screen: the header band,
+ * the NOW bar, the rail, the platform cards and the link rail are gone. What
+ * they held is a sentence beside the wordmark, two pills, or a sheet.
+ *
+ * Focus (One screen): the column fades, the ring grows into the space, and
+ * the numbers and the one thing to do become a line of text at the bottom.
+ *
+ * The chat column and the numbers column are placed here; the ring and the
+ * sphere are centred between them by layoutAgents(), which measures both and
+ * publishes --stage-x for the canvas. One easing curve everywhere: --v2-ez,
+ * 420ms for layout moves, 160ms for hover.
+ * ======================================================================= */
+:root {
+  --gut: 28px;                         /* the outer margin */
+  --top: 64px;                         /* where the columns start */
+  --side-w: 300px;                     /* the numbers column */
+  --chat-w: clamp(300px, 30vw, 460px); /* the conversation column */
+}
+
+/* ---- the top line: wordmark and one sentence of status ---- */
+#topline {
+  position: fixed; top: 22px; left: var(--gut); z-index: 7;
+  display: flex; align-items: center; gap: 14px;
+  max-width: calc(100vw - var(--chat-w) - var(--gut) * 3);
+}
+#topline h1 {
+  font-family: var(--mono); font-size: 15px; letter-spacing: 6px; font-weight: 600;
+  color: var(--text); white-space: nowrap;
+}
+#status {
+  appearance: none; border: 0; background: none; padding: 0; margin: 0;
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font: 500 12px/1.4 var(--sans); color: var(--dim); text-align: left; cursor: default;
+}
+#status > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#status i {
+  flex: none; width: 6px; height: 6px; border-radius: 50%;
+  background: #5BE6A8; box-shadow: 0 0 8px rgba(91, 230, 168, 0.7);
+  transition: background var(--v2-mid) linear, box-shadow var(--v2-mid) linear;
+}
+#status b { color: var(--text); font-weight: 500; }
+#status u { text-decoration: underline dotted; text-underline-offset: 3px; color: var(--amber); }
+#status .bad { color: var(--red); }
+#status.busy i { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 2.6s ease-in-out infinite; }
+#status.warn i { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+#status.bad i { background: var(--red); box-shadow: 0 0 8px var(--red); }
+#status.attn { cursor: pointer; }
+#status.attn:hover > span { color: var(--text); }
+
+/* ---- the pills ---- */
+#toppills { position: fixed; top: 18px; right: var(--gut); z-index: 7; display: flex; gap: 8px; }
+.pill {
+  appearance: none; cursor: pointer; position: relative;
+  padding: 7px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(7, 13, 24, 0.55);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--dim);
+  transition: color var(--v2-fast) linear, border-color var(--v2-fast) linear,
+              background var(--v2-fast) linear, transform var(--v2-fast) var(--v2-ez);
+}
+.pill:hover { color: var(--text); border-color: rgba(var(--accent-rgb), 0.35); }
+.pill:active { transform: scale(.97); }
+.pill.on { color: var(--accent-hi); border-color: rgba(var(--accent-rgb), 0.45); background: rgba(var(--accent-rgb), 0.10); }
+.pill[data-badge="1"]::after {
+  content: ""; position: absolute; top: 6px; right: 7px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 6px var(--accent);
+}
+/* the pills' tooltips open downward, under the pill */
+#toppills [data-tip]::after { top: calc(100% + 8px); bottom: auto; right: 0; left: auto; transform: none; }
+#toppills [data-tip]::before { display: none; }
+body.light .pill { background: rgba(255, 255, 255, 0.7); }
+
+/* ---- the numbers column ---- */
+#side {
+  position: fixed; left: var(--gut); top: 78px; bottom: 26px; z-index: 5;
+  width: var(--side-w);
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto; scrollbar-width: none;
+  transition: opacity 360ms var(--v2-ez), transform var(--v2-slow) var(--v2-ez), visibility 0s linear 0s;
+}
+#side::-webkit-scrollbar { display: none; width: 0; }
+#side .hero {
+  flex: none; gap: 6px; margin: 0;
+  padding: 16px 18px 18px; border-radius: 20px;
+  background: var(--panel-deep); border: 1px solid var(--line);
+}
+#side .hero .heronum b { font-size: 40px; line-height: 1.1; }
+#side .hero .bar { height: 4px; margin-top: 4px; }
+#side .ctiles { flex: none; margin: 0; }
+#side .ctile { padding: 11px 13px; border-radius: 14px; }
+#side .ctile .cnum { margin-top: 4px; }
+#side .ctile .cnum b { font-size: 20px; }
+#side .latest { flex: none; margin: 0; padding: 12px 14px; border-radius: 16px; gap: 8px; }
+#side .latest .latestrow b { font-size: 26px; }
+#side .sparkarea { height: 36px; }
+#side .vital { flex: none; }
+#side .msg.sys { font-size: 11.5px; color: var(--dim); }
+#dirblock { flex: none; margin-top: 8px; display: flex; flex-direction: column; gap: 10px; }
+#directives .directive {
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+  padding: 0 2px; margin-bottom: 6px; gap: 10px;
+  font-size: 13px; line-height: 1.5; color: #C7D7EC;
+}
+#directives .directive:hover { background: none; }
+#directives .directive::before { display: none; }
+#directives .dprogress + .directive, #directives .directive:first-child { color: var(--text); }
+#directives .directive .box { width: 13px; height: 13px; margin-top: 3px; border-radius: 4px; border-width: 1px; }
+#directives .directive.done { opacity: .4; }
+#directives .msg.sys { font-size: 12px; color: var(--dim); padding: 0 2px; }
+#calstrip { flex: none; }
+
+/* ---- the conversation column ---- */
+#comms {
+  position: fixed; top: var(--top); right: var(--gut); bottom: 26px; left: auto;
+  width: var(--chat-w); height: auto; z-index: 6;
+  display: flex; padding: 0; overflow: visible; transform: none;
+  background: none; border: 0; border-radius: 0; box-shadow: none; backdrop-filter: none;
+  transition: width var(--v2-slow) var(--v2-ez), left var(--v2-slow) var(--v2-ez),
+              top var(--v2-slow) var(--v2-ez), height var(--v2-slow) var(--v2-ez);
+}
+#comms .dockmain { flex: 1; min-height: 0; }
+#comms .dockhead { padding: 0 6px 10px; border-bottom: 1px solid var(--line-soft); }
+#comms .msgs {
+  padding: 0 4px 6px;
+  -webkit-mask: linear-gradient(180deg, transparent, #000 56px);
+          mask: linear-gradient(180deg, transparent, #000 56px);
+}
+#comms .msg.you { background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.16); box-shadow: none; }
+#comms .msg.jarvis { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
+#bar { padding: 0; }
+#comms .dockcomposer {
+  border-radius: 999px; padding-left: 18px;
+  background: var(--panel-deep); border: 1px solid rgba(var(--accent-rgb), 0.16);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--accent-rgb), 0.05);
+}
+body.light #comms .dockcomposer { background: rgba(255, 255, 255, 0.92); }
+#dock-focus { font-size: 13px; }
+#dock-focus.on { color: var(--accent-hi); }
+
+/* ---- the sphere and the ring ---- */
+/* the canvas is full-viewport; the stage centre comes from layoutAgents() */
+#brain { transform: translateX(var(--stage-x, 0px)); transition: transform var(--v2-slow) var(--v2-ez); }
+/* Restoring focus on load must not replay the slide from the first paint:
+   setFocus(on, quiet) puts this on for two frames. */
+body.nofx, body.nofx *, body.nofx #brain, body.nofx #comms, body.nofx #side { transition: none !important; }
+/* One plate per agent, drawn as the design has them: no blur behind them.
+   Eleven blurred plates over a live canvas was the most expensive thing on
+   the page, and they read the same on an opaque surface. */
+.agent {
+  width: 96px; padding: 9px 8px 8px; border-radius: 12px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em;
+  background: var(--panel-deep); border: 1px solid var(--line);
+  backdrop-filter: none; box-shadow: none;
+}
+.agent .adot { border-color: var(--accent); }
+.agent .atag { font-size: 8.5px; letter-spacing: 0.12em; }
+.agent.off { opacity: .55; }
+.agent.live .adot { background: #5BE6A8; border-color: #5BE6A8; box-shadow: 0 0 8px rgba(91, 230, 168, 0.7); }
+#dispatch { top: 84px; }
+
+/* ---- focus: the numbers as a line of text ---- */
+#focusline {
+  position: fixed; left: var(--gut); bottom: 26px; z-index: 5;
+  width: min(640px, calc(100vw - var(--chat-w) - var(--gut) * 3));
+  display: flex; flex-direction: column; gap: 14px;
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(8px);
+  transition: opacity 360ms var(--v2-ez), transform 360ms var(--v2-ez), visibility 0s linear 360ms;
+}
+.fl-nums { display: flex; align-items: baseline; gap: 28px; flex-wrap: wrap; }
+.fl-subs { display: flex; align-items: baseline; gap: 10px; }
+.fl-big {
+  font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;
+  color: var(--strong); font-variant-numeric: tabular-nums;
+}
+.fl-lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em; color: var(--dim); white-space: nowrap; }
+.fl-plats { display: flex; gap: 22px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--dim); }
+.fl-plats b { color: var(--text); font-weight: 600; }
+.fl-dir { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.5; color: var(--text); }
+.fl-dir .box {
+  flex: none; width: 14px; height: 14px; margin-top: 3px; border-radius: 4px;
+  border: 1px solid rgba(var(--accent-rgb), 0.4); cursor: pointer;
+  transition: border-color var(--v2-fast) linear, background var(--v2-fast) linear;
+}
+.fl-dir .box:hover { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.12); }
+.fl-dir .txt { text-wrap: pretty; }
+.fl-dir .txt.dim { color: var(--dim); }
+.fl-dir .more { color: var(--dim); cursor: pointer; white-space: nowrap; margin-left: 4px; }
+.fl-dir .more:hover { color: var(--text); }
+.fl-nums .v2stale { align-self: center; }
+
+body.focus #side {
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(-12px);
+  transition-delay: 0s, 0s, 360ms;
+}
+body.focus #focusline { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition-delay: 0s; }
+
+/* ---- the sheet ---- */
+#sheet {
+  position: fixed; z-index: 9;
+  top: var(--top); bottom: 26px; right: calc(var(--chat-w) + var(--gut) * 2);
+  left: calc(var(--gut) + var(--side-w) + 20px);   /* over the sphere, not the numbers */
+  display: flex; flex-direction: column;
+  border-radius: 24px; background: var(--panel-deep); border: 1px solid var(--line);
+  box-shadow: 0 40px 100px -40px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(14px) scale(.985);
+  transition: opacity 260ms var(--v2-ez), transform 360ms var(--v2-ez), visibility 0s linear 260ms;
+}
+#sheet.open { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition-delay: 0s; }
+body.focus #sheet { left: var(--gut); }   /* the column is gone, so take its room too */
+.sheethead { flex: none; display: flex; align-items: center; gap: 6px; padding: 12px 14px 0; }
+#nav { display: flex; gap: 4px; flex-wrap: wrap; }
+#nav .tab {
+  appearance: none; cursor: pointer; position: relative;
+  border: 1px solid transparent; background: none;
+  padding: 7px 12px; border-radius: 999px;
+  font: 500 12.5px var(--sans); color: var(--dim);
+  transition: color var(--v2-fast) linear, background var(--v2-fast) linear, border-color var(--v2-fast) linear;
+}
+#nav .tab:hover { color: var(--text); background: rgba(var(--accent-rgb), 0.06); }
+#nav .tab.on { color: var(--accent-hi); background: rgba(var(--accent-rgb), 0.12); border-color: rgba(var(--accent-rgb), 0.3); }
+#nav .tab[data-badge="1"]::after {
+  content: ""; position: absolute; top: 5px; right: 5px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 6px var(--accent);
+}
+.sheetx {
+  margin-left: auto; appearance: none; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: none;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim);
+  transition: color var(--v2-fast) linear, border-color var(--v2-fast) linear;
+}
+.sheetx:hover { color: var(--text); border-color: rgba(var(--accent-rgb), 0.45); }
+.sheetx kbd { font: inherit; padding: 3px 5px; border-radius: 5px; border: 1px solid var(--line); color: var(--text); }
+#railbody { flex: 1; min-height: 0; display: flex; padding: 8px 10px 10px; }
+#railbody .panel { background: none; border: 0; border-radius: 0; box-shadow: none; backdrop-filter: none; }
+#railbody .panel h2 { padding: 12px 12px 12px; }
+#railbody .panel .panelbody { padding: 14px 12px 16px; }
+#railbody .panel .panelaction { margin: 0 12px 12px; }
+#railbody .panel .panelsearch { margin: 12px 12px 0; }
+#railbody .panel[data-view="memory"] .memhint { margin: 0 12px 12px; }
+
+/* ---- narrow windows ----
+   Under 1180px the numbers column narrows. Under 900px there is no room for
+   two columns beside a sphere: the numbers column and the focus line stand
+   down, and the conversation becomes a strip along the bottom. */
+@media (max-width: 1180px) {
+  :root { --side-w: 256px; }
+  #side .hero .heronum b { font-size: 34px; }
+}
+@media (max-width: 900px) {
+  #side, #focusline { display: none; }
+  #comms { top: auto; left: 24px; right: 24px; width: auto; height: 240px; bottom: 24px; }
+  #sheet { right: var(--gut); bottom: 284px; }
+  #topline { max-width: calc(100vw - 260px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #side, #sheet, #focusline, #brain, #comms, .pill { transition-duration: 1ms !important; }
+}

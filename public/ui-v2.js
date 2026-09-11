@@ -1,207 +1,41 @@
 /* ============================================================================
- * ui-v2.js - drop-in UI update. Load AFTER app.js and settings.js.
+ * ui-v2.js - the HUD's second layer. Load AFTER app.js and settings.js.
  *
- * Restructures the HUD to the v2 layout without touching app.js:
- *   - header becomes a band, with a full-width NOW bar under it
- *   - labelled sidebar rail, three widths
- *   - the audience card becomes a primary card plus a platform grid
- *   - the chat's agent picker moves from a vertical initials rail into the
- *     dock header as labelled tabs
+ * app.js draws the data: vitals, directives, the ring, the transcript. This
+ * file owns the screen around it:
+ *   - the status sentence beside the wordmark
+ *   - the two pills and the sheet the rail became
+ *   - focus, which turns the numbers column into a line of text
+ *   - health words on the ring plates
+ *   - markdown in the document modal, document opening, memory, experiments
  *
  * app.js is a classic top-level script, so its declarations (relayoutDuring,
  * selectView, loadData, DATA, AGENTS_LIST, fmt) share this script's global
- * scope. Nothing here reads or writes #brain, #stars, the three.js ring, or
- * the theme system.
+ * scope. Nothing here reads or writes #brain, #stars, or the theme system.
  * ========================================================================== */
 (function () {
   const $ = (id) => document.getElementById(id);
-  const nav = $("nav");
-  const rail = document.querySelector(".rail.left");
-  if (!nav || !rail) return;
 
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const num = (n) => (typeof fmt === "function" ? fmt(n) : String(n ?? "—"));
   const relayout = () =>
     (typeof relayoutDuring === "function" ? relayoutDuring() : dispatchEvent(new Event("resize")));
   /* app.js's top-level declarations share this script's scope, but reaching for
    * one that is missing must not take the rest of this file down with it. */
   const appGlobal = (fn) => { try { fn(); } catch {} };
 
-  /* index.html owns these buttons and app.js never rebuilds them, so the list
-   * is taken once and shared by everything below that walks the nav. */
-  const navViewBtns = [...nav.querySelectorAll(".navb[data-view]")];
-
-  /* The same words the tooltips already used, so there is one vocabulary
-   * rather than a second set of names to keep in sync. */
-  const LABELS = {
-    dashboard: "Dashboard",
-    directives: "Directives",
-    knowledge: "Knowledge",
-    playbook: "Playbook",
-    radar: "Radar",
-    documents: "Documents",
-  };
-
-  navViewBtns.forEach((b) => {
-    if (b.querySelector(".navlabel")) return;
-    const s = document.createElement("span");
-    s.className = "navlabel";
-    s.textContent = LABELS[b.dataset.view] || b.dataset.view;
-    b.appendChild(s);
-  });
-  for (const [id, text] of [["nav-help", "Help"], ["nav-settings", "Settings"]]) {
-    const b = $(id);
-    if (b && !b.querySelector(".navlabel")) {
-      const s = document.createElement("span");
-      s.className = "navlabel";
-      s.textContent = text;
-      b.appendChild(s);
-    }
-  }
-  // the rail's Settings row carries the shortcut, the way the mock shows it
-  {
-    const s = $("nav-settings");
-    if (s && !s.querySelector(".navkbd")) {
-      const k = document.createElement("span");
-      k.className = "navkbd";
-      k.textContent = "⌘,";
-      s.appendChild(k);
-    }
-  }
-
-  /* Logo and chevron become one header row, so the chevron sits at the end of
-   * the rail's own width instead of floating under the mark. */
-  {
-    const logo = nav.querySelector(".navlogo");
-    const chev = $("nav-collapse");
-    if (logo && chev && !nav.querySelector(".navhead")) {
-      const head = document.createElement("div");
-      head.className = "navhead";
-      logo.parentNode.insertBefore(head, logo);
-      head.appendChild(logo);
-      const word = document.createElement("span");
-      word.className = "navword";
-      word.textContent = "JARVIS";
-      head.appendChild(word);
-      head.appendChild(chev);
-    }
-  }
-
-  /* ------------------------------------------------------------- rail states
-   * full  - labelled nav + panel        560px
-   * nav   - labelled nav, no panel      194px
-   * icons - icon rail only               60px
-   *
-   * The width is published as --railw so the chat deck can centre itself in
-   * what is left between the rail and the right-hand column, rather than in
-   * the viewport - which is what the mock shows and what stops the deck
-   * sliding under the primary card when the rail is open.
-   */
-  const W = { full: 560, nav: 194, icons: 60 };
-  let mode = "full";
-  try { mode = localStorage.getItem("jarvis_rail_mode") || "full"; } catch {}
-  if (!W[mode]) mode = "full";
-
-  /* Centre the deck in what is left between the rail and the right column.
-   *
-   * Set inline rather than left to the CSS calc: a property that is BOTH
-   * transitioned and defined through a var() does not re-resolve in Chrome when
-   * only the custom property changes - --railw went 560 -> 60 and the computed
-   * left stayed pinned at its old pixel value, and dropping the transition made
-   * it update instantly. Inline writes transition normally, so JS owns the
-   * number and CSS still owns the movement - the same split app.js uses for the
-   * rail width and the dock size.
-   */
-  function placeDeck() {
-    // In focus the column's left is owned by focusGeometry(); the load and
-    // resize handlers below call this too, and used to drag the column back
-    // to the deck's centre on every reload that restored focus.
-    if (document.body.classList.contains("focus")) return;
-    const rightCol =
-      parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--v2-right")) || 300;
-    const narrow = innerWidth <= 900;   // below this the right column stands down
-    const left = (W[mode] + 20 + innerWidth - rightCol - 24) / 2;
-    for (const id of ["comms", "dockbar"]) {
-      const el = $(id);
-      if (el) el.style.left = narrow ? "" : left + "px";
-    }
-  }
-
-  function setMode(next, quiet) {
-    mode = W[next] ? next : "full";
-    rail.dataset.mode = mode;
-    rail.style.width = W[mode] + "px";
-    document.documentElement.style.setProperty("--railw", W[mode] + "px");
-    placeDeck();
-    rail.classList.toggle("collapsed", mode === "icons");
-    const chev = $("nav-collapse");
-    if (chev) {
-      // One glyph that turns over, rather than swapping « for » - a text swap
-      // cannot animate. Wrapped in a span because the tooltip is a ::after on
-      // the button and would turn over with it.
-      chev.innerHTML = '<span class="chevglyph">&laquo;</span>';
-      chev.classList.toggle("flip", mode === "icons");
-      chev.setAttribute("aria-expanded", mode === "icons" ? "false" : "true");
-      chev.dataset.tip = mode === "icons" ? "Expand the sidebar" : "Collapse to icons";
-    }
-    try { localStorage.setItem("jarvis_rail_mode", mode); } catch {}
-    if (!quiet) relayout();
-  }
-
-  /* Clicking the item you are already on closes the panel instead of
-   * re-selecting it. The nav keeps its labels, so nothing about where you are
-   * becomes ambiguous when the panel goes away. */
-  navViewBtns.forEach((b) => {
-    b.onclick = () => {
-      const active = b.classList.contains("on");
-      if (active && mode === "full") { setMode("nav"); return; }
-      if (typeof selectView === "function") selectView(b.dataset.view);
-      setMode("full");
-    };
-  });
-  {
-    const chev = $("nav-collapse");
-    if (chev) chev.onclick = () => setMode(mode === "icons" ? "full" : "icons");
-  }
-
-  /* Restore the saved mode with motion suppressed. app.js has already written
-   * its own width by now, so an animated first paint would play a slide that
-   * corresponds to nothing the user did. */
-  rail.classList.add("nomotion");
-  setMode(mode, true);
-  setTimeout(() => rail.classList.remove("nomotion"), 50);
-
   /* =========================================================================
-   * THE NOW BAR
+   * THE STATUS SENTENCE
    *
-   * A full-width band under the header: what is running, what already ran, and
-   * what is next. Built from /api/agents - the same source the ring plates use,
-   * so it cannot disagree with them.
+   * One line beside the wordmark: what is running, what already ran today,
+   * what needs attention, and what is next. Built from /api/agents - the same
+   * source the ring plates use, so it cannot disagree with them.
    *
-   * "DONE" is real, not inferred from the clock. /api/agents carries lastRun
-   * and a health verdict from the run ledger (lib/runs.js), so a finished
-   * agent reports the time it actually finished and DONE is only claimed when
-   * the run exited 0 and left what it was meant to leave. An agent whose
-   * scheduled time has merely passed is not marked done - that would be
-   * reporting the timetable as history. Anything not ok (failed, overdue, not
-   * loaded, stale) gets its own pill in a warning colour, because the log
-   * mtime version of this bar showed DONE for twelve days of nothing running.
+   * "ran" is real, not inferred from the clock. /api/agents carries lastRun
+   * and a health verdict from the run ledger, so a finished agent reports
+   * the time it actually finished and is only counted when the run exited 0
+   * and left what it was meant to leave.
    * ======================================================================= */
-  const nowbar = document.createElement("div");
-  nowbar.id = "nowbar";
-  nowbar.innerHTML =
-    `<span class="nowlab">NOW</span><span id="nowpills"></span>` +
-    `<span class="nowfill"></span><span id="nowattn"></span><span id="nownext"></span>`;
-  const header = document.querySelector("header");
-  if (header && header.parentNode) header.parentNode.insertBefore(nowbar, header.nextSibling);
-  const nowPills = nowbar.querySelector("#nowpills");
-  const nowNext = nowbar.querySelector("#nownext");
-  const nowAttn = nowbar.querySelector("#nowattn");
-
-  /* Words for a health state, and which warning token it wears. FAILED is
-   * red because it is a run that happened and broke; the rest are amber
-   * because nothing broke, something just did not happen. */
   const STATE_WORD = {
     failed: "FAILED", overdue: "OVERDUE", "not-loaded": "NOT LOADED", stale: "STALE", never: "NEVER RAN",
   };
@@ -209,13 +43,14 @@
   const healthOf = (a) => (a.health && a.health.state) || "ok";
   // an on-demand agent that has not run yet is not a problem, only a fact
   const needsAttention = (a) => Boolean(STATE_WORD[healthOf(a)]) && !a.running && (healthOf(a) !== "never" || a.schedule);
-  /* The agents-need-attention modal. There is no agents panel in the rail,
-   * so the click opens the same modal app.js uses to explain an agent, with
-   * one line per problem and the fix beside it. */
+
+  /* The agents-need-attention list, in the same modal app.js uses to explain
+   * an agent: one line per problem and the reason beside it. */
   const attentionModal = (list) => {
     const title = $("modal-title"), body = $("modal-body"), modal = $("modal");
     if (!title || !body || !modal) return;
     title.textContent = `${list.length} AGENT${list.length === 1 ? "" : "S"} NEED ATTENTION`;
+    body.className = "structured";
     body.textContent = "";
     for (const a of list) {
       const row = document.createElement("div");
@@ -230,10 +65,6 @@
     body.appendChild(foot);
     modal.classList.add("open");
   };
-  nowAttn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    attentionModal(lastAgents.filter((a) => a.id !== "runner" && a.enabled !== false && needsAttention(a)));
-  });
 
   /* "05:00" / "FRI 15:00" / "ON DEMAND" -> ms from now, or null. Only used for
    * ordering, so a tag it cannot parse sorts last rather than being guessed at. */
@@ -245,82 +76,85 @@
     if (t <= now) t.setDate(t.getDate() + 1);
     return t - now;
   };
-  const clock = (ms) =>
-    new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const isToday = (ms) => {
     const d = new Date(ms), n = new Date();
     return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
   };
+  const words = (list) => {
+    const n = list.map((a) => a.label.toLowerCase());
+    if (n.length <= 1) return n.join("");
+    return n.slice(0, -1).join(", ") + " and " + n[n.length - 1];
+  };
 
   /* Elapsed is only claimed for a run this page actually watched start. An
    * agent that was already going when you opened the tab has no start time
-   * anywhere in the payload, and "RUNNING 2m" would be an invention. */
+   * anywhere in the payload, and "running 2m" would be an invention. */
   const startedAt = new Map();
+  let lastAgents = [], lastStatusHtml = "", brainUp = true, serverUp = true;
+  const statusEl = $("status"), statusText = $("status-text");
 
-  let lastNowHtml = "";
-  let lastAgents = [];
-  async function paintNow() {
+  async function paintStatus() {
     let list = [];
-    try { list = (await (await fetch("/api/agents")).json()).agents || []; } catch { return; }
+    try { list = (await (await fetch("/api/agents")).json()).agents || []; serverUp = true; }
+    catch { serverUp = false; }
     lastAgents = list;
     const on = list.filter((a) => a.id !== "runner" && a.enabled !== false);
-
     for (const a of on) {
       if (a.running && !startedAt.has(a.id)) startedAt.set(a.id, Date.now());
       if (!a.running) startedAt.delete(a.id);
     }
-
     const running = on.filter((a) => a.running);
     const attention = on.filter(needsAttention);
     const doneToday = on
       .filter((a) => !a.running && healthOf(a) === "ok" && a.lastRun && isToday(a.lastRun))
       .sort((x, y) => y.lastRun - x.lastRun);
     const blocked = on.filter((a) => (a.unmet || []).length);
-
-    // one pass for the soonest, rather than a comparator that re-parses every
-    // tag into a fresh Date on each compare
     let next = null, soonest = Infinity;
     for (const a of on) {
       if (a.running) continue;
       const t = nextAt(a.tag);
       if (t !== null && t < soonest) { soonest = t; next = a; }
     }
-
-    const mins = (id) => {
-      const t = startedAt.get(id);
-      if (!t) return "";
+    const mins = () => {
+      const t = Math.min(...running.map((a) => startedAt.get(a.id) || Infinity));
+      if (!isFinite(t)) return "";
       const m = Math.floor((Date.now() - t) / 60000);
-      return m >= 1 ? ` ${m}m` : "";
+      return m >= 1 ? ` for ${m}m` : "";
     };
 
-    // failed first, then the rest of the trouble, then what ran clean; the
-    // bar is read left to right and the left is what needs a decision
-    const order = { failed: 0, "not-loaded": 1, overdue: 2, stale: 3, never: 4 };
-    attention.sort((x, y) => (order[healthOf(x)] ?? 9) - (order[healthOf(y)] ?? 9));
-    const pills =
-      running.map((a) => `<span class="nowpill live"><i></i>${esc(a.label)} · RUNNING${mins(a.id)}</span>`)
-        .concat(attention.slice(0, 4).map((a) =>
-          `<span class="nowpill ${stateClass(healthOf(a))}" title="${esc((a.health && a.health.detail) || "")}"><i></i>${esc(a.label)} · ${esc(STATE_WORD[healthOf(a)])}</span>`))
-        .concat(doneToday.slice(0, 4).map((a) =>
-          `<span class="nowpill done" title="${esc((a.health && a.health.detail) || "")}">${esc(a.label)} · ${clock(a.lastRun)} DONE</span>`))
-        .concat(blocked.length ? [`<span class="nowpill bad"><i></i>${blocked.length} BLOCKED</span>`] : []);
+    const parts = [];
+    if (!serverUp) parts.push(`<span class="bad">server not answering</span>`);
+    else if (!brainUp) parts.push(`<span class="bad">no brain answering</span>`);
+    if (running.length) parts.push(`<b>${esc(words(running))}</b> running${mins()}`);
+    if (doneToday.length) {
+      const shown = doneToday.slice(0, 2);
+      const more = doneToday.length - shown.length;
+      const hour = new Date(doneToday[0].lastRun).getHours();
+      parts.push(`<b>${esc(words(shown))}</b>${more ? ` and ${more} more` : ""} ran ${hour < 12 ? "this morning" : hour < 18 ? "today" : "this evening"}`);
+    }
+    if (attention.length) parts.push(`<u>${attention.length} need${attention.length === 1 ? "s" : ""} attention</u>`);
+    else if (blocked.length) parts.push(`${blocked.length} blocked on config`);
+    if (next) parts.push(`next: <b>${esc(next.label.toLowerCase())}</b> at ${esc(String(next.tag).toLowerCase())}`);
+    if (!parts.length) parts.push("nothing running");
 
-    if (!pills.length) pills.push(`<span class="nowpill">NOTHING RUNNING</span>`);
-
-    const nextHtml = next
-      ? `<span class="nownextlab">NEXT · ${esc(next.label)} ${esc(next.tag)}</span>` : "";
-    const attnHtml = attention.length
-      ? `<span class="nowattnlab" title="click for the list">${attention.length} AGENT${attention.length === 1 ? "" : "S"} NEED${attention.length === 1 ? "S" : ""} ATTENTION</span>` : "";
-
-    const html = pills.join("") + "\uE000" + nextHtml + "\uE000" + attnHtml;
-    if (html === lastNowHtml) return;   // a 20s poll that changed nothing must not re-animate
-    lastNowHtml = html;
-    nowPills.innerHTML = pills.join("");
-    nowNext.innerHTML = nextHtml;
-    nowAttn.innerHTML = attnHtml;
+    const html = parts.join(" &middot; ");
+    if (html === lastStatusHtml) return;
+    lastStatusHtml = html;
+    if (statusText) statusText.innerHTML = html;
+    if (statusEl) {
+      statusEl.className = !serverUp || !brainUp ? "bad" : attention.length ? "warn attn" : running.length ? "busy" : "";
+    }
   }
-  paintNow();
-  setInterval(paintNow, 20000);
+  if (statusEl) statusEl.onclick = () => {
+    const list = lastAgents.filter((a) => a.id !== "runner" && a.enabled !== false && needsAttention(a));
+    if (list.length) attentionModal(list);
+  };
+  async function syncBrain() {
+    try { const s = await (await fetch("/api/status")).json(); brainUp = Boolean((s.brain || {}).active); }
+    catch { brainUp = false; }
+  }
+  (async () => { await syncBrain(); await paintStatus(); })();
+  setInterval(async () => { await syncBrain(); await paintStatus(); }, 20000);
 
   /* The ring plates say the same thing. app.js builds them from /api/agents
    * and toggles live/off; this adds the health word under the schedule tag
@@ -367,183 +201,50 @@
   }
 
   /* =========================================================================
-   * THE RIGHT COLUMN
+   * STALE NUMBERS
    *
-   * app.js's renderPrimary() rewrites #pd-num / #pd-meta / #pd-deploy every
-   * 20 seconds as the card cycles, so everything added here lives OUTSIDE
-   * those nodes and is repainted on the same data, never inside them.
+   * STALE · 12d beside the subscriber number. Amber, not red: the numbers are
+   * real, they are just old, and the fix is one command, named in the
+   * tooltip. Removed again the moment a fresh collect lands, so the absence
+   * of the badge means something. The server decides (vitals_age from
+   * /api/data, against vitals.stale_hours); this only paints it.
    * ======================================================================= */
   {
-    const p = $("primary");
-    if (p && !p.querySelector(".pdbar")) {
-      const bar = document.createElement("div");
-      bar.className = "pdbar";
-      bar.innerHTML = "<i></i>";
-      // after .meta, so the card reads number -> "followers · target 10,000"
-      // -> bar. Inserted after .big it landed on top of the target line.
-      const meta = p.querySelector(".meta");
-      if (meta && meta.nextSibling) p.insertBefore(bar, meta.nextSibling);
-      else if (meta) p.appendChild(bar);
-      else p.appendChild(bar);
+    function paintStale(age) {
+      const stale = Boolean(age && age.stale);
+      const days = age && age.hours != null ? Math.round(age.hours / 24) : null;
+      const word = stale ? `STALE · ${age && age.hours == null ? "never" : days >= 1 ? `${days}d` : `${Math.round(age.hours)}h`}` : "";
+      const when = age && age.updated_at ? new Date(age.updated_at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" }) : "never";
+      const tip = `last collected ${when}; run jarvis collect --fetch`;
+      const put = (host) => {
+        if (!host) return;
+        let b = host.querySelector(".v2stale");
+        if (!stale) { if (b) b.remove(); return; }
+        if (!b) { b = document.createElement("span"); b.className = "v2stale"; host.appendChild(b); }
+        if (b.textContent !== word) b.textContent = word;
+        b.title = tip;
+      };
+      const vit = $("vitals");
+      put(vit && (vit.querySelector(".herohead") || vit));
+      const fl = $("focusline");
+      put(fl && fl.querySelector(".fl-nums"));
     }
-    if (!$("platgrid")) {
-      const g = document.createElement("div");
-      g.id = "platgrid";
-      if (p && p.parentNode) p.parentNode.insertBefore(g, p.nextSibling);
+    function paintFromData() {
+      const d = typeof DATA !== "undefined" ? DATA : null;
+      if (!d || !d.vitals) return;
+      paintStale(d.vitals_age);
     }
+    // app.js's render() rebuilds #vitals and #focusline, so repaint after it
+    if (typeof loadData === "function") {
+      const orig = loadData;
+      loadData = async function (...a) {
+        const r = await orig.apply(this, a);
+        try { paintFromData(); } catch {}
+        return r;
+      };
+    }
+    setTimeout(paintFromData, 600);
   }
-
-  /* Everything the 20s repaint writes into. All of it is either index.html's
-   * own markup or created just above and never replaced, so it is looked up
-   * once instead of on every pass. */
-  const platGrid = $("platgrid");
-  const pdLabel = $("pd-label");
-  const pdBarFill = document.querySelector("#primary .pdbar i");
-  const dirCap = $("dir-cap");
-  const dirPanel = document.querySelector('#railbody .panel[data-view="directives"]');
-
-  const PLATFORMS = [
-    ["YT", "yt_subs"], ["LI", "linkedin_followers"],
-    ["TT", "tiktok_followers"], ["IG", "ig_followers"],
-  ];
-
-  /* STALE · 12d on the primary card and on the dashboard vitals. Amber, not
-   * red: the numbers are real, they are just old, and the fix is one
-   * command, named in the tooltip. Removed again the moment a fresh collect
-   * lands, so the absence of the badge means something. */
-  function paintStale(age) {
-    const stale = Boolean(age && age.stale);
-    const days = age && age.hours != null ? Math.round(age.hours / 24) : null;
-    const word = stale ? `STALE · ${age && age.hours == null ? "never" : days >= 1 ? `${days}d` : `${Math.round(age.hours)}h`}` : "";
-    const when = age && age.updated_at ? new Date(age.updated_at).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" }) : "never";
-    const tip = `last collected ${when}; run jarvis collect --fetch`;
-    const put = (host, cls) => {
-      if (!host) return;
-      let b = host.querySelector(`.${cls.split(" ")[0]}`);
-      if (!stale) { if (b) b.remove(); return; }
-      if (!b) { b = document.createElement("span"); b.className = cls; host.appendChild(b); }
-      if (b.textContent !== word) b.textContent = word;
-      b.title = tip;
-    };
-    // #pd-label's text is rewritten by renderPrimary on every cycle, so the
-    // badge sits beside it on the card, not inside it
-    put($("primary"), "v2stale pd");
-    const vit = $("vitals");
-    // the dashboard vitals are rebuilt by app.js render(); the badge is
-    // appended to the hero head when there is one, else to the panel
-    put(vit && (vit.querySelector(".herohead") || vit), "v2stale");
-  }
-
-  /* ------------------------------------------------------------ rail badges
-   * Directives shows how many are waiting; the other views show a dot when
-   * their content changed. app.js owns data-badge and clears it on select, so
-   * this reads that attribute rather than duplicating its logic - and renders
-   * into a real element, because the nav's ::after belongs to the tooltip.
-   */
-  let DIR_OPEN = null;
-
-  /* One badge element per nav row, built once. This repaints on every
-   * data-badge mutation as well as on the 20s cycle, so it does no querying. */
-  const navBadges = navViewBtns.map((b) => {
-    let el = b.querySelector(".navcount");
-    if (!el) {
-      el = document.createElement("span");
-      el.className = "navcount";
-      b.appendChild(el);
-    }
-    return { b, el, isDir: b.dataset.view === "directives" };
-  });
-
-  function paintNavBadges() {
-    for (const { b, el, isDir } of navBadges) {
-      const dot = (b.dataset.badge || "") !== "";
-      if (isDir && DIR_OPEN != null && DIR_OPEN > 0) {
-        el.className = "navcount num";
-        if (el.textContent !== String(DIR_OPEN)) el.textContent = String(DIR_OPEN);
-      } else if (dot) {
-        el.className = "navcount dot";
-        el.textContent = "";
-      } else {
-        el.className = "navcount";
-        el.textContent = "";
-      }
-    }
-  }
-  paintNavBadges();
-  // app.js writes data-badge on its own poll; follow it rather than re-deriving
-  navViewBtns.forEach((b) => {
-    new MutationObserver(paintNavBadges).observe(b, { attributes: true, attributeFilter: ["data-badge"] });
-  });
-
-  function paintFromData() {
-    const d = typeof DATA !== "undefined" ? DATA : null;
-    if (!d || !d.vitals) return;
-    const v = d.vitals;
-    const audience = PLATFORMS.reduce((s, [, k]) => s + (v[k] || 0), 0);
-
-    /* How old the numbers are. The server decides (vitals_age from
-     * /api/data, against vitals.stale_hours), this only paints it: a badge on
-     * the primary card and one on the dashboard vitals, so a number that
-     * has not been collected in twelve days does not read as this morning's.
-     * The badge is a sibling of the label, never inside #pd-num or #pd-meta,
-     * which app.js rewrites on its 20s cycle. */
-    paintStale(d.vitals_age);
-
-    if (platGrid) {
-      platGrid.innerHTML = PLATFORMS.map(([lab, key]) =>
-        `<div class="plat"><span class="pl">${lab}</span><b>${num(v[key])}</b></div>`).join("");
-    }
-
-    // progress toward the active primary card's target
-    const cards = (d.config && d.config.primary_cards) || [];
-    const label = (pdLabel.textContent || "").replace(/^PRIMARY DIRECTIVE · /, "");
-    const card = cards.find((c) => c.label === label) || cards[0];
-    if (pdBarFill && card) {
-      const total = card.metric === "audience"
-        ? audience
-        : card.metric === "arr" ? ((v.business || {}).arr || 0) : (v.yt_subs || 0);
-      const pct = card.target ? Math.max(0, Math.min(100, (total / card.target) * 100)) : 0;
-      pdBarFill.style.width = pct + "%";
-      pdBarFill.classList.toggle("over", pct >= 100);
-    }
-
-    const dirs = d.directives || [];
-    const open = dirs.filter((x) => !x.done).length;
-    DIR_OPEN = dirs.length ? open : null;
-    paintNavBadges();
-    if (dirCap && dirs.length) dirCap.textContent = `${dirs.length - open} / ${dirs.length}`;
-
-    // the audience card pinned under the directives list
-    if (dirPanel) {
-      let foot = dirPanel.querySelector(".paneltotal");
-      if (!foot) {
-        foot = document.createElement("div");
-        foot.className = "paneltotal";
-        dirPanel.appendChild(foot);
-      }
-      const wk = ["yt_subs", "ig_followers", "tiktok_followers", "linkedin_followers"]
-        .map((k) => (typeof weekDelta === "function" ? weekDelta(d.history, k) : null))
-        .filter((x) => x != null).reduce((a, b) => a + b, 0);
-      foot.innerHTML =
-        `<span class="tl">TOTAL AUDIENCE</span>` +
-        `<span class="tn">${num(audience)}</span>` +
-        (wk ? `<span class="td ${wk >= 0 ? "up" : "down"}">${wk >= 0 ? "+" : ""}${num(wk)}</span>` : "");
-    }
-  }
-
-  /* Repaint on app.js's own data cycle rather than on a second timer, so the
-   * two halves of the right column can never show numbers from different
-   * fetches. Same wrapping trick app.js uses on setState for the wake word. */
-  if (typeof loadData === "function") {
-    const orig = loadData;
-    loadData = async function (...a) {
-      const r = await orig.apply(this, a);
-      try { paintFromData(); } catch {}
-      return r;
-    };
-  }
-  setTimeout(paintFromData, 600);
-  setInterval(paintFromData, 20000);   // follows renderPrimary's card cycle
 
   /* =========================================================================
    * THE CHAT DECK
@@ -565,8 +266,6 @@
       m.textContent = "J";
       head.insertBefore(m, nameEl);
     }
-    const dockrail = $("dockrail");
-    if (dockrail) dockrail.remove();
 
     /* With no tabs there is no way back to an agent's transcript, and
      * applyCommsFilter() hides every message whose data-agent is not the
@@ -598,76 +297,9 @@
     addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        if (typeof setDock === "function" && $("comms") && getComputedStyle($("comms")).display === "none")
-          setDock("compact");
         cmd && cmd.focus();
       }
     });
-  }
-
-  /* =========================================================================
-   * HEADER STATE
-   *
-   * CORE and LINK were decoration: index.html hardcodes ONLINE and no JS ever
-   * touched them, so the lights said ONLINE whether or not anything was. They
-   * are wired to /api/status here, so green means something:
-   *
-   *   CORE  the server answered this poll
-   *   LINK  a brain is actually available to answer the command bar
-   *   RUNNER app.js already drives this one; idle is grey, working is green
-   *
-   * The " · " between the name and the state is a bare text node in app.js's
-   * markup, so hiding the <b> with CSS alone left "CORE ·" dangling. It is
-   * rewritten here - app.js only ever touches the <b>, so this survives.
-   * ======================================================================= */
-  {
-    const parts = ["m-core", "m-link", "m-runner"].map((id) => {
-      const el = $(id);
-      if (!el) return null;
-      const span = el.parentElement;
-      const node = [...span.childNodes].find((n) => n.nodeType === 3 && /\S/.test(n.nodeValue));
-      return node ? { el, span, node, base: node.nodeValue.replace(/[\s·]+$/, "") } : null;
-    }).filter(Boolean);
-
-    const byId = (id) => parts.find((p) => p.el.id === id);
-
-    const paint = (p, state, word) => {
-      if (!p) return;
-      p.span.classList.remove("ok", "idle", "bad");
-      p.span.classList.add(state);
-      // the dot carries a healthy state on its own; the word earns its space
-      // only when the state is one you would want to read
-      const quiet = state === "ok";
-      p.span.classList.toggle("quiet", quiet);
-      const want = quiet ? p.base : p.base + " · ";
-      if (p.node.nodeValue !== want) p.node.nodeValue = want;
-      if (word != null && p.el.textContent !== word) p.el.textContent = word;
-    };
-
-    const syncRunner = () => {
-      const p = byId("m-runner");
-      if (!p) return;
-      const idle = /^IDLE$/i.test((p.el.textContent || "").trim());
-      paint(p, idle ? "idle" : "ok", null);
-    };
-    const rp = byId("m-runner");
-    if (rp) new MutationObserver(syncRunner).observe(rp.el, {
-      childList: true, characterData: true, subtree: true,
-    });
-
-    async function syncHealth() {
-      let up = false, brain = null;
-      try {
-        const s = await (await fetch("/api/status")).json();
-        up = true;
-        brain = (s.brain || {}).active || null;
-      } catch {}
-      paint(byId("m-core"), up ? "ok" : "bad", up ? "ONLINE" : "NO REPLY");
-      paint(byId("m-link"), brain ? "ok" : "bad", brain ? "ONLINE" : "NO BRAIN");
-      syncRunner();
-    }
-    syncHealth();
-    setInterval(syncHealth, 20000);
   }
 
   /* =========================================================================
@@ -882,56 +514,63 @@
   }
 
   /* =========================================================================
-   * FOCUS
+   * THE SHEET, THE PILLS, AND FOCUS
    *
-   * body.focus hides everything but the brain, the ring and the conversation.
-   * The CSS does the hiding; this owns the switch, the way back, the shortcut
-   * and the two numbers the layout code reads: --railw, so placeDeck() centres
-   * the composer in the whole viewport, and a relayout so the ring grows into
-   * the space the furniture gave up. Persisted like the rail mode, so a reload
-   * lands where you left it.
+   * The rail is gone. Documents, Radar, Playbook, Knowledge and Memory are
+   * one sheet that slides over the sphere: the DOCUMENTS pill opens it on
+   * Documents, the tabs move between views (app.js's selectView), Escape
+   * closes it. SETTINGS opens the same dialog the composer's gear does.
+   *
+   * Focus hides the numbers column and shows the same numbers as a line of
+   * text under the sphere (app.js's renderFocusLine draws it). The ring
+   * re-centres by itself because layoutAgents() measures the column rather
+   * than assuming it. Persisted, so a reload lands where you left it.
    * ======================================================================= */
   {
     const body = document.body;
+    const sheet = $("sheet");
+    const pillDocs = $("pill-docs"), pillSettings = $("pill-settings"), pillFocus = $("pill-focus");
+    const cmd = $("cmd");
+
+    const sheetOpen = () => Boolean(sheet && sheet.classList.contains("open"));
+    function openSheet(view) {
+      if (!sheet) return;
+      if (view && typeof selectView === "function") selectView(view);
+      sheet.classList.add("open");
+      sheet.setAttribute("aria-hidden", "false");
+      if (pillDocs) pillDocs.classList.add("on");
+    }
+    function closeSheet() {
+      if (!sheet) return;
+      sheet.classList.remove("open");
+      sheet.setAttribute("aria-hidden", "true");
+      if (pillDocs) pillDocs.classList.remove("on");
+    }
+    if (pillDocs) pillDocs.onclick = () => (sheetOpen() ? closeSheet() : openSheet("documents"));
+    { const x = $("sheet-close"); if (x) x.onclick = closeSheet; }
+    if (pillSettings) pillSettings.onclick = () => {
+      if (window.JarvisPanels && window.JarvisPanels.openSettings) window.JarvisPanels.openSettings();
+      else { const b = $("settings-btn"); b && b.click(); }
+    };
+    // a notification link (?view=radar) lands on its sheet
+    {
+      const wanted = new URLSearchParams(location.search).get("view");
+      if (wanted && document.querySelector(`#railbody .panel[data-view="${CSS.escape(wanted)}"]`)) {
+        addEventListener("load", () => openSheet(wanted));
+      }
+    }
+
+    // the focus switch in the dock head, beside New conversation
     const head = document.querySelector("#comms .dockhead");
-    const expand = $("dock-expand");
     let btn = $("dock-focus");
     if (head && !btn) {
       btn = document.createElement("button");
       btn.id = "dock-focus";
       btn.className = "dockbtn";
       btn.innerHTML = "&#9678;";
-      btn.dataset.tip = "Focus \u2014 just the brain and the conversation.  \u2318/";
+      btn.dataset.tip = "Focus — the sphere and the conversation.  ⌘/";
       btn.setAttribute("aria-label", "Focus mode");
-      head.insertBefore(btn, expand || null);
-    }
-    let exit = $("focus-exit");
-    if (!exit) {
-      exit = document.createElement("button");
-      exit.id = "focus-exit";
-      exit.innerHTML = "<i></i>Focus <kbd>esc</kbd>";
-      exit.setAttribute("aria-label", "Leave focus mode");
-      body.appendChild(exit);
-    }
-
-    /* The column's geometry, in pixels, written inline. The deck's left,
-     * width and height are inline numbers with CSS transitions, so giving
-     * focus the same kind of numbers is what makes the switch a slide rather
-     * than a jump: left:auto or height:auto would snap. --stage-right goes
-     * on body for the sphere's shift and the ring's centre. Below 900px
-     * there is no room beside the sphere, so the strip under it comes back. */
-    function focusGeometry() {
-      const c = $("comms"); if (!c) return;
-      const narrow = innerWidth <= 900;
-      const stageRight = narrow ? 0 : Math.min(560, Math.max(300, innerWidth * 0.34));
-      body.style.setProperty("--stage-right", stageRight + "px");
-      if (narrow) {
-        c.style.left = "24px"; c.style.width = (innerWidth - 48) + "px"; c.style.height = "240px";
-      } else {
-        c.style.left = (innerWidth - stageRight) + "px";
-        c.style.width = (stageRight - 20) + "px";
-        c.style.height = Math.max(240, innerHeight - 60 - 26) + "px";
-      }
+      head.appendChild(btn);
     }
 
     function setFocus(on, quiet) {
@@ -940,39 +579,26 @@
         requestAnimationFrame(() => requestAnimationFrame(() => body.classList.remove("nofx")));
       }
       body.classList.toggle("focus", on);
-      if (on) {
-        // The dock has to be visible in focus; a minimised bar has nothing
-        // to type into. Compact is enough, the CSS sizes it.
-        if (typeof setDock === "function" && $("comms") && getComputedStyle($("comms")).display === "none")
-          setDock("compact");
-        document.documentElement.style.setProperty("--railw", "0px");
-        focusGeometry();
-      } else {
-        body.style.removeProperty("--stage-right");
-        setMode(mode, true);   // restores --railw and the deck's left
-        // width and height back to the dock size the person had chosen
-        const c = $("comms");
-        if (c && typeof setDock === "function") setDock(c.classList.contains("expanded") ? "expanded" : "compact");
-      }
+      if (pillFocus) pillFocus.classList.toggle("on", on);
       try { localStorage.setItem("jarvis_focus", on ? "1" : "0"); } catch {}
       if (!quiet) { relayout(); setTimeout(relayout, 460); }
-      if (on) { const cmd = $("cmd"); cmd && cmd.focus(); }
+      if (on && cmd && !quiet) cmd.focus();
     }
     const isFocus = () => body.classList.contains("focus");
-    addEventListener("resize", () => { if (isFocus()) focusGeometry(); });
+    window.JarvisFocus = { set: setFocus, is: isFocus };
 
     if (btn) btn.onclick = () => setFocus(!isFocus());
-    exit.onclick = () => setFocus(false);
+    if (pillFocus) pillFocus.onclick = () => setFocus(!isFocus());
     addEventListener("keydown", (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "/") { e.preventDefault(); setFocus(!isFocus()); return; }
-      // Escape leaves focus only when nothing else is open to close first;
-      // settings.js and app.js keep their own Escape handlers.
-      if (e.key === "Escape" && isFocus()) {
-        const modal = $("modal");
-        const openSettings = document.querySelector(".settings.open, #settings.open, [data-settings].open");
-        if ((modal && modal.classList.contains("open")) || openSettings) return;
-        setFocus(false);
-      }
+      if (e.key !== "Escape") return;
+      // Escape closes the top-most thing: a dialog (settings.js and app.js
+      // keep their own handlers), then the sheet, then focus.
+      const modal = $("modal");
+      const openDlg = document.querySelector(".v2dlg.open");
+      if ((modal && modal.classList.contains("open")) || openDlg) return;
+      if (sheetOpen()) { closeSheet(); return; }
+      if (isFocus()) setFocus(false);
     });
 
     let saved = "0";
@@ -1013,42 +639,7 @@
       if (list) list.innerHTML = "";
       appGlobal(() => addMsg("sys", "new conversation"));
     };
-
-    // the rail entry, after Documents
-    let navBtn = nav.querySelector('.navb[data-view="memory"]');
-    if (!navBtn) {
-      navBtn = document.createElement("button");
-      navBtn.className = "navb";
-      navBtn.dataset.view = "memory";
-      navBtn.dataset.tip = "Memory \u2014 what you told Jarvis to keep";
-      navBtn.innerHTML =
-        '<svg viewBox="0 0 24 24"><path d="M9 3.6h6a2.4 2.4 0 0 1 2.4 2.4v12a2.4 2.4 0 0 1-2.4 2.4H9A2.4 2.4 0 0 1 6.6 18V6A2.4 2.4 0 0 1 9 3.6z"/><path d="M9.6 8.4h4.8M9.6 12h4.8M9.6 15.6h3"/><path d="M6.6 9h-1.4M6.6 15h-1.4M17.4 9h1.4M17.4 15h1.4"/></svg>' +
-        '<span class="navlabel">Memory</span><span class="navcount"></span>';
-      const docs = nav.querySelector('.navb[data-view="documents"]');
-      if (docs && docs.nextSibling) nav.insertBefore(navBtn, docs.nextSibling);
-      else nav.insertBefore(navBtn, nav.querySelector(".navfill"));
-      navBtn.onclick = () => {
-        const active = navBtn.classList.contains("on");
-        if (active && mode === "full") { setMode("nav"); return; }
-        if (typeof selectView === "function") selectView("memory");
-        setMode("full");
-        paintMemory();
-      };
-    }
-
-    const railbody = $("railbody");
-    let panel = railbody && railbody.querySelector('.panel[data-view="memory"]');
-    if (railbody && !panel) {
-      panel = document.createElement("div");
-      panel.className = "panel";
-      panel.dataset.view = "memory";
-      panel.title = "Facts you told Jarvis to keep. Every chat and every agent reads these.";
-      panel.innerHTML =
-        '<h2>Memory <small id="mem-cap">OPERATOR</small></h2>' +
-        '<div class="panelbody" id="memory"></div>' +
-        '<div class="memhint">Say <b>remember that &hellip;</b> in chat to add a line, <b>/forget &lt;words&gt;</b> to drop one.</div>';
-      railbody.appendChild(panel);
-    }
+    const panel = document.querySelector('#railbody .panel[data-view="memory"]');
     const memBody = $("memory");
     const memCap = $("mem-cap");
 
@@ -1200,75 +791,10 @@
     refreshExperiments();
   }
 
-  /* =========================================================================
-   * LINK RAIL
-   *
-   * app.js puts a pill row above any reply that mentions a URL. Outside focus
-   * the same links are also collected here, beside the chat card, so they
-   * outlive the message scrolling away. linkPills is app.js's; wrapping it
-   * keeps the transcript exactly as app.js draws it.
-   * ======================================================================= */
-  {
-    let rail = $("linkrail");
-    if (!rail) {
-      rail = document.createElement("aside");
-      rail.id = "linkrail";
-      rail.hidden = true;
-      rail.setAttribute("aria-label", "Links from the conversation");
-      rail.innerHTML = '<div class="lrhead">Links</div>';
-      document.body.appendChild(rail);
-    }
-    const seen = [];   // newest first, capped
-    const MAX = 8;
-
-    function placeLinkRail() {
-      const c = $("comms");
-      if (!c || !seen.length || getComputedStyle(c).display === "none") { rail.hidden = true; return; }
-      rail.hidden = false;
-      const r = c.getBoundingClientRect();
-      const left = r.left - 12 - rail.offsetWidth;
-      // the rail must not sit under the left rail; if there is no room, stand down
-      const railL = document.querySelector(".rail.left");
-      const edge = railL ? railL.getBoundingClientRect().right + 12 : 0;
-      if (left < edge) { rail.hidden = true; return; }
-      rail.style.left = left + "px";
-      rail.style.bottom = (innerHeight - r.bottom) + "px";
-    }
-
-    appGlobal(() => {
-      const orig = linkPills;
-      linkPills = function (el, text) {
-        orig(el, text);
-        const urls = [...new Set([...String(text).matchAll(URL_RE)].map((m) => m[0]))];
-        for (const u of urls.reverse()) {
-          const i = seen.indexOf(u);
-          if (i >= 0) seen.splice(i, 1);
-          seen.unshift(u);
-        }
-        seen.splice(MAX);
-        rail.querySelectorAll(".chip.link").forEach((a) => a.remove());
-        for (const u of seen) {
-          const a = document.createElement("a");
-          a.className = "chip link"; a.href = u; a.title = u; a.target = "_blank"; a.rel = "noopener";
-          try { const p = new URL(u); a.textContent = p.hostname.replace(/^www\./, "") + p.pathname.replace(/\/$/, ""); }
-          catch { a.textContent = u; }
-          rail.appendChild(a);
-        }
-        placeLinkRail();
-        relayout();
-      };
-      const origDock = setDock;
-      setDock = function (...a) { origDock.apply(this, a); setTimeout(placeLinkRail, 440); };
-    });
-    const c = $("comms");
-    if (c) c.addEventListener("transitionend", placeLinkRail);
-    addEventListener("resize", placeLinkRail);
-  }
-
-  /* The deck and the right column moved in CSS; the ring is laid out in JS
+  /* The column and the chat are placed in CSS; the ring is laid out in JS
    * against their measured rectangles, so it needs a nudge once the
    * stylesheet has landed. */
   requestAnimationFrame(relayout);
-  addEventListener("load", () => { placeDeck(); relayout(); });
-  addEventListener("resize", () => { placeDeck(); relayout(); });
+  addEventListener("load", relayout);
+  addEventListener("resize", relayout);
 })();

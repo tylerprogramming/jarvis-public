@@ -85,111 +85,6 @@
   #stars { position: fixed; inset: 0; z-index: 0; }
   #brain { position: fixed; inset: 0; z-index: 1; }
 
-  /* ---------- top bar ---------- */
-  header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 5;
-    display: flex; justify-content: space-between; align-items: flex-start;
-    padding: 18px 24px 0;
-    pointer-events: none;
-  }
-  .logo h1 { font-family: var(--sans); font-size: 22px; letter-spacing: 6px; font-weight: 600; color: var(--text); }
-  .logo span { font-family: var(--sans); font-size: 10px; letter-spacing: 3px; color: var(--dim); }
-  .modes { font-family: var(--sans); display: flex; gap: 22px; font-size: 11px; letter-spacing: 2px; color: var(--dim); padding-top: 6px; }
-  .modes b { color: var(--accent-hi); font-weight: 500; }
-  .modes .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); margin-right: 6px; vertical-align: 1px;
-    box-shadow: 0 0 8px var(--accent); }
-  .modes .dot.busy { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-
-  /* ---------- panels ---------- */
-  .rail {
-    position: fixed; top: 64px; bottom: 20px; z-index: 4;
-    width: 302px; display: flex; flex-direction: column; gap: 14px;
-    overflow-y: auto; scrollbar-width: none;
-  }
-  .rail { scrollbar-width: none; }
-  .rail::-webkit-scrollbar { display: none; width: 0; }
-
-  /* ---------- left sidebar ----------
-     An icon rail and ONE panel, instead of six panels stacked in a column you
-     had to scroll. Six panels meant the bottom two were below the fold on a
-     laptop, so the knowledge base and the documents trail effectively did not
-     exist unless you went looking. Now everything is one click and nothing is
-     hidden. */
-  /* ---------- sidebar, to the Claude Design spec ----------
-     400px open, 60px rail + 12px gap + panel. The rail and the panel are two
-     cards again, not one welded surface: the spec draws them separate and they
-     read as one thing anyway because they are the same material, the same
-     radius family and 12px apart. */
-  .rail.left {
-    left: 20px; width: 400px;
-    flex-direction: row; gap: 12px; overflow: visible;
-    background: none; border: 0; border-radius: 0; backdrop-filter: none;
-  }
-
-  #nav {
-    flex: 0 0 60px; display: flex; flex-direction: column; align-items: center;
-    gap: 8px; padding: 12px 0;
-    border-radius: 22px;
-    background: linear-gradient(rgba(11, 20, 34, 0.9), rgba(7, 13, 24, 0.94));
-    border: 1px solid rgba(var(--accent-rgb), 0.12);
-    backdrop-filter: blur(var(--blur));
-  }
-  #nav .navlogo {
-    width: 36px; height: 36px; border-radius: 13px; margin: 0;
-    display: grid; place-items: center;
-    font-family: var(--mono); font-size: 13px; font-weight: 600;
-    color: #05080F; border: 0;
-    background: linear-gradient(140deg, var(--accent), var(--accent-deep));
-  }
-  #nav .navcollapse {
-    appearance: none; background: none; border: 0; cursor: pointer;
-    width: 26px; height: 20px; border-radius: 7px; color: #5C7392;
-    font-size: 12px; line-height: 1; display: grid; place-items: center;
-    position: relative; transition: color .18s, background .18s;
-  }
-  #nav .navcollapse:hover {
-    background: rgba(var(--accent-rgb), 0.09); color: var(--accent-hi);
-  }
-  #nav .navrule {
-    width: 24px; height: 1px; background: rgba(var(--accent-rgb), 0.14);
-    margin: 2px 0;
-  }
-  #nav .navfill { flex: 1; }
-
-  /* Rounded squares at 38px, not circles - and the active one keeps the marker
-     bar off its left edge, which is how the spec shows selection. */
-  .navb {
-    appearance: none; background: none; border: 1px solid transparent;
-    cursor: pointer; width: 38px; height: 38px; border-radius: 13px;
-    color: #5C7392; display: grid; place-items: center; position: relative;
-    transition: color .22s cubic-bezier(0.22, 1, 0.36, 1),
-                background .22s cubic-bezier(0.22, 1, 0.36, 1),
-                border-color .22s cubic-bezier(0.22, 1, 0.36, 1),
-                transform .22s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .navb:active { transform: scale(.94); }
-  .navb svg { width: 18px; height: 18px; fill: none; stroke: currentColor;
-    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-  .navb svg .knob { fill: currentColor; stroke: none; }
-  .navb:hover { background: rgba(var(--accent-rgb), 0.07); color: #A9CDEC; }
-  .navb.on {
-    background: rgba(var(--accent-rgb), 0.14);
-    border-color: rgba(var(--accent-rgb), 0.3);
-    color: var(--accent-hi);
-  }
-  .navb.on::before {
-    content: ""; position: absolute; left: -13px; top: 11px;
-    width: 3px; height: 16px; border-radius: 9px; background: var(--accent);
-  }
-  .navb[data-badge]:not([data-badge=""])::after {
-    content: ""; position: absolute; top: 5px; right: 5px;
-    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
-    box-shadow: 0 0 6px var(--accent);
-  }
-  #nav #nav-help { color: #3F5878; }
-  #nav #nav-help:hover { color: #A9CDEC; }
-
   #railbody { flex: 1; min-width: 0; display: flex; }
   #railbody .panel {
     display: none; width: 100%; flex-direction: column; overflow: hidden;
@@ -620,57 +515,6 @@
      specific, and the width never changed. Whatever the cause, one JS-owned
      value is not ambiguous. The classes stay for anything a size cannot say. */
 
-  /* The spec has five agents; there are ten here, so the agent tiles scroll
-     and the + stays pinned at the foot rather than being pushed off the end. */
-  #dockrail {
-    width: 60px; flex: none; padding: 14px 0 12px;
-    display: flex; flex-direction: column; align-items: center; gap: 7px;
-    background: rgba(0, 0, 0, 0.28);
-    border-right: 1px solid rgba(var(--accent-rgb), 0.10);
-    overflow-y: auto; scrollbar-width: none;
-  }
-  #dockrail { scrollbar-width: none; }
-  #dockrail::-webkit-scrollbar { display: none; width: 0; }
-  .dtile {
-    appearance: none; border: 0; cursor: pointer; flex: none;
-    width: 34px; height: 34px; border-radius: 12px; position: relative;
-    display: grid; place-items: center;
-    font-family: var(--mono); font-size: 11px; font-weight: 500;
-    background: rgba(255, 255, 255, 0.05); color: #8FA6C4;
-    transition: background .22s cubic-bezier(0.22, 1, 0.36, 1),
-                color .22s cubic-bezier(0.22, 1, 0.36, 1),
-                transform .22s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .dtile:active { transform: scale(.93); }
-  .dtile:hover { background: rgba(var(--accent-rgb), 0.1); color: #DCE9F8; }
-  .dtile.j {
-    background: linear-gradient(140deg, var(--accent), var(--accent-deep));
-    color: #05080F; font-size: 12px; font-weight: 600;
-  }
-  .dtile.on { box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3); color: #05080F; }
-  .dtile.on:not(.j) {
-    background: rgba(var(--accent-rgb), 0.16); color: var(--accent-hi);
-    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3);
-  }
-  /* running, and unread - the two states worth interrupting you for */
-  .dtile .live, .dtile .unread {
-    position: absolute; top: -2px; right: -2px; width: 9px; height: 9px;
-    border-radius: 999px; border: 2px solid #0B1422;
-  }
-  .dtile .live { background: #5BE6A8; animation: pulse 2.6s ease-in-out infinite; }
-  .dtile .unread { background: var(--accent); }
-  @keyframes pulse { 0%, 100% { opacity: .45 } 50% { opacity: 1 } }
-  .dtile.add {
-    background: none; border: 1px dashed rgba(var(--accent-rgb), 0.25);
-    color: var(--accent); font-size: 15px;
-  }
-  .dtile.add:hover { background: rgba(var(--accent-rgb), 0.08); }
-  #dockrail .dscroll { flex: 1; min-height: 0; width: 100%;
-    display: flex; flex-direction: column; align-items: center; gap: 7px;
-    overflow-y: auto; scrollbar-width: none; }
-  #dockrail .dscroll { scrollbar-width: none; }
-  #dockrail .dscroll::-webkit-scrollbar { display: none; width: 0; }
-
   .dockmain { flex: 1; display: flex; flex-direction: column; min-width: 0; }
   .dockhead {
     display: flex; align-items: center; gap: 10px; padding: 16px 18px 10px;
@@ -877,31 +721,6 @@
   }
   #bar.busy .statedot { background: #5BE6A8; box-shadow: 0 0 8px #5BE6A8; }
 
-  /* minimized: one pill that says what is running */
-  #dockbar {
-    position: fixed; right: 40px; bottom: 40px; z-index: 6; display: none;
-    align-items: center; gap: 10px; width: 400px; max-width: calc(100vw - 460px);
-    padding: 9px 12px; border-radius: 999px; cursor: pointer;
-    background: linear-gradient(rgba(12, 21, 36, 0.94), rgba(7, 13, 24, 0.96));
-    border: 1px solid rgba(var(--accent-rgb), 0.20);
-    box-shadow: 0 26px 60px -28px rgba(0, 0, 0, 0.95);
-    transition: border-color .2s;
-  }
-
-  #dockbar:hover { border-color: rgba(var(--accent-rgb), 0.4); }
-  #dockbar .jmark {
-    width: 26px; height: 26px; flex: none; border-radius: 9px;
-    background: linear-gradient(140deg, var(--accent), var(--accent-deep));
-    display: grid; place-items: center; font-family: var(--mono);
-    font-size: 11px; font-weight: 600; color: #05080F;
-  }
-  #dockbar .dbtext { flex: 1; font-size: 13.5px; color: #61789A; }
-  #dockbar .dbstat { display: flex; align-items: center; gap: 6px; }
-  #dockbar .dbstat i { width: 6px; height: 6px; border-radius: 999px; background: #5BE6A8; }
-  #dockbar .dbstat b { font-family: var(--mono); font-size: 9.5px; font-weight: 400;
-    letter-spacing: 0.12em; color: #5C7392; }
-  #dockbar .dbchev { color: var(--accent); font-size: 12px; }
-
   /* ---------- calendar strip ---------- */
   /* The calendar lives in the Dashboard panel now, not floating at the top of
      the screen. That means ~290px instead of the full window, so the legend
@@ -972,30 +791,6 @@
   #calstrip .legend i.p-twitter{color:#E7E9EA} #calstrip .legend i.p-pinterest{color:#E60023}
   #calstrip .legend i.p-threads{color:#C9C9C9} #calstrip .legend i.p-bluesky{color:#0085FF}
   #calstrip .legend i.p-facebook{color:#1877F2}
-
-  /* ---------- primary directive ---------- */
-  /* Condensed. It was 460px wide with a 50px numeral and three stacked rows,
-     which made the single most-repeated number on the HUD also the loudest
-     thing on it. Same information, roughly 60% of the footprint. */
-  #primary {
-    position: fixed; z-index: 4; left: 50%; transform: translateX(-50%);
-    bottom: 24px; width: 372px; text-align: center;
-    background: var(--panel-deep); border: 1px solid var(--line);
-    backdrop-filter: blur(var(--blur)); padding: 8px 14px 8px;
-    border-radius: var(--radius);
-  }
-  #primary .label { font-family: var(--sans); font-size: 10.5px; font-weight: 600;
-    letter-spacing: .2px; color: var(--accent-hi); opacity: .9; }
-  #primary .big { font-size: 30px; font-weight: 700; color: var(--strong);
-    letter-spacing: 1px; line-height: 1.2; margin-top: 1px; }
-  #primary .big small { font-size: 10px; color: var(--dim); font-weight: 400; letter-spacing: 2px; }
-  #primary .meta { display: flex; justify-content: center; gap: 12px; font-size: 9px;
-    letter-spacing: 1px; color: var(--dim); border-top: 1px solid var(--line-soft);
-    margin-top: 5px; padding-top: 5px; flex-wrap: wrap; }
-  #primary .meta b { color: var(--text); font-weight: 500; }
-  #primary .deploy { font-size: 8.5px; letter-spacing: .5px; color: var(--dim); margin-top: 4px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #primary .deploy b { color: var(--accent); font-weight: 400; }
 
   /* ---------- command bar ---------- */
   /* ---------- command bar ---------- */
@@ -1363,12 +1158,10 @@
   :root[data-theme="daylight"] .modes .dot { box-shadow: none; }
   :root[data-theme="daylight"] .panel,
   :root[data-theme="daylight"] #calstrip,
-  :root[data-theme="daylight"] #primary { box-shadow: 0 2px 10px var(--shadow); }
 
   /* Flat chrome means flat. No blur to fake depth, so the panels go opaque. */
   :root[data-chrome="flat"] .panel,
   :root[data-chrome="flat"] #calstrip,
-  :root[data-chrome="flat"] #primary { box-shadow: none; }
 
 
   /* ---------- settings panel, refined ----------

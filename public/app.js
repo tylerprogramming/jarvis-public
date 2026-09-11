@@ -224,7 +224,7 @@ async function loadData() {
 
 function render(d) {
   $("name").textContent = d.config.name;
-  $("tagline").textContent = d.config.tagline;
+  { const t = $("tagline"); if (t) t.textContent = d.config.tagline || ""; }
   const v = d.vitals, h = d.history;
 
   // vitals - every tile is driven by config, so an unconfigured channel simply
@@ -488,7 +488,7 @@ function render(d) {
   refreshBadges(d);
   reapplySearch();
   { const a = $("add-channel"); if (a) a.onclick = () => $("settings-btn")?.click(); }
-  renderPrimary();
+  renderFocusLine();
   renderCalendar(d.calendar);
   greet(d);
 }
@@ -591,55 +591,25 @@ let BADGE_DATA = null;
  * teaches you to stop using the other five.
  */
 function selectView(name) {
-  document.querySelectorAll("#nav .navb[data-view]").forEach((b) =>
+  document.querySelectorAll("#nav .tab[data-view]").forEach((b) =>
     b.classList.toggle("on", b.dataset.view === name));
   document.querySelectorAll("#railbody .panel").forEach((p) =>
     p.classList.toggle("on", p.dataset.view === name));
   try { localStorage.setItem("jarvis_view", name); } catch {}
   // clear the attention dot for whatever you just looked at
-  const b = document.querySelector(`#nav .navb[data-view="${name}"]`);
+  const b = document.querySelector(`#nav .tab[data-view="${name}"]`);
   if (b) { b.dataset.badge = ""; SEEN[name] = badgeKey(name); }
+  if (name === "documents") { const p = $("pill-docs"); if (p) p.dataset.badge = ""; }
   const s = document.querySelector(`#railbody .panel[data-view="${name}"] .panelsearch`);
   if (s) s.focus({ preventScroll: true });
 }
 
-document.querySelectorAll("#nav .navb[data-view]").forEach((b) => {
+document.querySelectorAll("#nav .tab[data-view]").forEach((b) => {
   b.onclick = () => selectView(b.dataset.view);
 });
 {
   const saved = (() => { try { return localStorage.getItem("jarvis_view"); } catch { return null; } })();
-  selectView(saved && document.querySelector(`#railbody .panel[data-view="${saved}"]`) ? saved : "dashboard");
-}
-
-/* Sidebar collapse.
- *
- * Collapses to the icon rail rather than to nothing: every view stays one
- * click away instead of disappearing behind a menu, which is the whole reason
- * the rail exists. The ring relayouts on both edges of the transition - it is
- * bounded by the sidebar's right edge, so it has to move with it, and the
- * 260ms is a spring curve that overshoots.
- */
-const RAIL_OPEN = 400, RAIL_COLLAPSED = 60;   // from the design spec
-function setSidebar(collapsed) {
-  const rail = document.querySelector(".rail.left");
-  const btn = $("nav-collapse");
-  if (!rail || !btn) return;
-  rail.classList.toggle("collapsed", collapsed);
-  // Inline, so there is exactly one source of truth for the width. The CSS
-  // transition still animates it; the cascade is no longer involved.
-  rail.style.width = collapsed ? RAIL_COLLAPSED + "px" : RAIL_OPEN + "px";
-  btn.innerHTML = collapsed ? "&raquo;" : "&laquo;";
-  btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  btn.dataset.tip = collapsed ? "Expand the sidebar" : "Collapse the sidebar";
-  try { localStorage.setItem("jarvis_rail_collapsed", collapsed ? "1" : "0"); } catch {}
-  relayoutDuring();
-}
-{
-  const btn = $("nav-collapse");
-  if (btn) btn.onclick = () => setSidebar(!document.querySelector(".rail.left").classList.contains("collapsed"));
-  let saved = null;
-  try { saved = localStorage.getItem("jarvis_rail_collapsed"); } catch {}
-  setSidebar(saved === "1");
+  selectView(saved && document.querySelector(`#railbody .panel[data-view="${saved}"]`) ? saved : "documents");
 }
 
 /* Attention dots.
@@ -660,14 +630,20 @@ function badgeKey(view) {
 }
 function refreshBadges(d) {
   BADGE_DATA = d;
-  for (const view of ["directives", "documents", "radar", "playbook", "knowledge"]) {
-    const b = document.querySelector(`#nav .navb[data-view="${view}"]`);
+  const sheetOpen = $("sheet") && $("sheet").classList.contains("open");
+  for (const view of ["documents", "radar", "playbook", "knowledge"]) {
+    const b = document.querySelector(`#nav .tab[data-view="${view}"]`);
     if (!b) continue;
     const key = badgeKey(view);
-    if (SEEN[view] === undefined) { SEEN[view] = key; b.dataset.badge = ""; continue; }
-    const active = b.classList.contains("on");
-    if (active) { SEEN[view] = key; b.dataset.badge = ""; }
-    else b.dataset.badge = key !== SEEN[view] ? "1" : "";
+    if (SEEN[view] === undefined) { SEEN[view] = key; b.dataset.badge = ""; }
+    else {
+      // a view you are looking at right now is seen; one behind a closed
+      // sheet is not, even if its tab is the selected one
+      const active = sheetOpen && b.classList.contains("on");
+      if (active) { SEEN[view] = key; b.dataset.badge = ""; }
+      else b.dataset.badge = key !== SEEN[view] ? "1" : "";
+    }
+    if (view === "documents") { const p = $("pill-docs"); if (p) p.dataset.badge = b.dataset.badge; }
   }
 }
 
@@ -783,66 +759,49 @@ async function openArea(name) {
 }
 
 /* primary directive cards cycle every 20s (subs <-> ARR) */
-let cardIdx = 0;
-function renderPrimary() {
-  if (!DATA) return;
-  const v = DATA.vitals, h = DATA.history;
-  const cards = DATA.config.primary_cards || [];
-  const pd = cards[cardIdx % cards.length];
-  if (!pd) return;
-  const latest = v.yt_latest || {};
-  $("pd-label").textContent = "PRIMARY DIRECTIVE · " + pd.label;
-  const meta = (pairs) => pairs.map(([l, x]) => `<span>${l} <b>${x}</b></span>`).join("");
-  if (pd.metric === "audience") {
-    const parts = [["YT", v.yt_subs], ["IG", v.ig_followers], ["TT", v.tiktok_followers], ["LI", v.linkedin_followers]];
-    const total = parts.reduce((s2, [, x]) => s2 + (x || 0), 0);
-    const wk = ["yt_subs", "ig_followers", "tiktok_followers", "linkedin_followers"]
-      .map((k) => weekDelta(h, k)).filter((x) => x != null).reduce((a, b) => a + b, 0);
-    $("pd-num").textContent = fmt(total);
-    document.querySelector("#primary .big small").textContent = "FOLLOWERS";
-    $("pd-meta").innerHTML = meta([
-      ["TARGET", fmt(pd.target)],
-      ["THIS WEEK", (wk >= 0 ? "+" : "") + fmt(wk)],
-      ["PLATFORMS", "4"],
-    ]);
-    $("pd-deploy").innerHTML = parts.map(([l, x]) => `${l} <b>${fmt(x)}</b>`).join(" · ");
-  } else if (pd.metric === "arr") {
-    const biz = v.business || {};
-    $("pd-num").textContent = "$" + fmt(biz.arr);
-    document.querySelector("#primary .big small").textContent = "ARR";
-    $("pd-meta").innerHTML = meta([
-      ["TARGET", "$" + fmt(pd.target)],
-      ["MRR", biz.mrr != null ? "$" + fmt(biz.mrr) : "—"],
-      ["EMAIL LIST", biz.email_subs != null ? fmt(biz.email_subs) : "—"],
-    ]);
-    $("pd-deploy").innerHTML = biz.week_start
-      ? `last business snapshot · <b>week of ${esc(biz.week_start)}</b>` : "";
-  } else {
-    const subsWk = weekDelta(h, "yt_subs");
-    $("pd-num").textContent = fmt(v.yt_subs);
-    document.querySelector("#primary .big small").textContent = "SUBS";
-    // "—" told you nothing. Say why there is no pace yet, or that it stalled.
-    let pace;
-    if (subsWk > 0) {
-      const weeks = (pd.target - v.yt_subs) / subsWk;
-      const eta = new Date(Date.now() + weeks * 7 * 86400000);
-      pace = eta.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase();
-    } else if (subsWk != null) {
-      pace = "STALLED";
-    } else {
-      const days = (DATA.history || []).length;
-      pace = days < 2 ? `NEEDS ${2 - days} MORE DAY` : "NO DATA";
-    }
-    $("pd-meta").innerHTML = meta([
-      ["TARGET", fmt(pd.target)],
-      ["THIS WEEK", subsWk == null ? "tracking" : (subsWk >= 0 ? "+" : "") + fmt(subsWk)],
-      ["AT THIS PACE", pace],
-    ]);
-    $("pd-deploy").innerHTML = latest.title
-      ? `latest deploy · <b>${esc(latest.title)}</b> - ${fmt(latest.views)} views` : "";
-  }
+/* In focus the numbers column is gone, and this is what stands in for it:
+ * the subscriber count with its target and pace, the other platforms as a
+ * row of pairs, and the first open directive with its box. The box ticks it
+ * off; "N more" leaves focus, where the whole queue is. */
+function renderFocusLine() {
+  const el = $("focusline");
+  if (!el || !DATA) return;
+  const v = DATA.vitals || {}, h = DATA.history || [], cfg = DATA.config || {};
+  const cards = cfg.primary_cards || [];
+  const card = cards.find((c) => c.metric === "yt_subs") || {};
+  const channels = cfg.channels || {};
+  const plats = [["IG", "ig_followers", channels.instagram], ["TT", "tiktok_followers", channels.tiktok],
+                 ["LI", "linkedin_followers", channels.linkedin], ["X", "x_followers", channels.x]]
+    .filter((p) => p[2]);
+  const subsWk = weekDelta(h, "yt_subs");
+  const open = (DATA.directives || []).map((x, i) => ({ text: x.text, done: x.done, i })).filter((x) => !x.done);
+  const first = open[0];
+  const lab = ["SUBSCRIBERS"];
+  if (card.target) lab.push("TARGET " + fmt(card.target));
+  if (subsWk != null) lab.push((subsWk >= 0 ? "+" : "") + fmt(subsWk) + " THIS WEEK");
+  el.innerHTML =
+    `<div class="fl-nums">
+       <span class="fl-subs"><span class="fl-big">${fmt(v.yt_subs)}</span><span class="fl-lab">${lab.join(" · ")}</span></span>
+       ${plats.length ? `<span class="fl-plats">${plats.map(([l, k]) => `<span>${l} <b>${fmt(v[k])}</b></span>`).join("")}</span>` : ""}
+     </div>` +
+    (first
+      ? `<div class="fl-dir">
+           <span class="box" title="mark done"></span>
+           <span class="txt">${esc(first.text)}</span>
+           ${open.length > 1 ? `<span class="more" title="leave focus to see the queue">${open.length - 1} more</span>` : ""}
+         </div>`
+      : `<div class="fl-dir"><span class="txt dim">nothing queued</span></div>`);
+  const box = el.querySelector(".fl-dir .box");
+  if (box && first) box.onclick = async () => {
+    await fetch("/api/directives", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toggle: first.i }),
+    });
+    loadData();
+  };
+  const more = el.querySelector(".fl-dir .more");
+  if (more) more.onclick = () => { if (window.JarvisFocus) window.JarvisFocus.set(false); };
 }
-setInterval(() => { cardIdx++; renderPrimary(); }, 20000);
 
 function vital(label, num, delta, sparkHtml, deltaCls = "", title = "") {
   return `<div class="vital" title="${esc(title || "")}">
@@ -873,7 +832,7 @@ let AGENTS_LIST = [];
  */
 /* Re-lay the ring on every frame for the length of a panel transition.
  *
- * setSidebar and setDock used to call layoutAgents twice - once immediately
+ * Panel transitions used to call layoutAgents twice - once immediately
  * and once after 300ms - so the agents jumped to their old place, sat there
  * through the animation, then snapped to the new one. Following the frames
  * costs ~18 layouts and makes the ring move with the panel instead of after it.
@@ -887,42 +846,38 @@ function relayoutDuring(ms = 420) {
   requestAnimationFrame(step);
 }
 
+/* The stage is what is left between the numbers column and the chat column,
+ * or the whole width when either stands down (focus hides the column; narrow
+ * windows drop the chat to a strip along the bottom). Measured, not assumed,
+ * so a resized column is handled without touching this. The sphere canvas is
+ * full-viewport, so its centre is shifted to the stage's centre through
+ * --stage-x, and the ring is centred on the same number. */
+function stageEdges() {
+  const focus = document.body.classList.contains("focus");
+  const narrow = innerWidth <= 900;
+  const rect = (sel) => { const e = document.querySelector(sel); return e && e.getBoundingClientRect(); };
+  const side = focus || narrow ? null : rect("#side");
+  const comms = narrow ? null : rect("#comms");
+  const leftEdge = side && side.width > 0 ? side.right : 0;
+  const rightEdge = comms && comms.width > 0 && comms.left > innerWidth / 2 ? comms.left : innerWidth;
+  return { leftEdge, rightEdge, focus, narrow, rect };
+}
+
 function layoutAgents() {
+  const { leftEdge, rightEdge, focus, narrow, rect } = stageEdges();
+  const cx = (leftEdge + rightEdge) / 2;
+  const cy = narrow ? (innerHeight - 260) / 2 : innerHeight / 2 - 8;
+  document.body.style.setProperty("--stage-x", (cx - innerWidth / 2).toFixed(1) + "px");
+
   const els = [...document.querySelectorAll(".agent")];
   if (!els.length) return;
 
-  const rect = (sel) => { const e = document.querySelector(sel); return e && e.getBoundingClientRect(); };
-  /* In v2 focus the rail and the primary card fade out rather than leaving
-   * the layout (a display:none cannot animate), so they still measure. The
-   * ring treats them as gone, which they are to the eye. */
-  const focus = document.body.classList.contains("focus");
-  const railL = focus ? null : rect(".rail.left");
-  const leftEdge = railL ? railL.right : 0;
-  /* In focus the v2 chat is a column down the right, and the sphere canvas is
-   * shifted left by half its width in CSS (--stage-right). Measured from the
-   * panel itself so the ring centres on the sphere with the same number. */
-  const commsR = focus ? rect("#comms") : null;
-  const stageRight = commsR && commsR.left > innerWidth / 2 ? innerWidth - commsR.left : 0;
-  const rightEdge = innerWidth - stageRight - 20;
+  // Fixed furniture the ring must not sit under. In focus the numbers line
+  // sits at the bottom left; the status line is always at the top left.
+  const reserved = [rect("#topline"), rect("#toppills"), focus ? rect("#focusline") : null, narrow ? rect("#comms") : null]
+    .filter((r) => r && r.width > 0 && r.height > 0);
 
-  // Fixed furniture the ring must not sit under. Measured, not hardcoded, so
-  // resizing the chat card or hiding a panel is handled without touching this.
-  // #calstrip used to float at top centre; it lives in the Dashboard panel now,
-  // so the ring only has to clear the primary card and the chat. #linkrail is
-  // v2's, beside the chat when it exists; a hidden one measures 0 by 0.
-  const reserved = (focus ? [rect("#comms")] : [rect("#primary"), rect("#comms"), rect("#linkrail")])
-    .filter((r) => r && r.width > 0);
-
-  /* Centre on the BRAIN, not on the gap between the furniture.
-   *
-   * This used to be the midpoint of the two rails, which was near enough while
-   * they were symmetric. The right rail is now zero-width - the chat card is
-   * fixed on its own - so that midpoint drifted right and the ring visibly
-   * stopped orbiting the thing it orbits. The canvas is full-viewport, so its
-   * centre is the viewport centre; collisions are the relaxation's problem. */
   const PAD = 22;
-  const cx = (innerWidth - stageRight) / 2;
-  const cy = innerHeight / 2 - 30;
   let halfW = 0, halfH = 0;
   els.forEach((el) => {
     halfW = Math.max(halfW, el.offsetWidth / 2);
@@ -942,20 +897,14 @@ function layoutAgents() {
   });
 
   /* Shrink until nothing collides - but not past the point where the agents
-   * start colliding with EACH OTHER.
-   *
-   * The old loop only tested labels against the furniture, so with the dock
-   * expanded it kept shrinking and stacked six agents on top of one another in
-   * the middle of the ring. A ring that has eaten itself is worse than one
-   * that overlaps a panel.
-   *
-   * The floor is the circumference needed to seat every label without touching:
-   * n labels of width w need at least n*w of perimeter, so r >= n*w / 2pi. */
+   * start colliding with EACH OTHER. The floor is the circumference needed
+   * to seat every label without touching: n labels of width w need at least
+   * n*w of perimeter, so r >= n*w / 2pi. */
   const n = els.length;
   const minR = (n * (halfW * 2 + 14)) / (2 * Math.PI);
 
   let rx = Math.min(cx - leftEdge, rightEdge - cx) - halfW - PAD;
-  let ry = Math.min(innerHeight * 0.30, Math.min(innerWidth, innerHeight) * 0.28);
+  let ry = Math.min(innerHeight * 0.36, rx * 0.95);
   let pts = place(rx, ry);
   for (let i = 0; i < 20 && clashes(pts); i++) {
     if (rx * 0.96 < minR || ry * 0.96 < minR * 0.55) break;
@@ -963,16 +912,9 @@ function layoutAgents() {
     pts = place(rx, ry);
   }
 
-  /* Anything still sitting on a panel at the floor is dimmed rather than
-   * moved. It reads as "behind the panel", which is true, instead of as a
-   * label that has wandered into the furniture. */
-  /* Set the TARGET; the animator eases toward it.
-   *
-   * Writing left/top here directly is what made the motion rigid: the ring was
-   * locked to the panel's own easing, and the relaxation loop quantises the
-   * radius in 4% steps, so it stepped rather than flowed. Easing per agent
-   * smooths both out and lets the ring settle a beat after the panel does,
-   * which is what reads as organic. */
+  /* Set the TARGET; the animator eases toward it, so the ring settles a beat
+   * after the panel does, which is what reads as organic. Anything still
+   * sitting on furniture at the floor is dimmed rather than moved. */
   pts.forEach((p) => {
     p.el._tx = p.x; p.el._ty = p.y;
     if (p.el._cx == null) { p.el._cx = p.x; p.el._cy = p.y; }   // no slide on first paint
@@ -1441,33 +1383,6 @@ function selectCommsTab(id) {
   pinBottom();
 }
 
-/* Dock size: compact, expanded, or minimised to a bar. */
-function setDock(mode) {
-  const dock = $("comms"), bar = $("dockbar");
-  if (!dock || !bar) return;
-  dock.classList.toggle("expanded", mode === "expanded");
-  dock.classList.toggle("minimized", mode === "bar");
-  // Inline, for the same reason the sidebar width is inline.
-  const cap = (px) => `min(${px}px, calc(100vw - 460px))`;
-  dock.style.display = mode === "bar" ? "none" : "flex";
-  dock.style.width = cap(mode === "expanded" ? 720 : 480);
-  dock.style.height = (mode === "expanded" ? 520 : 340) + "px";
-  bar.style.display = mode === "bar" ? "flex" : "none";
-  const ex = $("dock-expand");
-  if (ex) { ex.innerHTML = mode === "expanded" ? "&#10529;" : "&#10530;";
-            ex.dataset.tip = mode === "expanded" ? "Shrink" : "Expand"; }
-  try { localStorage.setItem("jarvis_dock", mode); } catch {}
-  relayoutDuring();
-}
-{
-  const ex = $("dock-expand"), mi = $("dock-min"), bar = $("dockbar");
-  if (ex) ex.onclick = () => setDock($("comms").classList.contains("expanded") ? "compact" : "expanded");
-  if (mi) mi.onclick = () => setDock("bar");
-  if (bar) bar.onclick = () => setDock("compact");
-  let saved = null;
-  try { saved = localStorage.getItem("jarvis_dock"); } catch {}
-  setDock(saved || "expanded");   // the size Tyler actually works at
-}
 
 /* cron -> words, shared with the agent explainer */
 const cronWords = (c) => CRON_WORDS(c);
@@ -1493,8 +1408,6 @@ function setState(s) {
     : s === "listening" ? "Listening" : "Idle";
   const r = document.getElementById("ag-runner");
   if (r) r.classList.toggle("live", s !== "idle");
-  $("m-runner").textContent = s === "thinking" ? "WORKING" : s === "speaking" ? "SPEAKING" : s === "listening" ? "LISTENING" : "IDLE";
-  $("dot-runner").className = "dot" + (s !== "idle" ? " busy" : "");
 }
 
 async function send(message) {
