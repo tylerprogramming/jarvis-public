@@ -1545,7 +1545,9 @@ async function send(message) {
           tools.appendChild(c);
         }
         else if (ev === "done") {
-          if (data.result && !acc) { reply.textContent = acc = data.result; pinBottom(); }
+          // The server's final text wins: it strips a `RUN:` line the brain
+          // used to start agents and appends what actually started.
+          if (typeof data.result === "string" && data.result !== acc) { reply.textContent = acc = data.result; pinBottom(); }
           if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem("jarvis_session", sessionId); }
         }
         else if (ev === "error") {

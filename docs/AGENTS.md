@@ -126,6 +126,15 @@ jarvis agents uninstall
 Only agents listed in `agents.enabled` get scheduled. Clicking an agent on the
 HUD ring also runs it immediately, which is the fastest way to test a change.
 
+From the command bar, `/run scout` or `/run all` starts agents without a model
+turn, and asking Jarvis in plain words works too: the brain ends its reply
+with a line `RUN: scout, radar`, the server starts them and replaces the line
+with what actually started. The model can request a run but never perform or
+report one. However they are started, runs go one at a time in the order
+asked, because several agents write `data/vitals.json` and nothing locks it;
+`all` means every enabled agent with a schedule, since the chained ones
+already run inside the brief.
+
 Every run appends to `data/logs/<name>.log` and writes one row to
 `data/runs.json`, the run ledger: when it started and ended, the exit code,
 whether it was skipped, the file it wrote (found by the convention, not

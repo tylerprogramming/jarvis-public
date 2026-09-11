@@ -313,7 +313,14 @@ async function apiChat(req, res, body) {
   const sessionId = body.sessionId || memory.getSession(CFG).sessionId || undefined;
   memory.logChat(CFG, { role: "you", text: message, sessionId });
 
-  const local = memoryCommand(message);
+  // "/run brief" or "/run all" from the command bar: the same thing the
+  // inbox's /run does, without spending a model turn on it.
+  const slash = message.match(/^\/run\s+(.+)$/i);
+  const local = slash
+    ? (({ started, skipped }) =>
+        [started.length ? `Started ${started.join(", ")}.` : "", skipped.length ? `Not started: ${skipped.join("; ")}.` : ""]
+          .filter(Boolean).join(" ") || "usage: /run <agent>[, <agent>] or /run all")(startAgents(slash[1].split(/[,\s]+/)))
+    : memoryCommand(message);
   if (local !== null) {
     memory.logChat(CFG, { role: "jarvis", text: local, sessionId });
     send("done", { result: local, sessionId: sessionId || null, local: true });
@@ -331,8 +338,10 @@ async function apiChat(req, res, body) {
       tool: (name) => send("tool", { name }),
       log: (text) => send("log", { text: String(text).slice(0, 500) }),
       done: (payload) => {
-        memory.logChat(CFG, { role: "jarvis", text: (payload && payload.result) || "", sessionId: (payload && payload.sessionId) || sessionId });
-        send("done", payload);
+        const run = applyRunRequests(payload && payload.result);
+        const out = { ...(payload || {}), result: run.text, started: run.started };
+        memory.logChat(CFG, { role: "jarvis", text: run.text, sessionId: out.sessionId || sessionId });
+        send("done", out);
       },
       error: (err) => {
         /* Brain failures arrive classified (kind/label/message/hint) so the
@@ -422,14 +431,67 @@ function cronLabel(expr) {
   return time;
 }
 
+/* One agent at a time, in the order asked for.
+ *
+ * Five agents write data/vitals.json and nothing locks it (CLAUDE.md), so
+ * RUN NOW on two of them, or "run everything" from chat, used to start them
+ * side by side and one set of numbers vanished. A queue costs nothing here:
+ * a run is minutes long and nobody is waiting on the HTTP response for it.
+ * "all" means every enabled agent that has a schedule - the chained ones
+ * (calendar, social, postmortem) already run inside the brief. */
+let RUN_QUEUE = Promise.resolve();
+function startAgents(names) {
+  const started = [], skipped = [];
+  const want = [];
+  for (const raw of names) {
+    const n = String(raw || "").trim().toLowerCase();
+    if (!n) continue;
+    if (n === "all" || n === "everything") {
+      agentsLib.list(CFG).filter((a) => a.enabled && a.schedule).forEach((a) => want.push(a.name));
+    } else want.push(n);
+  }
+  for (const name of [...new Set(want)]) {
+    const agent = agentsLib.get(CFG, name);
+    if (!agent) { skipped.push(`${name} (no such agent)`); continue; }
+    const missing = agentsLib.unmetRequirements(agent, CFG);
+    if (missing.length) { skipped.push(`${name} (needs ${missing.join(", ")} in config)`); continue; }
+    if (RUNNING.has(name)) { skipped.push(`${name} (already running)`); continue; }
+    RUNNING.add(name);
+    RUN_QUEUE = RUN_QUEUE.then(() =>
+      agentsLib.run(CFG, name).catch(() => {}).finally(() => RUNNING.delete(name)));
+    started.push(name);
+  }
+  return { started, skipped };
+}
+
 async function apiAgentRun(res, body) {
   const name = String(body.name || "");
-  const agent = agentsLib.get(CFG, name);
-  if (!agent) return sendJson(res, { error: "unknown agent" }, 404);
+  if (!agentsLib.get(CFG, name)) return sendJson(res, { error: "unknown agent" }, 404);
   if (RUNNING.has(name)) return sendJson(res, { error: "already running" }, 409);
-  RUNNING.add(name);
+  const r = startAgents([name]);
+  if (!r.started.length) return sendJson(res, { error: r.skipped[0] || "not started" }, 409);
   sendJson(res, { started: name });
-  agentsLib.run(CFG, name).catch(() => {}).finally(() => RUNNING.delete(name));
+}
+
+/* The brain asks for agents with a line of its own, `RUN: brief, radar` or
+ * `RUN: all`, at the end of its reply. Code starts them, the same way the
+ * RUN NOW button does, and replaces the line with what actually happened -
+ * so the model can request a run but never claim one. Mirrors memory: the
+ * model says what it wants, the server is the only thing that acts. */
+const RUN_LINE = /^[ \t]*RUN:[ \t]*([^\n]+?)[ \t]*$/gim;
+function applyRunRequests(text) {
+  const names = [];
+  const stripped = String(text || "")
+    .replace(RUN_LINE, (_, list) => { names.push(...list.split(/[,\s]+/)); return ""; })
+    .trim();
+  if (!names.length) return { text: String(text || ""), started: [], skipped: [] };
+  const r = startAgents(names);
+  const notes = [];
+  if (r.started.length)
+    notes.push(`Started ${r.started.join(", ")}${r.started.length > 1 ? ", one after another" : ""}.`
+      + " The ring shows each as running, and the report lands in the documents trail when it finishes.");
+  if (r.skipped.length) notes.push(`Not started: ${r.skipped.join("; ")}.`);
+  return { text: [stripped, notes.join(" ")].filter(Boolean).join("\n\n"), ...r };
 }
 
 // ---------- voice ----------
