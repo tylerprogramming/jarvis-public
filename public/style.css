@@ -776,6 +776,31 @@
   .chip.src { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.25); }
   .chip.done { color: #5BE6A8; border-color: rgba(91, 230, 168, 0.3); }
 
+  /* The reply is on its way. Sits in the text column of the reply grid and
+     is gone the moment the first token replaces it. currentColor, so it is
+     the reply's own text colour at reduced opacity in every theme. */
+  .typing { display: inline-flex; gap: 4px; align-items: center; height: 1.65em; }
+  .typing i {
+    width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+    opacity: .25; animation: typing 1.2s ease-in-out infinite;
+  }
+  .typing i:nth-child(2) { animation-delay: .2s; }
+  .typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes typing {
+    0%, 70%, 100% { opacity: .25; transform: translateY(0); }
+    35% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  /* Links the reply mentioned: inline, and as pills above it (linkPills). */
+  /* Green, not the accent: every chip and label is already accent-coloured,
+     so a link needs its own colour to read as somewhere to go. --green is in
+     every theme. */
+  .msglink { color: var(--green); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, var(--green) 45%, transparent); }
+  .msglink:hover { color: var(--strong); text-decoration-color: var(--green); }
+  .linkrow { display: flex; gap: 6px; flex-wrap: wrap; padding-left: 34px; }
+  .chip.link { color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent); text-decoration: none; }
+  .chip.link:hover { color: var(--strong); border-color: var(--green); background: color-mix(in srgb, var(--green) 10%, transparent); }
+
   /* Tool calls take the same chip shape rather than their own box. */
   .toolchip {
     font-family: var(--mono); display: inline-block;

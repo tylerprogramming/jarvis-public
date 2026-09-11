@@ -1175,17 +1175,24 @@ function addMsg(cls, text, agent) {
  * back down if you had scrolled up to read something while a reply was still
  * arriving.
  */
-let pinned = true, pinQueued = false;
+let pinned = true, pinQueued = false, lastSet = 0;
 function pinBottom() {
   if (!pinned || pinQueued) return;
   pinQueued = true;
   requestAnimationFrame(() => {
     pinQueued = false;
     msgs.scrollTop = msgs.scrollHeight;
+    lastSet = msgs.scrollTop;
   });
 }
+/* Unpin only when the scroll position moved UP from where pinBottom last put
+ * it - that is a person. This used to unpin whenever the event found the
+ * bottom more than 48px away, but scroll events arrive a frame late, and a
+ * single streamed delta of three lines is more than 48px, so the transcript
+ * routinely stranded itself on the question with the answer out of sight. */
 msgs.addEventListener("scroll", () => {
-  pinned = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 48;
+  if (msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 48) pinned = true;
+  else if (msgs.scrollTop < lastSet - 1) pinned = false;
 }, { passive: true });
 
 /* Only the active tab's messages are shown. A class on the container, not a
@@ -1254,6 +1261,52 @@ function dispatchFromAgents(list) {
 /* Chips under a finished reply. COPY is real; the source chip only appears
  * when the reply actually came from an agent tab, so it never claims a
  * provenance that does not exist. */
+/* URLs in a finished reply become links, and each distinct one also gets a
+ * pill above the message, so a Loom or a doc is one click rather than a hunt
+ * through a paragraph. Built from DOM nodes, never innerHTML: the text is the
+ * model's, and it can say anything. Runs once streaming has ended - the live
+ * reply writes textContent per token and must stay a plain node. */
+const URL_RE = /https?:\/\/[^\s<>()"']+[^\s<>()"'.,;:!?]/g;
+function linkify(el, text) {
+  /* One wrapper span. .msg.jarvis is a grid (avatar column, text column), so
+   * loose text runs and <a>s would each become a grid item and the links
+   * would wrap letter by letter down the 24px avatar column. */
+  const body = document.createElement("span");
+  body.className = "msgtext";
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    body.append(text.slice(last, m.index));
+    const a = document.createElement("a");
+    a.className = "msglink"; a.href = m[0]; a.textContent = m[0];
+    a.target = "_blank"; a.rel = "noopener";
+    body.append(a);
+    last = m.index + m[0].length;
+  }
+  body.append(text.slice(last));
+  el.textContent = "";
+  el.appendChild(body);
+}
+function linkPills(el, text) {
+  const urls = [...new Set([...text.matchAll(URL_RE)].map((m) => m[0]))];
+  if (!urls.length) return;
+  const row = document.createElement("div");
+  row.className = "linkrow";
+  for (const u of urls) {
+    const a = document.createElement("a");
+    a.className = "chip link"; a.href = u; a.title = u;
+    a.target = "_blank"; a.rel = "noopener";
+    let label = u;
+    try {
+      const p = new URL(u);
+      const path = p.pathname.replace(/\/$/, "");
+      label = p.hostname.replace(/^www\./, "") + (path.length > 1 ? path.slice(0, 40) + (path.length > 40 ? "\u2026" : "") : "");
+    } catch {}
+    a.textContent = label;
+    row.appendChild(a);
+  }
+  el.before(row);
+}
+
 function chipRow(el, agent) {
   if (!el || el.querySelector(".msgfoot")) return;
   const foot = document.createElement("div");
@@ -1435,6 +1488,9 @@ function setState(s) {
 
 async function send(message) {
   if (!message.trim()) return;
+  // Sending is the one moment you always want to be at the bottom, even if
+  // you had scrolled up to reread something: the answer lands there.
+  pinned = true;
   addMsg("you", message);
   $("cmd").value = "";
   setState("thinking");
@@ -1442,6 +1498,14 @@ async function send(message) {
   addMsg("sys", ack.toLowerCase());
   if (speakOn) speak(ack, true);
   const reply = addMsg("jarvis", "");
+  /* Three pulsing dots where the answer will land. The first delta assigns
+   * textContent, which removes them; so do the error and done paths. The
+   * ack line above says Jarvis heard you, this says it is still typing. */
+  const typing = document.createElement("span");
+  typing.className = "typing";
+  typing.setAttribute("aria-label", "Jarvis is replying");
+  typing.append(...[0, 1, 2].map(() => document.createElement("i")));
+  reply.appendChild(typing);
   const tools = document.createElement("div");
   reply.before(tools);
   let acc = "";
@@ -1470,7 +1534,7 @@ async function send(message) {
           tools.appendChild(c);
         }
         else if (ev === "done") {
-          if (data.result && !acc) reply.textContent = acc = data.result;
+          if (data.result && !acc) { reply.textContent = acc = data.result; pinBottom(); }
           if (data.sessionId) { sessionId = data.sessionId; localStorage.setItem("jarvis_session", sessionId); }
         }
         else if (ev === "error") {
@@ -1493,13 +1557,18 @@ async function send(message) {
           }
           reply.textContent = acc;
           reply.parentNode.appendChild(box);
+          // The box is the reply's last word. Without this the transcript sat
+          // on the question with the failure out of sight below it.
+          pinBottom();
         }
       }
     }
   } catch (e) { reply.textContent = acc + "\n[link error: " + e.message + "]"; }
+  typing.remove();   // a reply that ended with nothing at all
   // Chips go on only once the reply has finished streaming - appending them
   // mid-stream would put them above text that is still arriving.
-  if (acc) chipRow(reply, COMMS_TAB);
+  if (acc) { linkify(reply, acc); linkPills(reply, acc); chipRow(reply, COMMS_TAB); }
+  pinBottom();
   loadData();
   if (speakOn && acc) speak(acc); else setState("idle");
 }
