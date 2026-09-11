@@ -14,7 +14,7 @@ description: One line shown in the settings panel.
 requires: [youtube]        # skip cleanly when config is missing this
 mcp: [gmail]               # MCP kinds this agent may use, if you enabled them
 pre:                       # shell commands run before the prompt
-  - python3 scripts/collect.py --fetch
+  - python3 scripts/collect.py --fetch --quiet
 tools: Read Write Edit Bash(yt-dlp:*)
 disallowed_tools: Bash(*post*)
 permission_mode: acceptEdits

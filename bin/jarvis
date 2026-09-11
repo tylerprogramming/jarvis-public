@@ -767,7 +767,8 @@ async function main() {
       // whose log said "Connection closed". A skip is 0 because the config
       // is what needs fixing, and the reason is printed so it is not silent.
       const res = await agents.runWithRetry(cfg, name, { onLog: (l) => console.log(l) });
-      if (res.skipped) { console.log(`skipped: missing config for ${res.missing.join(", ")}`); process.exit(0); }
+      // The skip and its reason were already printed through onLog above.
+      if (res.skipped) process.exit(0);
       if (res.code !== 0) console.error(`${name}: exit ${res.code}${res.error ? ` (${res.error})` : ""}${res.retried ? ", after one retry" : ""}`);
       process.exit(res.code || 0);
     }

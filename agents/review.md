@@ -5,7 +5,7 @@ schedule: "0 18 * * 0"
 description: Sunday review - what shipped, what moved, and the one experiment for next week.
 requires: [youtube]
 pre:
-  - python3 scripts/collect.py --fetch
+  - python3 scripts/collect.py --fetch --quiet
   # Informational: lists open experiments past their deadline in the run log
   # and exits 1 when there are any. The `|| true` keeps the review running,
   # because the step below is what closes them; the log just says so first.

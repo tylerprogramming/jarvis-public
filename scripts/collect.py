@@ -8,6 +8,7 @@ Jarvis in chat, or produced by a plugin collector (see plugins/collectors/).
 Usage:
     python3 scripts/collect.py            # local only
     python3 scripts/collect.py --fetch    # hit the network for YouTube
+    python3 scripts/collect.py --fetch --quiet   # same, one summary line (agent logs)
 """
 import json
 import os
@@ -236,7 +237,21 @@ def main():
     with open(HISTORY, "w") as f:
         json.dump(hist, f, indent=2)
 
-    print(json.dumps({k: v for k, v in vitals.items() if k != "yt_recent"}, indent=2))
+    if "--quiet" in sys.argv:
+        # One line for an agent log. The full JSON is for a person at a
+        # terminal; as a pre-command's last three lines it was `},` and a
+        # timestamp, which said nothing about whether the fetch worked.
+        lat = vitals.get("yt_latest") or {}
+        bits = []
+        if vitals.get("yt_subs") is not None:
+            bits.append(f"{vitals['yt_subs']:,} subs")
+        if lat.get("title"):
+            views = lat.get("views")
+            bits.append(f'latest "{lat["title"]}"' + (f" {views:,} views" if views is not None else ""))
+        when = vitals.get("updated_at", "never")
+        print(f"vitals: {', '.join(bits) or 'nothing collected'} (updated {when})")
+    else:
+        print(json.dumps({k: v for k, v in vitals.items() if k != "yt_recent"}, indent=2))
 
 
 if __name__ == "__main__":

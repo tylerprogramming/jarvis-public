@@ -8,7 +8,7 @@ requires: [youtube]
 # own MCP grant; running them here means one slot in the timetable instead of
 # four, and no window where the brief reads numbers an hour stale.
 pre:
-  - python3 scripts/collect.py --fetch
+  - python3 scripts/collect.py --fetch --quiet
   - node bin/jarvis agent calendar
   - node bin/jarvis agent social
   - node bin/jarvis agent postmortem
@@ -20,14 +20,16 @@ You are JARVIS writing the daily brief for {{owner}}. Today is {{today}}.
    refreshed anything it can fetch without an API key, so treat those numbers as
    current and note the updated_at timestamp.
 
-2. Fill the gaps you can. For any channel below that is configured but has a
-   stale or missing number, try to fetch it with the tools you have, and if you
-   cannot, carry the last known value forward and say so in the report rather
-   than guessing:
+2. Do not fetch channel numbers yourself. The collector and the social agent
+   are the only fetchers and both ran before you; a number they did not get,
+   you will not get either, and every attempt is a minute of failed requests
+   in the log. For any channel below that is configured but has no fresh
+   number, carry the last known value forward from history.json and say so
+   in the report, or if there has never been one, say the channel has not
+   been collected yet (the social agent needs the Apify server allowed:
+   `jarvis mcp allow apify`):
    youtube {{youtube}}, instagram {{instagram}}, tiktok {{tiktok}},
    linkedin {{linkedin}}, x {{x}}.
-   Write anything you did fetch back into vitals.json and into today's row in
-   history.json.
 
 3. Read the operator's own context if it is configured: {{brain_files}} and
    recent files (last 7 days only) in {{context_dirs}}.

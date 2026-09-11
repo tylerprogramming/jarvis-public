@@ -6,7 +6,7 @@ label: SOCIAL
 description: Pull follower counts for the non-YouTube platforms into vitals, via Apify.
 requires: [apify, social]
 pre:
-  - python3 scripts/collect.py --fetch
+  - python3 scripts/collect.py --fetch --quiet
 mcp: [apify]
 tools: Read Write Edit ToolSearch Bash(python3:*)
 ---
