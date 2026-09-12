@@ -9,7 +9,13 @@ Three layers, each overriding the one before:
 3. Environment - `.env` or real env vars. Secrets only.
 
 Most people never open these files: `jarvis setup` writes the first version and
-the settings panel (gear button, or `cmd+,`) edits it afterwards.
+the settings panel (gear button, or `cmd+,`) edits it afterwards. The panel is
+one card with six panes: Overview (what needs you), Profile (`profile`,
+`primary_cards`), Agents (`agents.enabled`, `radar.channels`, `research.lanes`,
+`knowledge.brain_files`), Connections (`brain`, `voice`, `stt`,
+`chat.mcp_servers`), Messaging (`notify.channels`, `agents.<name>.notify`,
+`journal`) and System (theme, `memory`, `server`, `chat.speak_replies`). Each
+pane saves only the keys it owns, and only the ones you changed.
 
 Objects merge key by key. **Arrays replace wholesale** - setting
 `radar.channels` gives you exactly your list, not yours appended to the default.

@@ -12,6 +12,13 @@ platform said. `jarvis connect --status` answers "what is hooked up right
 now". Read on if you would rather do it by hand, or want to know what those
 commands are writing.
 
+The HUD has the same thing on screen: Settings › Messaging. Pick a provider,
+and it shows which `.env` key it needs and whether that key is set yet, looks
+the Telegram chat id up for you, sends the test and shows the platform's
+reply, and then draws a grid of agents against channels so "who posts where"
+is a row of checkboxes rather than a line of JSON. It never shows a secret
+and cannot write one; `.env` is still yours to edit.
+
 Every provider ends the same way, so here is the shape once:
 
 1. Get one secret from the platform (a webhook URL, a bot token, a topic name).
