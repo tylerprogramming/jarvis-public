@@ -46,7 +46,11 @@ for (const file of ["config.json", ".env"]) {
   fs.watchFile(path.join(CFG.paths.root, file), { interval: 2000, persistent: false }, (cur, prev) => {
     if (cur.mtimeMs === prev.mtimeMs) return;
     try { CFG = load(); console.log(`${file} changed on disk, settings reloaded`); }
-    catch (e) { console.error(`${file} changed but did not load: ${e.message}`); }
+    catch (e) { console.error(`${file} changed but did not load: ${e.message}`); return; }
+    // `jarvis mcp allow` lands here, and the server it names may have been
+    // added to the CLI after this process cached its list. Re-read it, the
+    // same way apiPutConfig does, or the HUD keeps showing the old set.
+    try { require("./lib/mcp").discover({ fresh: true }); } catch {}
   });
 }
 const ROOT = CFG.paths.root;
