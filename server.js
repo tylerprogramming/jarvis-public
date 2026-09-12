@@ -547,8 +547,25 @@ function apiGetConfig(res) {
       agents: CFG.agents,
       documents_dirs: CFG.documents_dirs,
       server: { host: CFG.server.host, port: CFG.server.port, token: CFG.server.token ? "set" : null },
+      journal: { deliver: CFG.journal.deliver, to: CFG.journal.to },
+      notify: { channels: CFG.notify.channels },
+      memory: CFG.memory,
+      chat: { mcp_servers: CFG.chat.mcp_servers, speak_replies: CFG.chat.speak_replies },
     },
   });
+}
+
+/* merge() cannot remove a key, and the settings panel needs to: dropping a
+ * messaging channel is a delete, not an edit. A null in the patch means
+ * "remove this key from config.json", and the shipped default (if there is
+ * one) shows through again. */
+function stripNulls(o) {
+  if (!o || typeof o !== "object" || Array.isArray(o)) return o;
+  for (const [k, v] of Object.entries(o)) {
+    if (v === null) delete o[k];
+    else if (v && typeof v === "object" && !Array.isArray(v)) stripNulls(v);
+  }
+  return o;
 }
 
 /* Writes the user's config.json. Secrets belong in .env, never here, so any
@@ -568,7 +585,7 @@ function apiPutConfig(res, body) {
 
   const file = path.join(ROOT, "config.json");
   const current = readJson(file, {});
-  const next = merge(current, patch);
+  const next = stripNulls(merge(current, patch));
   fs.writeFileSync(file, JSON.stringify(next, null, 2) + "\n");
 
   /* Saving used to write the file and tell you to restart, which meant every
@@ -588,6 +605,65 @@ function apiPutConfig(res, body) {
   const restart_required =
     CFG.server.host !== before.host || CFG.server.port !== before.port;
   sendJson(res, { saved: true, restart_required });
+}
+
+// ---------- messaging ----------
+/* What the Messaging pane needs, and nothing a secret could leak through:
+ * each channel's env slots are reported as set or not set, never by value. */
+function apiNotify(res) {
+  const notifyLib = require("./lib/notify");
+  const chans = notifyLib.channels(CFG);
+  const channels = Object.keys(chans).map((name) => {
+    const r = notifyLib.resolve(CFG, name);
+    const env = notifyLib.envSlots(chans[name]).map((s) => ({ slot: s.slot, from: s.from, set: Boolean(process.env[s.from]) }));
+    return { name, provider: r.provider || String((chans[name] || {}).provider || ""), ok: r.ok, reason: r.reason || "", env };
+  });
+  const providers = Object.fromEntries(Object.entries(notifyLib.PROVIDERS).map(([p, keys]) =>
+    [p, keys.map((k) => ({ key: k, set: Boolean(process.env[k]) }))]));
+  const agents = agentsLib.list(CFG).map((a) => ({
+    id: a.name, label: a.label, schedule: a.schedule || "", enabled: a.enabled,
+    ...notifyLib.agentSettings(a, (CFG.agents || {})[a.name]),
+  }));
+  sendJson(res, {
+    channels, providers, agents,
+    journal: { deliver: CFG.journal.deliver, to: CFG.journal.to },
+    env: { RESEND_API_KEY: Boolean(process.env.RESEND_API_KEY), JARVIS_MAIL_FROM: Boolean(process.env.JARVIS_MAIL_FROM) },
+  });
+}
+
+/* Send one real test message, the same way `jarvis notify test` does, and
+ * hand back what the platform said. A channel name wins over a provider name;
+ * a bare provider is what the add-channel flow tests before the channel has a
+ * name in config. */
+function apiNotifyTest(res, body) {
+  const notifyLib = require("./lib/notify");
+  const want = String((body || {}).channel || (body || {}).provider || "").trim();
+  let provider, env = process.env;
+  if (notifyLib.channels(CFG)[want]) {
+    const r = notifyLib.resolve(CFG, want);
+    if (!r.ok) return sendJson(res, { ok: false, message: r.reason });
+    provider = r.provider; env = notifyLib.envFor(r);
+  } else if (notifyLib.PROVIDERS[want]) {
+    const missing = notifyLib.PROVIDERS[want].filter((k) => !process.env[k]);
+    if (missing.length) return sendJson(res, { ok: false, message: `needs ${missing.join(", ")} in .env` });
+    provider = want;
+  } else return sendJson(res, { ok: false, message: `no such channel or provider: ${want}` }, 400);
+  const script = path.join(ROOT, "scripts", "notify.py");
+  execFile("python3", [script, "--via", provider, "--test"], { cwd: ROOT, env, timeout: 30000 }, (err, stdout, stderr) => {
+    if (!err) return sendJson(res, { ok: true, message: `${provider} accepted the test message` });
+    const lines = String((stderr || "") + (stdout || "")).trim().split("\n");
+    const out = (lines.find((l) => l.startsWith(`FAIL ${provider}:`)) || lines.pop() || String(err.message || ""))
+      .replace(`FAIL ${provider}: `, "");
+    sendJson(res, { ok: false, message: out });
+  });
+}
+
+/* The one secret no settings page can type for you: Telegram only reveals a
+ * chat id after someone messages the bot. Same lookup as `jarvis notify
+ * telegram-id`; nothing is sent and the token never appears in the reply. */
+async function apiTelegramId(res) {
+  const r = await require("./lib/notify").telegramChats(process.env.TELEGRAM_BOT_TOKEN);
+  sendJson(res, r);
 }
 
 // ---------- plumbing ----------
@@ -652,6 +728,7 @@ const server = http.createServer((req, res) => {
     if (url.pathname === "/api/playbook") return apiPlaybook(res, url.searchParams);
     if (url.pathname === "/api/status") return apiStatus(res);
     if (url.pathname === "/api/config") return apiGetConfig(res);
+    if (url.pathname === "/api/notify") return apiNotify(res);
     if (url.pathname === "/api/memory") return apiMemory(res);
     if (url.pathname === "/api/experiments") return apiExperiments(res);
   }
@@ -677,6 +754,8 @@ const server = http.createServer((req, res) => {
       if (url.pathname === "/api/refresh") return apiRefresh(res);
       if (url.pathname === "/api/agents/run") return apiAgentRun(res, body);
       if (url.pathname === "/api/config") return apiPutConfig(res, body);
+      if (url.pathname === "/api/notify/test") return apiNotifyTest(res, body);
+      if (url.pathname === "/api/notify/telegram-id") return apiTelegramId(res);
       sendJson(res, { error: "unknown endpoint" }, 404);
     });
   }
