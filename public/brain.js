@@ -4,9 +4,9 @@
  * five broken arc rings with endpoint nodes, twin lattices, a 72-tick dial
  * and a scan pulse - about forty draw calls and a per-vertex loop every
  * frame. What people actually read off it is a lattice, a core and an orbit
- * or two, so that is what is left: one geodesic lattice, a bright core with
- * a soft glow, two orbits, two arcs with their end nodes, and a thin shell of
- * points. No geometry is rewritten per frame; everything moves by rotation.
+ * or two, so that is all there is: one geodesic lattice, a bright core with
+ * a soft glow, and two orbits. No geometry is rewritten per frame;
+ * everything moves by rotation.
  *
  * It still answers the HUD's state (idle / listening / thinking / speaking)
  * through `energy`. The browser already parks requestAnimationFrame for a
@@ -60,9 +60,8 @@
   const mat = (opts) => new T.MeshBasicMaterial(Object.assign(
     { transparent: true, blending: T.AdditiveBlending, depthWrite: false }, opts));
 
-  // the lattice: one geodesic shell, and a fainter one inside it
+  // the lattice: one geodesic shell
   const lattice = new T.Mesh(new T.IcosahedronGeometry(1.0, 1), mat({ wireframe: true, opacity: 0.5 }));
-  const inner = new T.Mesh(new T.IcosahedronGeometry(0.58, 0), mat({ wireframe: true, opacity: 0.22 }));
 
   // the core and its glow
   const core = new T.Mesh(new T.SphereGeometry(0.11, 24, 24), new T.MeshBasicMaterial({ transparent: true, opacity: 0.95 }));
@@ -77,43 +76,10 @@
   const orbitB = new T.Object3D(); orbitB.rotation.set(1.05, -0.4, 0.4);
   orbitB.add(new T.Mesh(new T.TorusGeometry(1.9, 0.008, 6, 96), mat({ opacity: 0.32 })));
 
-  // two arcs with a node at each end, on their own tilted planes
-  const arcs = [];
-  for (const [tilt, start, len, r, op] of [
-    [[0.35, 0.6, 0.2], 0.4, 1.7, 1.95, 0.6],
-    [[-0.5, -0.3, 0.7], 3.3, 1.4, 2.0, 0.35],
-  ]) {
-    const holder = new T.Object3D(); holder.rotation.set(tilt[0], tilt[1], tilt[2]);
-    const spin = new T.Object3D(); holder.add(spin);
-    const m = mat({ opacity: op });
-    const arc = new T.Mesh(new T.TorusGeometry(r, 0.011, 6, 60, len), m);
-    arc.rotation.z = start;
-    spin.add(arc);
-    for (const a of [start, start + len]) {
-      const dot = new T.Mesh(new T.SphereGeometry(0.035, 8, 8), m);
-      dot.position.set(Math.cos(a) * r, Math.sin(a) * r, 0);
-      spin.add(dot);
-    }
-    arcs.push({ spin, m });
-    group.add(holder);
-  }
+  group.add(lattice, core, coreGlow, haze, orbitA, orbitB);
 
-  // a thin shell of points: enough to read as a sphere, not a cloud
-  const N = 180;
-  const pts = new Float32Array(N * 3);
-  for (let i = 0; i < N; i++) {
-    const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996;
-    pts[i * 3] = Math.cos(th) * r * 1.85; pts[i * 3 + 1] = y * 1.85; pts[i * 3 + 2] = Math.sin(th) * r * 1.85;
-  }
-  const pgeo = new T.BufferGeometry();
-  pgeo.setAttribute("position", new T.BufferAttribute(pts, 3));
-  const pmat = new T.PointsMaterial({ size: 0.045, map: tex, transparent: true, opacity: 0.5, blending: T.AdditiveBlending, depthWrite: false });
-  const shell = new T.Points(pgeo, pmat);
-
-  group.add(lattice, inner, core, coreGlow, haze, orbitA, orbitB, shell);
-
-  const colorMats = [lattice.material, inner.material, coreGlow.material, haze.material, pmat,
-    orbitA.children[0].material, orbitB.children[0].material, ...arcs.map((a) => a.m)];
+  const colorMats = [lattice.material, coreGlow.material, haze.material,
+    orbitA.children[0].material, orbitB.children[0].material];
   const baseCol = new T.Color(), listenCol = new T.Color(0xf38ba8), white = new T.Color(1, 1, 1);
 
   function setTheme(theme) {
@@ -147,12 +113,8 @@
     group.rotation.x = 0.16 + my + Math.sin(t * 0.00018) * 0.05;
     group.rotation.z = mx * 0.35;
 
-    inner.rotation.y -= 0.004 + energy * 0.01;
-    inner.rotation.x += 0.002;
     orbitA.rotation.z += 0.0025 + energy * 0.006;
     orbitB.rotation.z -= 0.0012 + energy * 0.003;
-    for (const a of arcs) a.spin.rotation.z += 0.0035 * (1 + energy * 2);
-    shell.rotation.y = -t * 0.0001;
 
     const breath = 1 + Math.sin(t * 0.0025) * 0.06 + energy * 0.3;
     core.scale.setScalar(breath);
@@ -160,7 +122,6 @@
     coreGlow.material.opacity = 0.45 + energy * 0.45;
     haze.material.opacity = 0.08 + energy * 0.16;
     lattice.material.opacity = 0.42 + energy * 0.25;
-    pmat.opacity = 0.35 + energy * 0.4;
 
     renderer.render(scene, cam);
     requestAnimationFrame(loop);
