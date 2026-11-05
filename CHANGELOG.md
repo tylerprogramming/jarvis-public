@@ -12,6 +12,9 @@
   exactly like a machine that sleeps. The check compares scheduled times
   against what the logs say actually happened, and only trusts an offset that
   shows up across two or more agents, so a run started by hand cannot fake it.
+- The OpenAI brain defaults to `gpt-5.4-mini` instead of `gpt-4.1`, which
+  OpenAI removes from the API on 2027-01-14. A `brain.openai.model` you set
+  yourself is left alone; if it says `gpt-4.1`, change it too.
 
 ## 2.3.0
 

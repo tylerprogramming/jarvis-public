@@ -374,7 +374,7 @@ Which model answers the command bar. Ordered chain, first available wins.
 {
   "brain": {
     "chain": ["claude-code", "openai"],
-    "openai": { "base_url": "https://api.openai.com/v1", "model": "gpt-4.1" },
+    "openai": { "base_url": "https://api.openai.com/v1", "model": "gpt-5.4-mini" },
     "allowed_commands": ["yt-dlp", "python3", "ls", "cat", "wc", "date"]
   }
 }
