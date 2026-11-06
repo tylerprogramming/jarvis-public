@@ -498,8 +498,12 @@ which takes a model file through `model_path` instead. `stt.local.binary`
 (default `whisper-cli`) is which executable to call.
 
 `stt.openai` is `{ "url": "https://api.openai.com/v1/audio/transcriptions",
-"model": "whisper-1" }`. It is used only when `OPENAI_API_KEY` is set; point
-`url` elsewhere for an API-compatible transcription server.
+"model": "gpt-transcribe" }`. It is used only when `OPENAI_API_KEY` is set; point
+`url` elsewhere for an API-compatible transcription server. The default was
+`whisper-1` until OpenAI deprecated it (removed from the API on 2027-02-26); set
+`"model": "whisper-1"` in `config.json` if you need it until then. An optional
+`stt.openai.language` (ISO-639-1, e.g. `en`) is sent as `languages[]` to
+`gpt-transcribe` and as `language` to any other model.
 
 ## social
 
@@ -638,7 +642,7 @@ jarvis index ~/notes ~/some/other/folder
 1. manual captions (human-written)
 2. auto-captions (YouTube's ASR — free, about a second)
 3. local Whisper on the extracted audio (`whisper-cli` + `stt.local.model_path`)
-4. OpenAI Whisper, only if `OPENAI_API_KEY` is set
+4. OpenAI transcription (`gpt-transcribe`), only if `OPENAI_API_KEY` is set
 
 Steps 3 and 4 only run when a video has no captions at all. The video itself is
 never downloaded — captions are a few KB, and the fallback pulls audio only.

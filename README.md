@@ -366,8 +366,8 @@ the first thing that works:
 | browser | free | `speechSynthesis`. The last resort. |
 
 Listening works the same way. **Local [Whisper](https://github.com/ggerganov/whisper.cpp)
-is the default** so your audio stays on your machine. OpenAI's Whisper endpoint
-is used only if you supply `OPENAI_API_KEY`. If neither exists it falls back to
+is the default** so your audio stays on your machine. OpenAI's hosted
+transcription (`gpt-transcribe`) is used only if you supply `OPENAI_API_KEY`. If neither exists it falls back to
 the browser's speech recognition, which is Chrome-only and uploads your audio to
 Google - `jarvis doctor` tells you which one you are on.
 
