@@ -15,6 +15,12 @@
 - The OpenAI brain defaults to `gpt-5.4-mini` instead of `gpt-4.1`, which
   OpenAI removes from the API on 2027-01-14. A `brain.openai.model` you set
   yourself is left alone; if it says `gpt-4.1`, change it too.
+- Hosted transcription (`stt.openai`, and `jarvis transcript` for videos with
+  no captions) defaults to `gpt-transcribe` instead of `whisper-1`, which
+  OpenAI removes from the API on 2027-02-26. A `stt.openai.language` you set is
+  sent as `languages[]` to `gpt-transcribe` and as `language` to any other
+  model. A `stt.openai.model` you set yourself is left alone; if it says
+  `whisper-1`, change it too.
 
 ## 2.3.0
 

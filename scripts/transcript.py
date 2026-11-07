@@ -143,7 +143,7 @@ def openai_whisper(wav, cfg):
     with open(wav, "rb") as f:
         audio = f.read()
     parts = [
-        f'--{boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n{o.get("model", "whisper-1")}\r\n'.encode(),
+        f'--{boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n{o.get("model", "gpt-transcribe")}\r\n'.encode(),
         (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="a.wav"\r\n'
          'Content-Type: audio/wav\r\n\r\n').encode(),
         audio,
